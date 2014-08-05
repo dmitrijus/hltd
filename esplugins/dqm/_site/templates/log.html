@@ -1,0 +1,38 @@
+<div class="page-header">
+  <h1>Incomming data</h1>
+</div>
+
+<div ng-controller="LogController">
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Timestamp</th>
+        <th>Hostname</th>
+        <th>Pid</th>
+        <th>Run</th>
+        <th>Lumi</th>
+        <th>Type</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody ng-repeat="hit in hits">
+      <tr>
+        <td> {{ $index }} </td>
+        <td> {{ hit.fields._timestamp | date:'yyyy-MM-dd HH:mm:ss Z' }} </td>
+        <td> {{ hit._source.hostname }} </td>
+        <td> {{ hit._source.pid }} </td>
+        <td> {{ hit._source.run }} </td>
+        <td> {{ hit._source.lumi }} </td>
+        <td> {{ hit._type }} </td>
+        <td>
+          <button type="button" ng-hide="_tr_source" ng-click="_tr_source = toJson(hit)" class="btn btn-default btn-sm"><span class="glyphicon glyphicon-comment"></span></button>
+          <button type="button" ng-show="_tr_source" ng-click="_tr_source = null" class="btn btn-default btn-sm active"><span class="glyphicon glyphicon-comment"></span></button>
+        </td>
+      </tr>
+      <tr ng-show="_tr_source"><td colspan="100">
+        <pre class="prettyprint" lang="javascript" prettify-source="{{ _tr_source }}"></pre>
+      </td></tr>
+    </tbody>
+  </table>
+</div>

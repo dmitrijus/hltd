@@ -29,15 +29,14 @@ if [ -n "$1" ]; then
           point=`mount | grep $mountpoint | grep /dev/loop | awk '{print $3}'`
 
           if [ "$point" != "" ]; then
-            #kill any processes that might use the mount point and remove from NFS
-            fuser -km $point
-            exportfs -u *:$point
-            #unmunt loop device
-            umount $point
-            if [ $? != 0 ]; then
-              sleep 0.1
+            #run a check that this is not attempting killall on root mount point
+            mpcheck=`fuser -vm $point |& grep "1 .rce. init"`
+            if [ "${mpcheck}" == "" ]; then
+              #kill any processes that might use the mount point and remove from NFS
               fuser -km $point
               exportfs -u *:$point
+              sleep 0.1
+              #unmunt loop device
               umount $point
               if [ $? != 0 ]; then
                 echo "Unsuccessful umount of $point !"

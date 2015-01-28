@@ -202,12 +202,15 @@ def cleanup_mountpoints(remount=True):
                     try:nsslock.release()
                     except:pass
                 try:
+                    time.sleep(.5)
                     subprocess.check_call(['umount',os.path.join('/'+point,conf.ramdisk_subdirectory)])
                 except subprocess.CalledProcessError, err2:
                     logger.error("Error calling umount in cleanup_mountpoints (ramdisk), return code:"+str(err2.returncode))
                     umount_failure=True
             try:
-                subprocess.check_call(['umount',os.path.join('/'+point,conf.output_subdirectory)])
+                #only attempt this if first umount was successful
+                if umount_failure==False:
+                    subprocess.check_call(['umount',os.path.join('/'+point,conf.output_subdirectory)])
             except subprocess.CalledProcessError, err1:
                 logger.info("trying to kill users of output")
                 try:
@@ -219,6 +222,7 @@ def cleanup_mountpoints(remount=True):
                     try:nsslock.release()
                     except:pass
                 try:
+                    time.sleep(.5)
                     subprocess.check_call(['umount',os.path.join('/'+point,conf.output_subdirectory)])
                 except subprocess.CalledProcessError, err2:
                     logger.error("Error calling umount in cleanup_mountpoints (output), return code:"+str(err2.returncode))

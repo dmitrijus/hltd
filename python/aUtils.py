@@ -388,7 +388,12 @@ class fileHandler(object):
                   if createDestinationDir==False:
                       if silent==False: self.logger.error("Unable to transport file "+str(oldpath)+". Destination directory does not exist: " + str(newdir))
                       return False,checksum
-                  os.makedirs(newdir)
+                  try:
+                      os.makedirs(newdir)
+                  except:
+                      #repeated check if dir was created in the meantime
+                      if not os.path.isdir(newdir):
+                          os.makedirs(newdir)
 
               if adler32:checksum=self.moveFileAdler32(oldpath,newpath_tmp,copy)
               else:

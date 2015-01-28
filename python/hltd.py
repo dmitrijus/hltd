@@ -193,10 +193,11 @@ def cleanup_mountpoints(remount=True):
                 subprocess.check_call(['umount',os.path.join('/'+point,conf.ramdisk_subdirectory)])
             except subprocess.CalledProcessError, err1:
                 logger.info("trying to kill users of ramdisk")
-                try:
-                    subprocess.check_call(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)])
-                except subprocess.CalledProcessError, err2:
-                    logger.error("Error calling umount in cleanup_mountpoints (ramdisk), return code:"+str(err2.returncode))
+                #try:
+                #
+                #   subprocess.check_call(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)])
+                #except subprocess.CalledProcessError, err2:
+                #    logger.error("Error calling umount in cleanup_mountpoints (ramdisk), return code:"+str(err2.returncode))
                 try:
                     subprocess.check_call(['umount',os.path.join('/'+point,conf.ramdisk_subdirectory)])
                 except subprocess.CalledProcessError, err2:
@@ -206,10 +207,10 @@ def cleanup_mountpoints(remount=True):
                 subprocess.check_call(['umount',os.path.join('/'+point,conf.output_subdirectory)])
             except subprocess.CalledProcessError, err1:
                 logger.info("trying to kill users of output")
-                try:
-                    subprocess.check_call(['fuser','-km',os.path.join('/'+point,conf.output_subdirectory)])
-                except subprocess.CalledProcessError, err2:
-                    logger.error("Error calling umount in cleanup_mountpoints (output), return code:"+str(err2.returncode))
+                #try:
+                #    subprocess.check_call(['fuser','-km',os.path.join('/'+point,conf.output_subdirectory)])
+                #except subprocess.CalledProcessError, err2:
+                #    logger.error("Error calling umount in cleanup_mountpoints (output), return code:"+str(err2.returncode))
                 try:
                     subprocess.check_call(['umount',os.path.join('/'+point,conf.output_subdirectory)])
                 except subprocess.CalledProcessError, err2:
@@ -442,6 +443,7 @@ class system_monitor(threading.Thread):
             res_path_temp = os.path.join(conf.watch_directory,'appliance','resource_summary_temp')
             res_path = os.path.join(conf.watch_directory,'appliance','resource_summary')
             selfhost = os.uname()[1]
+            fu_stale_counter = 0
             counter=0
             while self.running:
                 self.threadEvent.wait(5 if counter>0 else 1)
@@ -475,10 +477,13 @@ class system_monitor(threading.Thread):
                         if key==selfhost:continue
                         entry = boxinfoFUMap[key]
                         if current_time - entry[1] > 10:continue
-                        resource_count_idle+=int(entry[0]['idles'])
-                        resource_count_used+=int(entry[0]['used'])
-                        resource_count_broken+=int(entry[0]['broken'])
-                        cloud_count+=int(entry[0]['cloud'])
+                        try:
+                            resource_count_idle+=int(entry[0]['idles'])
+                            resource_count_used+=int(entry[0]['used'])
+                            resource_count_broken+=int(entry[0]['broken'])
+                            cloud_count+=int(entry[0]['cloud'])
+                        except Exception as ex:
+                            logger.warning('problem updating boxinfo summary: '+str(ex))
                         try:
                             lastFURuns.append(int(entry[0]['activeRuns'].strip('[]').split(',')[-1]))
                         except:pass
@@ -512,6 +517,24 @@ class system_monitor(threading.Thread):
 
                 for mfile in self.file:
                     if conf.role == 'fu':
+                        try:
+                            #mpstat = os.stat(bu_disk_list_ramdisk[0]) #disabled !
+                            fu_stale_counter = 0
+                        except OSError as ex:
+                            if os.errno == 116:
+                                #stale file handle detection (triggers ramdisk remount if detected more than 5 times in a row)
+                                fu_stale_counter+=1
+                                logger.fatal('stale file handle: '+bu_disk_list_ramdisk[0])
+                                if fu_stale_counter>5:
+                                    logger.exception(ex)
+                                    logger.fatal('initiating remount on stale file handle')
+                                    try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
+                                    except:pass
+                                    with open(os.path.join(conf.watch_directory,'suspend0')) as fi:
+                                        pass
+                                    continue
+                                #still allow writing boxinfo for <=5 cases (in case it is transient)
+
                         dirstat = os.statvfs(conf.watch_directory)
                         try:
                             with open(mfile,'w+') as fp:
@@ -539,9 +562,6 @@ class system_monitor(threading.Thread):
                                 fp.write('entriesComplete=True')
                         except Exception as ex:
                             logger.warning('boxinfo file write failed +'+str(ex))
-                            if counter==0:
-                                #in case something happened with the BU server, try remount
-                                cleanup_mountpoints()
 
                     if conf.role == 'bu':
                         #ramdisk = os.statvfs(conf.watch_directory)
@@ -1308,7 +1328,7 @@ class Run:
         except:pass
         
 
-    def Shutdown(self,herod):
+    def Shutdown(self,herod,killall=False):
         #herod mode sends sigkill to all process, however waits for all scripts to finish
         logger.debug("Run:Shutdown called")
         global runs_pending_shutdown
@@ -1329,7 +1349,7 @@ class Run:
                         logger.info('terminating process '+str(resource.process.pid)+
                                      ' in state '+str(resource.processstate))
 
-                        if herod:resource.process.kill()
+                        if herod or killall:resource.process.kill()
                         else:resource.process.terminate()
                         logger.info('process '+str(resource.process.pid)+' join watchdog thread')
                         #                    time.sleep(.1)
@@ -1822,6 +1842,21 @@ class RunRanger:
             replyport = int(dirname[7:]) if dirname[7:].isdigit()==True else conf.cgi_port
             global suspended
             suspended=True
+
+            #local request used in case of stale file handle
+            if replyport==0:
+                for run in run_list:
+                    run.Shutdown(herod=False,killall=True)#terminate everything
+                run_list=[]
+                time.sleep(.5)
+ 
+                umount_success = cleanup_mountpoints()
+                try:os.remove(event.fullpath)
+                except:pass
+                suspended=False
+                logger.info("Remount requested locally is performed:"+str(umount_success))
+                return
+
             for run in run_list:
                 run.Shutdown(run.runnumber in runs_pending_shutdown)#terminate all ongoing runs
             run_list=[]

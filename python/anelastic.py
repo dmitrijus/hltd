@@ -41,7 +41,6 @@ class LumiSectionRanger():
         self.tempdir = tempdir
         self.jsdfile = None
         self.buffer = []        # file list before the first stream file
-        self.emptyOutTemplate = None
         self.useTimeout=60
         self.maxQueuedLumi=0
         self.maxReceivedEoLS=0
@@ -118,7 +117,6 @@ class LumiSectionRanger():
                 self.processDefinitionFile()
             if filetype == OUTPUTJSD and not self.jsdfile:
                 self.jsdfile=self.infile.filepath
-                self.createEmptyOutputTemplate()
             elif filetype == COMPLETE:
                 self.processCompleteFile()
             elif filetype == INI: self.processINIfile()
@@ -311,33 +309,8 @@ class LumiSectionRanger():
         except: logging.exception("unable to create %r" %srcName)
 
         f = fileHandler(srcName)
-        f.moveFile(destName)
+        f.moveFile(destName,createDestinationDir=False,missingDirAlert=False)
         self.logger.info('created local EoR files for output')
-
-    def createEmptyOutputTemplate(self):
-        if self.emptyOutTemplate!=None:return
-        tempname = os.path.join(conf.watch_directory,'run'+self.run_number.zfill(conf.run_number_padding)+'/output_template.jsn')
-        document = {"definition":self.jsdfile,"data":[str(0),str(0),str(0),str(0),str(""),str(0),str("")],"source":os.uname()[1]}
-        try:
-            with open(tempname,"w") as fi:
-                json.dump(document,fi)
-            self.emptyOutTemplate=fileHandler(tempname)
-        except:logging.exception("unable to create %r" %tempname)
-
-    #special handling for DQM stream (empty lumisection output json is created)
-    def copyEmptyDQMJsons(self,ls):
-        run = 'run'+self.run_number.zfill(conf.run_number_padding)
-        destinationStem = os.path.join(outputDir,run,run+'_'+ls)
-        if "streamDQM" in self.activeStreams and self.emptyOutTemplate:
-            destinationName = destinationStem+'_streamDQM_'+os.uname()[1]+'.jsn'
-            self.logger.info("writing empty output json for streamDQM: "+str(ls))
-            self.createBoLS(run,ls,"streamDQM")
-            self.emptyOutTemplate.moveFile(destinationName,True)
-        if "streamDQMHistograms" in self.activeStreams and self.emptyOutTemplate:
-            destinationName = destinationStem+'_streamDQMHistograms_'+os.uname()[1]+'.jsn'
-            self.logger.info("writing empty output json for streamDQMHistograms: "+str(ls))
-            self.createBoLS(run,ls,"streamDQMHistograms")
-            self.emptyOutTemplate.moveFile(destinationName,True)
 
     def createBoLS(self,run,ls,stream):
         #create BoLS file in output dir

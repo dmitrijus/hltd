@@ -368,7 +368,7 @@ class fileHandler(object):
                 return False
         return True
 
-    def moveFile(self,newpath,copy = False,adler32=False,silent=False, createDestinationDir=True):
+    def moveFile(self,newpath,copy = False,adler32=False,silent=False, createDestinationDir=True, missingDirAlert=True):
         checksum=1
         if not self.exists(): return True,checksum
         oldpath = self.filepath
@@ -386,7 +386,8 @@ class fileHandler(object):
           try:
               if not os.path.isdir(newdir):
                   if createDestinationDir==False:
-                      if silent==False: self.logger.error("Unable to transport file "+str(oldpath)+". Destination directory does not exist: " + str(newdir))
+                      if silent==False and missingDirAlert==True:
+                          self.logger.error("Unable to transport file "+str(oldpath)+". Destination directory does not exist: " + str(newdir))
                       return False,checksum
                   try:
                       os.makedirs(newdir)
@@ -408,16 +409,20 @@ class fileHandler(object):
               retries-=1
               if retries == 0:
                   if silent==False:
-                      self.logger.error("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp))
+                      #do not print this warning if directory was removed
+                      if os.path.isdir(newdir):
+                          self.logger.error("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp))
+                      else:
+                          self.logger.warning("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp)+'.Target directory is gone')
                   return False,checksum
               else:
                   time.sleep(0.5)
           except Exception, e:
               self.logger.exception(e)
               raise e
+        #renaming
         retries = 5
         while True:
-        #renaming
             try:
                 os.rename(newpath_tmp,newpath)
                 break
@@ -427,7 +432,11 @@ class fileHandler(object):
                 retries-=1
                 if retries == 0:
                     if silent==False:
-                        self.logger.error("Failure to rename the temporary file "+str(newpath_tmp)+" to "+str(newpath))
+                        #do not print this warning if directory was deleted
+                        if os.path.isdir(newdir):
+                            self.logger.error("Failure to rename temporary file "+str(newpath_tmp)+" to "+str(newpath))
+                        else:
+                            self.logger.warning("Failure to rename temporary file "+str(newpath_tmp)+" to "+str(newpath)+'.Target directory is gone')
                     return False,checksum
                 else:
                     time.sleep(0.5)

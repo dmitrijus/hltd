@@ -195,7 +195,7 @@ def cleanup_mountpoints(remount=True):
                 logger.info("trying to kill users of ramdisk")
                 try:
                     nsslock.acquire()
-                    f_user = subprocess.Popen([['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
+                    f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
                     f_user.wait()
                     nsslock.release()
                 except:
@@ -215,7 +215,7 @@ def cleanup_mountpoints(remount=True):
                 logger.info("trying to kill users of output")
                 try:
                     nsslock.acquire()
-                    f_user = subprocess.Popen([['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
+                    f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
                     f_user.wait()
                     nsslock.release()
                 except:
@@ -483,6 +483,7 @@ class system_monitor(threading.Thread):
                     lastFURuns = []
                     lastFURun=-1
                     activeRunQueuedLumisNum = -1
+                    activeRunCMSSWMaxLumi = -1
                     current_time = time.time()
                     for key in boxinfoFUMap:
                         if key==selfhost:continue
@@ -511,6 +512,9 @@ class system_monitor(threading.Thread):
                                 if lastrun==lastFURun:
                                     qlumis = int(entry[0]['activeRunNumQueuedLS'])
                                     if qlumis>activeRunQueuedLumisNum:activeRunQueuedLumisNum=qlumis
+                                    maxcmsswls = int(entry[0]['activeRunCMSSWMaxLS'])
+                                    if maxcmsswls>activeRunCMSSWMaxLumi:activeRunCMSSWMaxLumi=maxcmsswls
+
                             except:pass
                     res_doc = {
                                 "active_resources":resource_count_idle+resource_count_used,
@@ -520,6 +524,7 @@ class system_monitor(threading.Thread):
                                 "cloud":cloud_count,
                                 "activeFURun":lastFURun,
                                 "activeRunNumQueuedLS":activeRunQueuedLumisNum,
+                                "activeRunCMSSWMaxLS":activeRunCMSSWMaxLumi,
                                 "ramdisk_occupancy":ramdisk_occ
                               }
                     with open(res_path_temp,'w') as fp:
@@ -569,7 +574,9 @@ class system_monitor(threading.Thread):
                                 fp.write('activeRuns='+str(active_runs).strip('[]')+'\n')
                                 fp.write('activeRuns='+str(active_runs).strip('[]')+'\n')
                                 fp.write('activeRunsErrors='+str(active_runs_errors).strip('[]')+'\n')
-                                fp.write('activeRunNumQueuedLS='+self.getLumiQueueStat()+'\n')
+                                numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
+                                fp.write('activeRunNumQueuedLS='+numQueuedLumis+'\n')
+                                fp.write('activeRunCMSSWMaxLS='+maxCMSSWLumi+'\n')
                                 fp.write('entriesComplete=True')
                         except Exception as ex:
                             logger.warning('boxinfo file write failed +'+str(ex))
@@ -627,9 +634,9 @@ class system_monitor(threading.Thread):
                       'open','queue_status.jsn'),'r') as fp:
                 #fcntl.flock(fp, fcntl.LOCK_EX)
                 statusDoc = json.load(fp)
-                return str(statusDoc["numQueuedLS"])
+                return str(statusDoc["numQueuedLS"]),str(statusDoc["CMSSWMaxLS"])
         except:
-          return "-1"
+          return "-1","-1"
 
     def stop(self):
         logger.debug("system_monitor: request to stop")

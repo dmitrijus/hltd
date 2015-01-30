@@ -46,7 +46,6 @@ class LumiSectionRanger():
         self.maxReceivedEoLS=0
         self.maxClosedLumi=0
 
-
     def join(self, stop=False, timeout=None):
         if stop: self.stop()
         super(LumiSectionRanger, self).join(timeout)
@@ -147,14 +146,13 @@ class LumiSectionRanger():
                             self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
                         self.LSHandlerList.pop(key,None)
 
-
             elif filetype == CRASH:
                 self.processCRASHfile()
             elif filetype == EOR:
                 self.processEORFile()
 #        elif eventtype & inotify.IN_MOVED_TO:
 #           if filetype == OUTPUTJSD and not self.jsdfile: self.jsdfile=self.infile.filepath
-    
+
     def processCRASHfile(self):
         #send CRASHfile to every LSHandler
         lsList = self.LSHandlerList

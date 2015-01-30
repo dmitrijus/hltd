@@ -35,7 +35,7 @@ def delete_template(es,name):
     es.send_request('DELETE', ['_template', name])
 
 def create_template(es,name):
-    filepath = os.path.join("../json",name+"Template.json")
+    filepath = os.path.join(os.path.dirname((os.path.realpath(__file__))),'../json',name+"Template.json")
     try:
         with open(filepath) as json_file:    
             doc = json.load(json_file)

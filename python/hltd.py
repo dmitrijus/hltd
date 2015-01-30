@@ -195,7 +195,7 @@ def cleanup_mountpoints(remount=True):
                 logger.info("trying to kill users of ramdisk")
                 try:
                     nsslock.acquire()
-                    f_user = subprocess.Popen([['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
+                    f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
                     f_user.wait()
                     nsslock.release()
                 except:
@@ -215,7 +215,7 @@ def cleanup_mountpoints(remount=True):
                 logger.info("trying to kill users of output")
                 try:
                     nsslock.acquire()
-                    f_user = subprocess.Popen([['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
+                    f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
                     f_user.wait()
                     nsslock.release()
                 except:

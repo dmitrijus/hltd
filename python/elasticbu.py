@@ -338,12 +338,12 @@ class elasticBandBU:
             except (socket.gaierror,ConnectionError,Timeout) as ex:
                 if attempts>100 and self.runMode:
                     raise(ex)
-                self.logger.error('elasticsearch connection error. retry.')
-                if is_box==True:break
+                self.logger.error('elasticsearch connection error' + str(ex)+'. retry.')
                 if self.stopping:return False
-                time.sleep(0.1)
                 ip_url=getURLwithIP(self.es_server_url,self.nsslock)
                 self.es = ElasticSearch(ip_url,timeout=20,revival_delay=60)
+                time.sleep(0.1)
+                if is_box==True:break
         return False
              
 
@@ -447,6 +447,7 @@ class elasticBoxCollectorBU():
         self.source = False
         self.infile = False
         self.es = esbox
+        self.dropThreshold=0
 
     def start(self):
         self.run()
@@ -463,6 +464,9 @@ class elasticBoxCollectorBU():
                     self.eventtype = event.mask
                     self.infile = fileHandler(event.fullpath)
                     self.emptyQueue.clear()
+                    if self.dropThreshold>0 and self.source.qsize()>self.dropThreshold:
+                        logger.info('box queue size reached: '+self.source.qsize()+' - dropping event from queue.')
+                        continue
                     self.process() 
                 except (KeyboardInterrupt,Queue.Empty) as e:
                     self.emptyQueue.set()
@@ -474,8 +478,10 @@ class elasticBoxCollectorBU():
                 time.sleep(1.0)
         self.logger.info("elasticBoxCollectorBU: stop main loop")
 
-    def setSource(self,source):
+    def setSource(self,source,dropThreshold=0):
         self.source = source
+        #threshold is used to control queue size for boxinfo injection in case main server is down
+        self.dropThreshold=dropThreshold
 
     def process(self):
         self.logger.debug("RECEIVED FILE: %s " %(self.infile.basename))
@@ -523,7 +529,8 @@ class BoxInfoUpdater(threading.Thread):
             if self.stopping:return
 
             self.ec = elasticBoxCollectorBU(self.es)
-            self.ec.setSource(self.eventQueue)
+            #keep up to 200 box file updates in queue
+            self.ec.setSource(self.eventQueue,dropThreshold=200)
 
             self.mr.start_inotify()
             self.ec.start()

@@ -196,8 +196,8 @@ def cleanup_mountpoints(remount=True):
                 try:
                     nsslock.acquire()
                     f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
-                    f_user.wait()
                     nsslock.release()
+                    f_user.wait()
                 except:
                     try:nsslock.release()
                     except:pass
@@ -216,8 +216,8 @@ def cleanup_mountpoints(remount=True):
                 try:
                     nsslock.acquire()
                     f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
-                    f_user.wait()
                     nsslock.release()
+                    f_user.wait()
                 except:
                     try:nsslock.release()
                     except:pass

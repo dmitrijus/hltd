@@ -41,6 +41,7 @@ mkdir -p etc/appliance/resources/quarantined
 mkdir -p etc/appliance/resources/cloud
 mkdir -p usr/lib64/python2.6/site-packages
 mkdir -p usr/lib64/python2.6/site-packages/pyelasticsearch
+mkdir -p usr/lib64/python2.6/site-packages/elasticsearch-py
 ls
 cp -r $BASEDIR/python/hltd $TOPDIR/etc/init.d/hltd
 cp -r $BASEDIR/python/soap2file $TOPDIR/etc/init.d/soap2file
@@ -61,26 +62,35 @@ mkdir -p etc/appliance/dqm_resources/cloud
 
 cd $TOPDIR
 #pyelasticsearch
-cd opt/hltd/lib/pyelasticsearch-0.6/
-./setup.py -q build
+cd opt/hltd/lib/pyelasticsearch-1.0/
+python ./setup.py -q build
 python - <<'EOF'
-import py_compile
-py_compile.compile("build/lib/pyelasticsearch/__init__.py")
-py_compile.compile("build/lib/pyelasticsearch/client.py")
-py_compile.compile("build/lib/pyelasticsearch/downtime.py")
-py_compile.compile("build/lib/pyelasticsearch/exceptions.py")
+import compileall
+compileall.compile_dir("build/lib/pyelasticsearch/",quiet=True)
 EOF
 python -O - <<'EOF'
-import py_compile
-py_compile.compile("build/lib/pyelasticsearch/__init__.py")
-py_compile.compile("build/lib/pyelasticsearch/client.py")
-py_compile.compile("build/lib/pyelasticsearch/downtime.py")
-py_compile.compile("build/lib/pyelasticsearch/exceptions.py")
+import compileall
+compileall.compile_dir("build/lib/pyelasticsearch/",quiet=True)
 EOF
-cp build/lib/pyelasticsearch/*.pyo $TOPDIR/usr/lib64/python2.6/site-packages/pyelasticsearch
-cp build/lib/pyelasticsearch/*.py $TOPDIR/usr/lib64/python2.6/site-packages/pyelasticsearch
-cp build/lib/pyelasticsearch/*.pyc $TOPDIR/usr/lib64/python2.6/site-packages/pyelasticsearch
-cp -r pyelasticsearch.egg-info/ $TOPDIR/usr/lib64/python2.6/site-packages/pyelasticsearch
+cp -R build/lib/pyelasticsearch/* $TOPDIR/usr/lib64/python2.6/site-packages/pyelasticsearch
+cp -R pyelasticsearch.egg-info/ $TOPDIR/usr/lib64/python2.6/site-packages/pyelasticsearch
+
+
+cd $TOPDIR
+#elasticsearch-py
+cd opt/hltd/lib/elasticsearch-py-1.4/
+python ./setup.py -q build
+python - <<'EOF'
+import compileall
+compileall.compile_dir("build/lib/elasticsearch",quiet=True)
+EOF
+python -O - <<'EOF'
+import compileall
+compileall.compile_dir("build/lib/elasticsearch",quiet=True)
+EOF
+cp -R build/lib/elasticsearch/* $TOPDIR/usr/lib64/python2.6/site-packages/elasticsearch-py
+
+
 
 cd $TOPDIR
 #python-prctl
@@ -160,6 +170,11 @@ cd opt/hltd/lib/python-procname/
 ./setup.py -q build
 cp build/lib.linux-x86_64-2.6/procname.so $TOPDIR/usr/lib64/python2.6/site-packages
 
+rm -rf $TOPDIR/opt/hltd/lib
+rm -rf $TOPDIR/opt/hltd/esplugins
+rm -rf $TOPDIR/opt/hltd/scripts/paramcache*
+rm -rf $TOPDIR/opt/hltd/TODO
+
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > hltd.spec <<EOF
@@ -216,6 +231,7 @@ rm \$RPM_BUILD_ROOT/opt/hltd/rpm/*.rpm
 /usr/lib64/python2.6/site-packages/*_inotify.so*
 /usr/lib64/python2.6/site-packages/*python_inotify*
 /usr/lib64/python2.6/site-packages/pyelasticsearch
+/usr/lib64/python2.6/site-packages/elasticsearch-py
 /usr/lib64/python2.6/site-packages/procname.so
 %preun
 if [ \$1 == 0 ]; then

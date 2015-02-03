@@ -1012,7 +1012,8 @@ class ProcessWatchdog(threading.Thread):
             #        logger.info('exiting thread '+str(self.resource.process.pid))
 
         except Exception as ex:
-            resource_lock.release()
+            try:resource_lock.release()
+            except:pass
             logger.info("OnlineResource watchdog: exception")
             logger.exception(ex)
         return
@@ -1541,7 +1542,8 @@ class Run:
                 resource_lock.release()
 
         except Exception as ex:
-            resource_lock.release()
+            try:resource_lock.release()
+            except:pass
             logger.error("exception encountered in ending run")
             logger.exception(ex)
 
@@ -1672,7 +1674,8 @@ class RunRanger:
                                 logger.warning("could not move all resources, retrying.")
                             cloud_mode=False
                         except Exception as ex:
-                            #resource_lock.release()
+                            try:resource_lock.release()
+                            except:pass
                             logger.fatal("failed to disable VM mode when receiving notification for run "+str(nr))
                             logger.exception(ex)
                     if conf.role == 'fu':
@@ -1712,6 +1715,8 @@ class RunRanger:
                 except Exception as ex:
                     logger.error("RunRanger: unexpected exception encountered in forking hlt slave")
                     logger.exception(ex)
+                try:resource_lock.release()
+                except:pass
 
         elif dirname.startswith('emu'):
             nr=int(dirname[3:])

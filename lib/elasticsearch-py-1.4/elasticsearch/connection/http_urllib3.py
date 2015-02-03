@@ -1,6 +1,6 @@
 import time
-import urllib3
-from urllib3.exceptions import ReadTimeoutError, SSLError as UrllibSSLError
+import urllib3_hltd as urllib3
+from urllib3_hltd.exceptions import ReadTimeoutError, SSLError as UrllibSSLError
 import warnings
 
 from .base import Connection

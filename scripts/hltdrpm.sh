@@ -41,7 +41,8 @@ mkdir -p etc/appliance/resources/quarantined
 mkdir -p etc/appliance/resources/cloud
 mkdir -p usr/lib64/python2.6/site-packages
 mkdir -p usr/lib64/python2.6/site-packages/pyelasticsearch
-mkdir -p usr/lib64/python2.6/site-packages/elasticsearch-py
+mkdir -p usr/lib64/python2.6/site-packages/elasticsearch
+mkdir -p usr/lib64/python2.6/site-packages/urllib3_hltd
 ls
 cp -r $BASEDIR/python/hltd $TOPDIR/etc/init.d/hltd
 cp -r $BASEDIR/python/soap2file $TOPDIR/etc/init.d/soap2file
@@ -60,6 +61,21 @@ mkdir -p etc/appliance/dqm_resources/except
 mkdir -p etc/appliance/dqm_resources/quarantined
 mkdir -p etc/appliance/dqm_resources/cloud
 
+
+cd $TOPDIR
+#urllib3 1.10 (renamed urllib3_hltd)
+cd opt/hltd/lib/urllib3-1.10/
+python ./setup.py -q build
+python - <<'EOF'
+import compileall
+compileall.compile_dir("build/lib/urllib3_hltd",quiet=True)
+EOF
+python -O - <<'EOF'
+import compileall
+compileall.compile_dir("build/lib/urllib3_hltd",quiet=True)
+EOF
+cp -R build/lib/urllib3_hltd/* $TOPDIR/usr/lib64/python2.6/site-packages/urllib3_hltd/
+
 cd $TOPDIR
 #pyelasticsearch
 cd opt/hltd/lib/pyelasticsearch-1.0/
@@ -72,8 +88,8 @@ python -O - <<'EOF'
 import compileall
 compileall.compile_dir("build/lib/pyelasticsearch/",quiet=True)
 EOF
-cp -R build/lib/pyelasticsearch/* $TOPDIR/usr/lib64/python2.6/site-packages/pyelasticsearch
-cp -R pyelasticsearch.egg-info/ $TOPDIR/usr/lib64/python2.6/site-packages/pyelasticsearch
+cp -R build/lib/pyelasticsearch/* $TOPDIR/usr/lib64/python2.6/site-packages/pyelasticsearch/
+cp -R pyelasticsearch.egg-info/ $TOPDIR/usr/lib64/python2.6/site-packages/pyelasticsearch/
 
 
 cd $TOPDIR
@@ -88,8 +104,7 @@ python -O - <<'EOF'
 import compileall
 compileall.compile_dir("build/lib/elasticsearch",quiet=True)
 EOF
-cp -R build/lib/elasticsearch/* $TOPDIR/usr/lib64/python2.6/site-packages/elasticsearch-py
-
+cp -R build/lib/elasticsearch/* $TOPDIR/usr/lib64/python2.6/site-packages/elasticsearch/
 
 
 cd $TOPDIR
@@ -231,7 +246,8 @@ rm \$RPM_BUILD_ROOT/opt/hltd/rpm/*.rpm
 /usr/lib64/python2.6/site-packages/*_inotify.so*
 /usr/lib64/python2.6/site-packages/*python_inotify*
 /usr/lib64/python2.6/site-packages/pyelasticsearch
-/usr/lib64/python2.6/site-packages/elasticsearch-py
+/usr/lib64/python2.6/site-packages/elasticsearch
+/usr/lib64/python2.6/site-packages/urllib3_hltd
 /usr/lib64/python2.6/site-packages/procname.so
 %preun
 if [ \$1 == 0 ]; then

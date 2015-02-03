@@ -57,19 +57,19 @@ class Connection(object):
         if body:
             body = body.decode('utf-8')
 
-        logger.info(
+        logger.debug(
             '%s %s [status:%s request:%.3fs]', method, full_url,
             status_code, duration
         )
         logger.debug('> %s', body)
         logger.debug('< %s', response)
 
-        if tracer.isEnabledFor(logging.INFO):
+        if tracer.isEnabledFor(logging.DEBUG):
             # include pretty in trace curls
             path = path.replace('?', '?pretty&', 1) if '?' in path else path + '?pretty'
             if self.url_prefix:
                 path = path.replace(self.url_prefix, '', 1)
-            tracer.info("curl -X%s 'http://localhost:9200%s' -d '%s'", method, path, _pretty_json(body) if body else '')
+            tracer.debug("curl -X%s 'http://localhost:9200%s' -d '%s'", method, path, _pretty_json(body) if body else '')
 
         if tracer.isEnabledFor(logging.DEBUG):
             tracer.debug('#[%s] (%.3fs)\n#%s', status_code, duration, _pretty_json(response).replace('\n', '\n#') if response else '')

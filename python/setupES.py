@@ -1,10 +1,7 @@
 import sys,os
 
 from pyelasticsearch.client import ElasticSearch
-from pyelasticsearch.client import IndexAlreadyExistsError
-from pyelasticsearch.client import ElasticHttpError
-from pyelasticsearch.client import ConnectionError
-from pyelasticsearch.client import Timeout
+from pyelasticsearch.exceptions import *
 
 import simplejson as json
 import socket

@@ -57,7 +57,7 @@ setup(
     ],
     install_requires=[
         'elasticsearch>=1.0.0,<2.0.0',
-        'urllib3>=1.8,<2.0',
+        'urllib3_hltd>=1.8,<2.0',
         'simplejson>=3.0',
         'six>=1.4.0,<2.0'
     ],

@@ -13,7 +13,7 @@ long_description = f.read().strip()
 f.close()
 
 install_requires = [
-    'urllib3>=1.8, <2.0',
+    'urllib3_hltd>=1.8, <2.0',
 ]
 
 setup(

@@ -15,10 +15,7 @@ from aUtils import *
 import mappings
 
 from pyelasticsearch.client import ElasticSearch
-from pyelasticsearch.client import IndexAlreadyExistsError
-from pyelasticsearch.client import ElasticHttpError
-from pyelasticsearch.client import ConnectionError
-from pyelasticsearch.client import Timeout
+from pyelasticsearch.exceptions import *
 import csv
 
 import requests
@@ -109,7 +106,7 @@ class elasticBandBU:
             try:
                 if retry or self.ip_url==None:
                     self.ip_url=getURLwithIP(self.es_server_url,self.nsslock)
-                    self.es = ElasticSearch(self.ip_url,timeout=20,revival_delay=60)
+                    self.es = ElasticSearch(self.ip_url,timeout=20)
 
                 #check if runindex alias exists
                 if requests.get(self.es_server_url+'/_alias/'+alias_write).status_code == 200: 
@@ -341,7 +338,7 @@ class elasticBandBU:
                 self.logger.error('elasticsearch connection error' + str(ex)+'. retry.')
                 if self.stopping:return False
                 ip_url=getURLwithIP(self.es_server_url,self.nsslock)
-                self.es = ElasticSearch(ip_url,timeout=20,revival_delay=60)
+                self.es = ElasticSearch(ip_url,timeout=20)
                 time.sleep(0.1)
                 if is_box==True:break
         return False

@@ -223,7 +223,7 @@ class ElasticSearch(object):
                 method,
                 path,
                 params=dict((k, self._utf8(self._to_query(v)))
-                            for k, v in iteritems(query_params)),
+                            for k, v in iteritems(query_params)) if query_params else None,
                 body=body)
         except SerializationError as exc:
             raise InvalidJsonResponseError(exc.args[0])

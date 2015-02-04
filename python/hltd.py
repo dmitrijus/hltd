@@ -534,22 +534,26 @@ class system_monitor(threading.Thread):
                 for mfile in self.file:
                     if conf.role == 'fu':
                         try:
-                            #mpstat = os.stat(bu_disk_list_ramdisk[0]) #disabled !
+                            #check for NFS stale file handle
+                            trystat = bu_disk_list_ramdisk[0]
+                            mpstat = os.stat(trystat)
+                            trystat = bu_disk_list_output[0]
+                            mpstat = os.stat(trystat)
                             fu_stale_counter = 0
-                        except OSError as ex:
-                            if os.errno == 116:
-                                #stale file handle detection (triggers ramdisk remount if detected more than 5 times in a row)
+                        except IOError as ex:
+                            if ex.errno == 116:
+                                #rigger ramdisk remount if detected more than 5 times in a row
                                 fu_stale_counter+=1
-                                logger.fatal('stale file handle: '+bu_disk_list_ramdisk[0])
+                                logger.fatal('stale file handle: '+trystat)
                                 if fu_stale_counter>5:
                                     logger.exception(ex)
                                     logger.fatal('initiating remount on stale file handle')
                                     try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
                                     except:pass
-                                    with open(os.path.join(conf.watch_directory,'suspend0')) as fi:
+                                    with open(os.path.join(conf.watch_directory,'suspend0'),'w') as fi:
                                         pass
+                                    time.sleep(1)
                                     continue
-                                #still allow writing boxinfo for <=5 cases (in case it is transient)
 
                         dirstat = os.statvfs(conf.watch_directory)
                         try:
@@ -578,6 +582,15 @@ class system_monitor(threading.Thread):
                                 fp.write('activeRunNumQueuedLS='+numQueuedLumis+'\n')
                                 fp.write('activeRunCMSSWMaxLS='+maxCMSSWLumi+'\n')
                                 fp.write('entriesComplete=True')
+                        except IOError as ex:
+                            logger.warning('boxinfo file write failed :'+str(ex))
+                            #detecting stale file handle on recreated loop fs and remount
+                            if conf.instance!='main' and ex.errno==116:
+                                try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
+                                except:pass
+                                with open(os.path.join(conf.watch_directory,'suspend0'),'w'):
+                                    pass
+                                time.sleep(1)
                         except Exception as ex:
                             logger.warning('boxinfo file write failed +'+str(ex))
 

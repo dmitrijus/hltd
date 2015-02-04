@@ -64,7 +64,7 @@ def main():
     #es.send_request('GET', ['_template', name],query_params=query_params)
 
     #list_template
-    res = es.cluster_state(filter_routing_table=True,filter_nodes=True, filter_blocks=True)
+    res = es.cluster_state(metric='metadata')
     templateList = res['metadata']['templates']
 
     for template_name in TEMPLATES:

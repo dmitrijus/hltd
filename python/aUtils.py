@@ -104,6 +104,7 @@ class MonitorRanger:
                 queuedLumi = int(os.path.basename(event.fullpath).split('_')[1][2:])
                 if queuedLumi>self.maxCMSSWLumi:
                     self.maxCMSSWLumi = queuedLumi
+                self.updateQueueStatusFile()
             except:
                 pass
             #delete file without passing it to the
@@ -114,7 +115,7 @@ class MonitorRanger:
             return False
         return True
 
-    def notifyLumi(self,ls,maxReceivedEoLS,maxClosedLumi,numOpenLumis,maxCMSSWLumi):
+    def notifyLumi(self,ls,maxReceivedEoLS,maxClosedLumi,numOpenLumis):
         if self.queueStatusPath==None:return
         self.lock.acquire()
         if ls!=None and ls in self.queuedLumiList:
@@ -122,7 +123,6 @@ class MonitorRanger:
         self.maxReceivedEoLS=maxReceivedEoLS
         self.maxClosedLumi=maxClosedLumi
         self.numOpenLumis=numOpenLumis
-        self.maxCMSSWLumi=maxCMSSWLumi
         self.lock.release()
         self.updateQueueStatusFile()
 

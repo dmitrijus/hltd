@@ -20,6 +20,7 @@ import logging
 import collections
 import subprocess
 import requests
+from requests.exceptions import ConnectionError as RequestsConnectionError
 
 from pyelasticsearch.client import ElasticSearch
 from pyelasticsearch.exceptions import *
@@ -732,7 +733,7 @@ class HLTDLogIndex():
                 #update in case of new documents added to mapping definition
                 self.updateMappingMaybe(ip_url)
                 break
-            except (ElasticHttpError,ConnectionError,Timeout) as ex:
+            except (ElasticHttpError,ConnectionError,Timeout,RequestsConnectionError) as ex:
                 #try to reconnect with different IP from DNS load balancing
                 self.logger.info(ex)
                 if attempts<=0:

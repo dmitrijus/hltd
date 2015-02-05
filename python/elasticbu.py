@@ -19,6 +19,7 @@ from pyelasticsearch.exceptions import *
 import csv
 
 import requests
+from requests.exceptions import ConnectionError as RequestsConnectionError
 import simplejson as json
 import socket
 
@@ -109,7 +110,7 @@ class elasticBandBU:
                     self.es = ElasticSearch(self.ip_url,timeout=20)
 
                 #check if runindex alias exists
-                if requests.get(self.es_server_url+'/_alias/'+alias_write).status_code == 200: 
+                if requests.get(self.ip_url+'/_alias/'+alias_write).status_code == 200: 
                     self.logger.info('writing to elastic index '+alias_write + ' on '+self.es_server_url+' - '+self.ip_url )
                     self.createDocMappingsMaybe(alias_write,mapping)
                     break
@@ -131,7 +132,7 @@ class elasticBandBU:
                 retry=True
                 continue
 
-            except (socket.gaierror,ConnectionError,Timeout) as ex:
+            except (socket.gaierror,ConnectionError,Timeout,RequestsConnectionError) as ex:
                 #try to reconnect with different IP from DNS load balancing
                 if self.runMode and connectionAttempts>100:
                    self.logger.error('elastic (BU): exiting after 100 connection attempts to '+ self.es_server_url)
@@ -332,7 +333,7 @@ class elasticBandBU:
                 if is_box==True:break
                 #self.logger.exception(ex)
                 return False
-            except (socket.gaierror,ConnectionError,Timeout) as ex:
+            except (socket.gaierror,ConnectionError,Timeout,RequestsConnectionError) as ex:
                 if attempts>100 and self.runMode:
                     raise(ex)
                 self.logger.error('elasticsearch connection error' + str(ex)+'. retry.')
@@ -462,7 +463,7 @@ class elasticBoxCollectorBU():
                     self.infile = fileHandler(event.fullpath)
                     self.emptyQueue.clear()
                     if self.dropThreshold>0 and self.source.qsize()>self.dropThreshold:
-                        logger.info('box queue size reached: '+self.source.qsize()+' - dropping event from queue.')
+                        self.logger.info('box queue size reached: '+str(self.source.qsize())+' - dropping event from queue.')
                         continue
                     self.process() 
                 except (KeyboardInterrupt,Queue.Empty) as e:

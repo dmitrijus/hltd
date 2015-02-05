@@ -491,6 +491,8 @@ class LumiSectionHandler():
         file2merge.setJsdfile(self.jsdfile)
         file2merge.setFieldByName("ErrorEvents",numEvents)
         file2merge.setFieldByName("ReturnCodeMask",errCode)
+        #if file2merge.getFieldIndex("transferDestination")>-1:
+        #    file2merge.setFieldByName("transferDestination","ErrorArea")
         
         streamDiff = list(set(self.activeStreams)-set(self.pidList[pid]["streamList"]))
         for outfile in self.outfileList:

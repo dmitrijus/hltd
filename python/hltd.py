@@ -455,6 +455,7 @@ class system_monitor(threading.Thread):
             res_path = os.path.join(conf.watch_directory,'appliance','resource_summary')
             selfhost = os.uname()[1]
             fu_stale_counter = 0
+            boxinfo_update_attempts=0
             counter=0
             while self.running:
                 self.threadEvent.wait(5 if counter>0 else 1)
@@ -535,17 +536,19 @@ class system_monitor(threading.Thread):
                     if conf.role == 'fu':
                         try:
                             #check for NFS stale file handle
-                            trystat = bu_disk_list_ramdisk[0]
-                            mpstat = os.stat(trystat)
-                            trystat = bu_disk_list_output[0]
-                            mpstat = os.stat(trystat)
+                            #this feature is disabled until investigation
+#                           #which kind of error is thrown with unresponsive Force10 network
+                            #trystat = bu_disk_list_ramdisk[0]
+                            #mpstat = os.stat(trystat)
+                            #trystat = bu_disk_list_output[0]
+                            #mpstat = os.stat(trystat)
                             fu_stale_counter = 0
                         except IOError as ex:
                             if ex.errno == 116:
                                 #rigger ramdisk remount if detected more than 5 times in a row
-                                fu_stale_counter+=1
                                 logger.fatal('stale file handle: '+trystat)
-                                if fu_stale_counter>5:
+                                if fu_stale_counter>=5:
+                                    fu_stale_counter=0
                                     logger.exception(ex)
                                     logger.fatal('initiating remount on stale file handle')
                                     try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
@@ -554,6 +557,7 @@ class system_monitor(threading.Thread):
                                         pass
                                     time.sleep(1)
                                     continue
+                                fu_stale_counter+=1
 
                         dirstat = os.statvfs(conf.watch_directory)
                         try:
@@ -582,15 +586,18 @@ class system_monitor(threading.Thread):
                                 fp.write('activeRunNumQueuedLS='+numQueuedLumis+'\n')
                                 fp.write('activeRunCMSSWMaxLS='+maxCMSSWLumi+'\n')
                                 fp.write('entriesComplete=True')
+                            boxinfo_update_attempts=0
                         except IOError as ex:
                             logger.warning('boxinfo file write failed :'+str(ex))
                             #detecting stale file handle on recreated loop fs and remount
-                            if conf.instance!='main' and ex.errno==116:
+                            if conf.instance!='main' and (ex.errno==116 or ex.errno==2) and boxinfo_update_attempts>=5:
+                                boxinfo_update_attempts=0
                                 try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
                                 except:pass
                                 with open(os.path.join(conf.watch_directory,'suspend0'),'w'):
                                     pass
                                 time.sleep(1)
+                            boxinfo_update_attempts+=1
                         except Exception as ex:
                             logger.warning('boxinfo file write failed +'+str(ex))
 
@@ -1890,7 +1897,7 @@ class RunRanger:
                 try:os.remove(event.fullpath)
                 except:pass
                 suspended=False
-                logger.info("Remount requested locally is performed:"+str(umount_success))
+                logger.info("Remount requested locally is performed.")
                 return
 
             for run in run_list:

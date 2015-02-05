@@ -185,6 +185,7 @@ cd opt/hltd/lib/python-procname/
 ./setup.py -q build
 cp build/lib.linux-x86_64-2.6/procname.so $TOPDIR/usr/lib64/python2.6/site-packages
 
+rm -rf $TOPDIR/opt/hltd/rpm
 rm -rf $TOPDIR/opt/hltd/lib
 rm -rf $TOPDIR/opt/hltd/esplugins
 rm -rf $TOPDIR/opt/hltd/scripts/paramcache*
@@ -228,7 +229,6 @@ tar -C $TOPDIR -c opt/hltd | tar -xC \$RPM_BUILD_ROOT
 tar -C $TOPDIR -c etc | tar -xC \$RPM_BUILD_ROOT
 tar -C $TOPDIR -c usr | tar -xC \$RPM_BUILD_ROOT
 rm \$RPM_BUILD_ROOT/opt/hltd/python/setupmachine.py
-rm \$RPM_BUILD_ROOT/opt/hltd/rpm/*.rpm
 %post
 #/opt/hltd/python/fillresources.py #--> in fffmeta
 %files

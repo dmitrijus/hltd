@@ -20,6 +20,7 @@ import csv
 
 import requests
 from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout as RequestsTimeout
 import simplejson as json
 import socket
 
@@ -132,7 +133,7 @@ class elasticBandBU:
                 retry=True
                 continue
 
-            except (socket.gaierror,ConnectionError,Timeout,RequestsConnectionError) as ex:
+            except (socket.gaierror,ConnectionError,Timeout,RequestsConnectionError,RequestsTimeout) as ex:
                 #try to reconnect with different IP from DNS load balancing
                 if self.runMode and connectionAttempts>100:
                    self.logger.error('elastic (BU): exiting after 100 connection attempts to '+ self.es_server_url)
@@ -333,7 +334,7 @@ class elasticBandBU:
                 if is_box==True:break
                 #self.logger.exception(ex)
                 return False
-            except (socket.gaierror,ConnectionError,Timeout,RequestsConnectionError) as ex:
+            except (socket.gaierror,ConnectionError,Timeout) as ex:
                 if attempts>100 and self.runMode:
                     raise(ex)
                 self.logger.error('elasticsearch connection error' + str(ex)+'. retry.')

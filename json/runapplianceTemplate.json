@@ -274,50 +274,35 @@
         }
       }
     },
-    "hltrates-legend": {
+    "qstatus": {
       "properties": {
-        "path-names": {
+        "numQueuedLS": {
+          "type": "integer"
+        },
+        "maxQueuedLS": {
+          "type": "integer"
+        },
+        "numReadFromQueueLS": {
+          "type": "integer"
+        },
+        "maxClosedLS": {
+          "type": "integer"
+        },
+        "numReadOpenLS": {
+          "type": "integer"
+        },
+        "fm_date": {
+          "type": "date"
+        },
+        "host": {
           "type": "string",
-          "index": "not_analyzed"
-        },
-        "dataset-names": {
-          "type": "string",
-          "index": "not_analyzed"
+          "index":"not_analyzed"
         }
-      }
-    },
-    "hltrates": {
-      "properties": {
-        "ls": {
-          "type": "integer"
-        },
-        "pid": {
-          "type": "integer"
-        },
-        "processed": {
-          "type": "integer"
-        },
-        "path-wasrun": {
-          "type": "integer"
-        },
-        "path-afterl1seed": {
-          "type": "integer"
-        },
-        "path-afterprescale": {
-          "type": "integer"
-        },
-        "path-accepted": {
-          "type": "integer"
-        },
-        "path-rejected": {
-          "type": "integer"
-        },
-        "path-errors": {
-          "type": "integer"
-        },
-        "dataset-accepted": {
-          "type": "integer"
-        }
+      },
+      "_timestamp": {
+        "enabled": true,
+        "store": "yes",
+        "path": "fm_date"
       }
     },
     "cmsswlog": {

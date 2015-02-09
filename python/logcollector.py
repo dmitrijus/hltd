@@ -15,7 +15,7 @@ from inotifywrapper import InotifyWrapper
 import _inotify as inotify
 import threading
 import Queue
-import json
+import simplejson as json
 import logging
 import collections
 import subprocess
@@ -733,12 +733,7 @@ class HLTDLogIndex():
                 ip_url=getURLwithIP(es_server_url)
                 self.es = ElasticSearch(ip_url)
                 #update in case of new documents added to mapping definition
-                for key in mappings.central_hltdlogs_mapping:
-                    doc = mappings.central_hltdlogs_mapping[key]
-                    res = requests.get(ip_url+'/'+self.index_name+'/'+key+'/_mapping')
-                    #only update if mapping is empty
-                    if res.status_code==200 and res.content.strip()=='{}':
-                        requests.post(ip_url+'/'+self.index_name+'/'+key+'/_mapping',str(doc))
+                self.updateMappingMaybe(ip_url)
                 break
             except (ElasticHttpError,ConnectionError,Timeout) as ex:
                 #try to reconnect with different IP from DNS load balancing
@@ -783,6 +778,14 @@ class HLTDLogIndex():
                 self.es.index(self.index_name,'hltdlog',document)
             except:
                 logger.warning('failed connection attempts to ' + self.es_server_url)
+
+    def updateMappingMaybe(self,ip_url):
+        for key in mappings.central_hltdlogs_mapping:
+                doc = mappings.central_hltdlogs_mapping[key]
+                res = requests.get(ip_url+'/'+self.index_name+'/'+key+'/_mapping')
+                #only update if mapping is empty
+                if res.status_code==200 and res.content.strip()=='{}':
+                    requests.post(ip_url+'/'+self.index_name+'/'+key+'/_mapping',json.dumps(doc))
  
 class HLTDLogParser(threading.Thread):
     def __init__(self,dir,file,loglevel,esHandler,skipToEnd):
@@ -951,8 +954,14 @@ def registerSignal(eventRef):
     
 
 if __name__ == "__main__":
+
+    import procname
+    procname.setprocname('logcol')
+
+    conf=initConf(sys.argv[1])
+
     logging.basicConfig(filename=os.path.join(conf.log_dir,"logcollector.log"),
-                    level=logging.INFO,
+                    level=conf.service_log_level,
                     format='%(levelname)s:%(asctime)s - %(funcName)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
     logger = logging.getLogger(os.path.basename(__file__))
@@ -988,9 +997,10 @@ if __name__ == "__main__":
     threadEvent = threading.Event()
     registerSignal(threadEvent)
 
-    hltdlogdir = '/var/log/hltd'
+    hltdlogdir = conf.log_dir
     hltdlogs = ['hltd.log','anelastic.log','elastic.log','elasticbu.log']
-    cmsswlogdir = '/var/log/hltd/pid'
+    cmsswlogdir = os.path.join(conf.log_dir,'pid')
+
 
     mask = inotify.IN_CREATE
     logger.info("starting CMSSW log collector for "+cmsswlogdir)

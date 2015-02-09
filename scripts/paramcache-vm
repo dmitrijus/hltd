@@ -1,12 +1,12 @@
 vm
 http://cu-01.cern.ch:9200
-/opt/cmssw
+/opt/offline
 rcms-flightsim
 fffsetup
 rcms
 ominozzo2
 test
-bufu
+daqlocal
 1
 1
 INFO

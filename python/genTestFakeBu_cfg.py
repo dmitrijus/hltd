@@ -50,7 +50,7 @@ process.MessageLogger = cms.Service("MessageLogger",
 
 process.source = cms.Source("EmptySource",
      firstRun= cms.untracked.uint32(options.runNumber),
-     numberEventsInLuminosityBlock = cms.untracked.uint32(500),
+     numberEventsInLuminosityBlock = cms.untracked.uint32(200),
      numberEventsInRun       = cms.untracked.uint32(0)    
 )
 
@@ -79,7 +79,7 @@ process.a = cms.EDAnalyzer("ExceptionGenerator",
 
 process.out = cms.OutputModule("RawStreamFileWriterForBU",
                                ProductLabel = cms.untracked.string("s"),
-                               numEventsPerFile = cms.untracked.uint32(100),
+                               numEventsPerFile = cms.untracked.uint32(50),
    			       jsonDefLocation = cms.untracked.string(cmsswbase+"/src/EventFilter/Utilities/plugins/budef.jsd"),
 			       debug = cms.untracked.bool(True)
                                )

@@ -139,7 +139,7 @@ central_runindex_mapping = {
                     'processed'     :{'type':'integer'},
                     'accepted'      :{'type':'integer'},
                     'errorEvents'   :{'type':'integer'},
-                    'size'          :{'type':'integer'},
+                    'size'          :{'type':'long'},
                     }
                 },
             'macromerge' : {
@@ -154,7 +154,7 @@ central_runindex_mapping = {
                     'processed'     :{'type':'integer'},
                     'accepted'      :{'type':'integer'},
                     'errorEvents'   :{'type':'integer'},
-                    'size'          :{'type':'integer'},
+                    'size'          :{'type':'long'},
                     }
                 }
 
@@ -165,17 +165,22 @@ central_boxinfo_mapping = {
             'properties' : {
               'fm_date'       :{'type':'date'},
               'id'            :{'type':'string'},
+              'host'          :{'type':'string',"index":"not_analyzed"},
+              'appliance'     :{'type':'string',"index":"not_analyzed"},
+              'instance'      :{'type':'string',"index":"not_analyzed"},
               'broken'        :{'type':'integer'},
               'used'          :{'type':'integer'},
               'idles'         :{'type':'integer'},
               'quarantined'   :{'type':'integer'},
+              'cloud'         :{'type':'integer'},
               'usedDataDir'   :{'type':'integer'},
               'totalDataDir'  :{'type':'integer'},
               'usedRamdisk'   :{'type':'integer'},
               'totalRamdisk'  :{'type':'integer'},
               'usedOutput'    :{'type':'integer'},
               'totalOutput'   :{'type':'integer'},
-              'activeRuns'    :{'type':'string'}
+              'activeRuns'    :{'type':'string'},
+              'activeRunsErrors':{'type':'string',"index":"not_analyzed"},
               },
             '_timestamp' : { 
               'enabled'   : True,
@@ -193,6 +198,7 @@ central_boxinfo_mapping = {
               'used'          :{'type':'integer'},
               'idles'         :{'type':'integer'},
               'quarantined'   :{'type':'integer'},
+              'cloud'         :{'type':'integer'},
               'usedDataDir'   :{'type':'integer'},
               'totalDataDir'  :{'type':'integer'},
               'usedRamdisk'   :{'type':'integer'},
@@ -200,38 +206,17 @@ central_boxinfo_mapping = {
               'usedOutput'    :{'type':'integer'},
               'totalOutput'   :{'type':'integer'},
               'activeRuns'    :{'type':'string'},
-              'hosts'         :{'type':'string',"index":"not_analyzed"}
+              'hosts'           :{'type':'string',"index":"not_analyzed"},
+              'blacklistedHosts':{'type':'string',"index":"not_analyzed"},
+              'host'            :{'type':'string',"index":"not_analyzed"},
+              'instance'        :{'type':'string',"index":"not_analyzed"}
               },
             '_timestamp' : { 
               'enabled'   : True,
               'store'     : "yes",
               "path"      : "fm_date"
               }
-          },
-          'boxinfo_last' : {#deprecated
-            '_id'        :{'path':'id'},
-            'properties' : {
-              'fm_date'       :{'type':'date'},
-              'id'            :{'type':'string'},
-              'broken'        :{'type':'integer'},
-              'used'          :{'type':'integer'},
-              'idles'         :{'type':'integer'},
-              'quarantined'   :{'type':'integer'},
-              'usedDataDir'   :{'type':'integer'},
-              'totalDataDir'  :{'type':'integer'},
-              'usedRamdisk'   :{'type':'integer'},
-              'totalRamdisk'  :{'type':'integer'},
-              'usedOutput'    :{'type':'integer'},
-              'totalOutput'   :{'type':'integer'},
-              'activeRuns'    :{'type':'string'}
-              },
-            '_timestamp' : { 
-              'enabled'   : True,
-              'store'     : "yes",
-              "path"      : "fm_date"
-              }
-            }
-          
+            },
           }
 
 

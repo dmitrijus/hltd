@@ -11,7 +11,7 @@ from inotifywrapper import InotifyWrapper
 import _inotify as inotify
 import threading
 import Queue
-import json
+import simplejson as json
 import logging
 
 
@@ -21,8 +21,9 @@ from aUtils import *
 
 class LumiSectionRanger():
     host = os.uname()[1]        
-    def __init__(self,tempdir,outdir,run_number):
+    def __init__(self,mr,tempdir,outdir,run_number):
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.mr = mr
         self.stoprequest = threading.Event()
         self.emptyQueue = threading.Event()  
         self.firstStream = threading.Event()  
@@ -41,7 +42,10 @@ class LumiSectionRanger():
         self.jsdfile = None
         self.buffer = []        # file list before the first stream file
         self.emptyOutTemplate = None
-
+        self.useTimeout=60
+        self.maxQueuedLumi=0
+        self.maxReceivedEoLS=0
+        self.maxClosedLumi=0
 
 
     def join(self, stop=False, timeout=None):
@@ -52,7 +56,8 @@ class LumiSectionRanger():
     def start(self):
         self.run()
 
-    def stop(self):
+    def stop(self,timeout=60):
+        self.useTimeout=timeout
         self.stoprequest.set()
 
     def setSource(self,source):
@@ -71,11 +76,15 @@ class LumiSectionRanger():
                     self.process() 
                 except (KeyboardInterrupt,Queue.Empty) as e:
                     self.emptyQueue.set() 
+                except Exception as ex:
+                    self.logger.exception(ex)
+                    self.logger.fatal("Exiting on unhandled exception")
+                    os._exit(1)
             else:
                 time.sleep(0.5)
             #allow timeout in case 'complete' file is received and lumi is not closed
             if self.stoprequest.isSet() and self.emptyQueue.isSet() and self.checkClosure()==False:
-                if endTimeout<=-1: endTimeout=100
+                if endTimeout<=-1: endTimeout=self.useTimeout*2
                 if endTimeout==0: break
                 endTimeout-=1
 
@@ -105,8 +114,8 @@ class LumiSectionRanger():
         eventtype = self.eventtype
 
         if eventtype:# & inotify.IN_CLOSE_WRITE:
-            if filetype == JSD:
-                self.processJsdFile()
+            if filetype == DEFINITION:
+                self.processDefinitionFile()
             if filetype == OUTPUTJSD and not self.jsdfile:
                 self.jsdfile=self.infile.filepath
                 self.createEmptyOutputTemplate()
@@ -119,18 +128,28 @@ class LumiSectionRanger():
             elif filetype in [STREAM,STREAMDQMHISTOUTPUT,INDEX,EOLS,DAT,PB]:
                 run,ls = (self.infile.run,self.infile.ls)
                 key = (run,ls)
+                ls_num=int(ls[2:])
                 if filetype == EOLS :
+                    if self.maxReceivedEoLS<ls_num:
+                         self.maxReceivedEoLS=ls_num
+                    self.mr.notifyLumi(ls_num,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
                     for lskey in self.LSHandlerList:
-                        if  self.LSHandlerList[lskey].ls < ls and not self.LSHandlerList[lskey].EOLS:
+                        if  int(self.LSHandlerList[lskey].ls[2:]) < ls_num and not self.LSHandlerList[lskey].EOLS:
                             self.createEOLSFile(self.LSHandlerList[lskey].ls)
                 if key not in self.LSHandlerList and not filetype == EOLS :
                     self.LSHandlerList[key] = LumiSectionHandler(run,ls,self.activeStreams,self.streamCounters,self.tempdir,self.outdir,self.jsdfile)
+                    self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
                 #if key not in self.LSHandlerList and filetype == EOLS :
                 #    self.copyEmptyDQMJsons(ls)
                 if key in self.LSHandlerList:
                     self.LSHandlerList[key].processFile(self.infile)
                     if self.LSHandlerList[key].closed.isSet():
+                        if self.maxClosedLumi<ls_num:
+                            self.maxClosedLumi=ls_num
+                            self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
                         self.LSHandlerList.pop(key,None)
+
+
             elif filetype == CRASH:
                 self.processCRASHfile()
             elif filetype == EOR:
@@ -204,11 +223,11 @@ class LumiSectionRanger():
                         # Where shall this exception be handled?
                 self.logger.warning("Found a bad ini file %s" %filepath)
             else:
-                self.infile.deleteFile()
+                self.infile.deleteFile(silent=True)
 
         self.createErrIniFile()
 
-    def processJsdFile(self):
+    def processDefinitionFile(self):
         run = 'run'+self.run_number.zfill(conf.run_number_padding)
         if "_pid" in self.infile.name:
           #name with pid: copy to local name without pid
@@ -226,7 +245,7 @@ class LumiSectionRanger():
           except:pass
         else:
           #name with pid: copy to output
-          self.infile.moveFile(os.path.join(conf.micromerge_output,run,self.infile.basename),copy = True,adler32=False,silent=True)
+          self.infile.moveFile(os.path.join(outputDir,run,self.infile.basename),copy = True,adler32=False,silent=True)
           
     def createEOLSFile(self,ls):
         eolname = os.path.join(self.tempdir,'run'+self.run_number.zfill(conf.run_number_padding)+"_"+ls+"_EoLS.jsn")
@@ -247,7 +266,10 @@ class LumiSectionRanger():
     def processCompleteFile(self):
         self.logger.info("received run complete file")
         self.complete = self.infile
-        self.stop()
+        if "abortcomplete" in self.infile.filepath:
+            self.stop(timeout=60)
+        else:
+            self.stop(timeout=5)
 
     def checkClosure(self):
         for key in self.LSHandlerList.keys():
@@ -262,7 +284,12 @@ class LumiSectionRanger():
                 openLumis.append(key)
         return openLumis
 
-
+    def getNumOpenLumis(self):
+        openLumis=0
+        for key in self.LSHandlerList.keys():
+            if not self.LSHandlerList[key].closed.isSet():
+                openLumis+=1
+        return openLumis
 
     def createOutputEoR(self):
 
@@ -272,7 +299,7 @@ class LumiSectionRanger():
         eorname = 'run'+self.run_number.zfill(conf.run_number_padding)+"_ls0000_EoR_"+os.uname()[1]+".jsn"
         runname = 'run'+self.run_number.zfill(conf.run_number_padding)
         srcName = os.path.join(conf.watch_directory,runname,eorname)
-        destName = os.path.join(conf.micromerge_output,runname,eorname)
+        destName = os.path.join(outputDir,runname,eorname)
         document = {"data":[str(0)]}
 
         for stream in self.streamCounters.keys():
@@ -300,7 +327,7 @@ class LumiSectionRanger():
     #special handling for DQM stream (empty lumisection output json is created)
     def copyEmptyDQMJsons(self,ls):
         run = 'run'+self.run_number.zfill(conf.run_number_padding)
-        destinationStem = os.path.join(conf.micromerge_output,run,run+'_'+ls)
+        destinationStem = os.path.join(outputDir,run,run+'_'+ls)
         if "streamDQM" in self.activeStreams and self.emptyOutTemplate:
             destinationName = destinationStem+'_streamDQM_'+os.uname()[1]+'.jsn'
             self.logger.info("writing empty output json for streamDQM: "+str(ls))
@@ -405,7 +432,7 @@ class LumiSectionHandler():
             try:
                 (filestem,ext)=os.path.splitext(self.infile.filepath)
                 os.remove(filestem + '.pb')
-                self.infile.deleteFile()
+                self.infile.deleteFile(silent=True)
             except:pass
             return
         
@@ -415,7 +442,7 @@ class LumiSectionHandler():
                 try:
                     (filestem,ext)=os.path.splitext(self.infile.filepath)
                     os.remove(filestem + '.pb')
-                    self.infile.deleteFile()
+                    self.infile.deleteFile(silent=True)
                 except:pass
             else:
                 self.logger.critical("pid %r not in pidlist as expected for ls %r. Skip file. " %(self.infile.pid,self.ls))
@@ -449,7 +476,7 @@ class LumiSectionHandler():
                 processed = outfile.getFieldByName("Processed")
                 self.logger.info("ls,stream: %r,%r - events %r / %r " %(ls,stream,processed,self.totalEvent))
                 infile.esCopy()
-                infile.deleteFile()
+                infile.deleteFile(silent=True)
                 return True
         return False
 
@@ -553,7 +580,8 @@ class LumiSectionHandler():
         outfilelist = self.outfileList[:]
         for outfile in outfilelist:
             stream = outfile.stream
-            processed = outfile.getFieldByName("Processed")+outfile.getFieldByName("ErrorEvents")
+            errEntry = outfile.getFieldByName("ErrorEvents")
+            processed = outfile.getFieldByName("Processed")+errEntry
             if processed == self.totalEvent:
 
                 if outfile.filetype==STREAMDQMHISTOUTPUT:
@@ -599,11 +627,37 @@ class LumiSectionHandler():
                         except:
                             doChecksum=False
                             pass
-                        (status,checksum)=datfile.moveFile(newfilepath,adler32=doChecksum)
+                        #test
+                        if processed==errEntry:
+                            self.logger.info("all events are error events for stream "+stream+":"+str(errEntry))
+                            try:os.remove(datfile.filepath)
+                            except:pass
+                            doChecksum=False
+                        else: 
+                            (status,checksum)=datfile.moveFile(newfilepath,adler32=doChecksum)
+                        checksum_success=True
                         if doChecksum and status:
                             if checksum_cmssw!=checksum&0xffffffff:
-                                self.logger.fatal("checksum mismatch for "+ datfile.filepath + " expected:" + str(checksum_cmssw) + " got:" + str(checksum))
-                        if checksum_cmssw!=None:
+                                checksum_success=False
+                                try:
+                                    self.logger.fatal("checksum mismatch for "+ datfile.filepath  \
+                                                      +" expected adler32:" + str(checksum_cmssw) + ' size:'+ outfile.getFieldByName("Filesize") \
+                                                      + " , got adler32:" + str(checksum)+' size:'+os.stat(datfile.filepath).st_size)
+                                except:
+                                    self.logger.fatal("checksum mismatch for "+ datfile.filepath)
+                                #failed checksum, assign everything to error events and try to delete the file
+                                procevts = int(outfile.getFieldByName("Processed"))
+                                errevts = int(outfile.getFieldByName("ErrorEvents"))
+                                outfile.setFieldByName("Processed","0")
+                                outfile.setFieldByName("Accepted","0")
+                                outfile.setFieldByName("ErrorEvents",str(procevts+errevts))
+                                outfile.setFieldByName("Filelist","")
+                                outfile.setFieldByName("Filesize","0")
+                                outfile.setFieldByName("FileAdler32","-1")
+                                outfile.writeout()
+                                try:os.remove(newfilepath)
+                                except:pass
+                        if checksum_cmssw!=None and checksum_success==True:
                                 outfile.setFieldByName("FileAdler32",str(checksum_cmssw&0xffffffff))
                                 outfile.writeout()
                         try:
@@ -628,7 +682,7 @@ class LumiSectionHandler():
 
             #delete all index files
             for item in self.indexfileList:
-                item.deleteFile()
+                item.deleteFile(silent=True)
 
 
             #moving streamError file
@@ -760,39 +814,24 @@ class DQMMerger(threading.Thread):
        hasError=False
        exitCodes =  outfile.getFieldByName('ReturnCodeMask')
        if numFiles>=0:
-           if numFiles == 1:
-               #fastHadd crashes trying to merge only one file
-               os.rename(command_args[4],command_args[3])
-           else:
-               p = subprocess.Popen(command_args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-               p.wait()
-               if p.returncode!=0:
-                   self.logger.error('fastHadd returned with exit code '+str(p.returncode)+' and response: ' + str(p.communicate()) + '. Merging parameters given:'+str(command_args) +' ,file sizes(B):'+str(inFileSizes))
-                   #DQM more verbose debugging
-                   try:
-                       filesize = os.stat(fullOutputPath).st_size
-                       self.logger.error('fastHadd reported to fail at merging, while output pb file exists! '+ fullOutputPath + ' with size(B): '+str(filesize))
-                   except:
-                       pass
-                   outfile.setFieldByName('ReturnCodeMask', str(p.returncode))
-                   hasError=True
-           if True:
-               if numFiles==1:
-                   try:
-                       filesize = os.stat(fullOutputPath).st_size
-                   except:
-                       self.logger.error('Error checking fastHadd output file size: '+ fullOutputPath)
-                       hasError=True
-                   try:
-                       os.chmod(fullOutputPath,0666)
-                   except:
-                       self.logger.error('Error fixing permissions of fastHadd output file: '+ fullOutputPath)
-               if numFiles>1:
-                   for f in command_args[4:]:
-                       try:
-                           if hasError==False:os.remove(f)
-                       except OSError as ex:
-                           self.logger.warning('exception removing file '+f+' : '+str(ex))
+           p = subprocess.Popen(command_args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+           p.wait()
+           if p.returncode!=0:
+               self.logger.error('fastHadd returned with exit code '+str(p.returncode)+' and response: ' + str(p.communicate()) + '. Merging parameters given:'+str(command_args) +' ,file sizes(B):'+str(inFileSizes))
+               #DQM more verbose debugging
+               try:
+                   filesize = os.stat(fullOutputPath).st_size
+                   self.logger.error('fastHadd reported to fail at merging, while output pb file exists! '+ fullOutputPath + ' with size(B): '+str(filesize))
+               except:
+                   pass
+               outfile.setFieldByName('ReturnCodeMask', str(p.returncode))
+               hasError=True
+
+           for f in command_args[4:]:
+               try:
+                   if hasError==False:os.remove(f)
+               except OSError as ex:
+                   self.logger.warning('exception removing file '+f+' : '+str(ex))
        else:
            hasError=True
 
@@ -830,8 +869,14 @@ class DQMMerger(threading.Thread):
 
 
 if __name__ == "__main__":
+
+    import procname
+    procname.setprocname('anelastic')
+
+    conf=initConf()
+
     logging.basicConfig(filename=os.path.join(conf.log_dir,"anelastic.log"),
-                    level=logging.INFO,
+                    level=conf.service_log_level,
                     format='%(levelname)s:%(asctime)s - %(funcName)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
     logger = logging.getLogger(os.path.basename(__file__))
@@ -848,7 +893,7 @@ if __name__ == "__main__":
     rawinputdir = sys.argv[3]
     dirname = os.path.basename(os.path.normpath(dirname))
     watchDir = os.path.join(conf.watch_directory,dirname)
-    outputDir = conf.micromerge_output
+    outputDir = sys.argv[4]
 
     dqmHandler = None
 
@@ -868,11 +913,12 @@ if __name__ == "__main__":
         #starting inotify thread
         mr = MonitorRanger()
         mr.setEventQueue(eventQueue)
+        mr.setQueueStatusPath(os.path.join(watchDir,"open","queue_status.jsn"),os.path.join(watchDir,"mon","queue_status.jsn"))
         mr.register_inotify_path(watchDir,mask)
         mr.start_inotify()
 
         #starting lsRanger thread
-        ls = LumiSectionRanger(watchDir,outputDir,run_number)
+        ls = LumiSectionRanger(mr,watchDir,outputDir,run_number)
         ls.setSource(eventQueue)
         ls.start()
 

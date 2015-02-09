@@ -1,0 +1,64 @@
+#!/bin/env python
+#
+# chkconfig:   2345 81 03
+#
+
+import sys
+import SOAPpy
+import time
+from subprocess import Popen
+from subprocess import PIPE
+
+sys.path.append('/opt/hltd/python')
+#sys.path.append('/opt/hltd/lib')
+
+from soap2file import Soap2file
+
+
+def startService(daemon):
+   proc = Popen(["/opt/hltd/python/soap2file.py"], stdout=PIPE)
+   output = proc.communicate()[0]
+   time.sleep(.1)
+   if daemon.silentStatus() and proc.returncode==0:
+       print 'Starting soap2file:\t\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
+   else:
+       if proc.returncode==3:sys.exit(0)
+       print 'Starting soap2file instance: [  \032[1;32mFAILED\033[0;39m  ]'
+       print output
+       sys.exit(1)
+
+
+
+if __name__ == "__main__":
+
+    soap2file = Soap2file()
+
+    if not soap2file.checkEnabled():
+        print "Soap2file service is disabled"
+        sys.exit(0)
+
+    if len(sys.argv) == 2:
+
+        if 'start' == sys.argv[1]:
+            startService(soap2file)
+
+        elif 'stop' == sys.argv[1]:
+            sys.stdout.write('Stopping soap2file:')
+            soap2file.stop()
+
+        elif 'restart' == sys.argv[1]:
+            sys.stdout.write('Stopping soap2file:')
+            soap2file.stop()
+            startService(soap2file)
+
+        elif 'status' == sys.argv[1]:
+            soap2file.status()
+
+        else:
+            print "Unknown command"
+            sys.exit(2)
+        sys.exit(0)
+    else:
+        print "usage: %s start|stop|restart|status" % sys.argv[0]
+        sys.exit(2)
+

@@ -5,15 +5,13 @@ from pyelasticsearch.client import IndexAlreadyExistsError
 from pyelasticsearch.client import ElasticHttpError
 from pyelasticsearch.client import ConnectionError
 from pyelasticsearch.client import Timeout
-import json
+import simplejson as json
 import csv
 import math
 import logging
 
 from aUtils import *
 
-#MONBUFFERSIZE = 50
-es_server_url = 'http://localhost:9200'
 
 class elasticBand():
 
@@ -24,7 +22,7 @@ class elasticBand():
         self.prcinBuffer = {}
         self.prcoutBuffer = {}
         self.fuoutBuffer = {}
-        self.es = ElasticSearch(es_server_url,timeout=20) 
+        self.es = ElasticSearch(es_server_url,timeout=20,revival_delay=60) 
         self.hostname = os.uname()[1]
         self.hostip = socket.gethostbyname_ex(self.hostname)[2][0]
         #self.number_of_data_nodes = self.es.health()['number_of_data_nodes']
@@ -36,12 +34,13 @@ class elasticBand():
         aliasName = runstring + "_" + indexSuffix
         self.indexName = aliasName# + "_" + self.hostname 
  
-    def imbue_jsn(self,infile):
+    def imbue_jsn(self,infile,silent=False):
         with open(infile.filepath,'r') as fp:
             try:
                 document = json.load(fp)
             except json.scanner.JSONDecodeError,ex:
-                logger.exception(ex)
+                if silent==False:
+                    self.logger.exception(ex)
                 return None,-1
             return document,0
 
@@ -155,58 +154,24 @@ class elasticBand():
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['index']=int(index[5:])
-        document['dest']=os.uname()[1]
+        document['dest']=self.hostname
         document['process']=int(prc[3:])
         try:document.pop('definition')
 	except:pass
         self.prcinBuffer.setdefault(ls,[]).append(document)
         #self.es.index(self.indexName,'prc-in',document)
 
-
-    def elasticize_hltrateslegend(self,infile):
-        document,ret = self.imbue_jsn(infile)
+    def elasticize_queue_status(self,infile):
+        document,ret = self.imbue_jsn(infile,silent=True)
         if ret<0:return False
-        datadict={}
-        #datadict['pid'] = int(infile.pid[3:])
-        try:
-            paths=document['data'][0].strip('[]')
-            datasets=document['data'][1].strip('[]')
-            datadict['dataset-names']=datasets.split(',') if  len(datasets)>0 else []
-            datadict['path-names']=paths.split(',') if len(paths)>0 else []
-        except:
-            pass
-        self.tryIndex('hltrates-legend',datadict)
+        document['fm_date']=str(infile.mtime)
+        document['host']=self.hostname
+        self.tryIndex('qstatus',document)
         return True
- 
 
-    def elasticize_hltrates(self,infile):
-        document,ret = self.imbue_jsn(infile)
-        if ret<0:return False
-        datadict={}
-        try:
-            datadict['ls'] = int(infile.ls[2:])
-            datadict['pid'] = int(infile.pid[3:])
-	    try:
-	        if json.loads(document['data'][0])[0]==0:return True
-            except:
-		pass
-            datadict['processed']=json.loads(document['data'][0])[0]
-            datadict['path-wasrun']=json.loads(document['data'][1])
-            datadict['path-afterl1seed']=json.loads(document['data'][2])
-            datadict['path-afterprescale']=json.loads(document['data'][3])
-            datadict['path-accepted']=json.loads(document['data'][4])
-            datadict['path-rejected']=json.loads(document['data'][5])
-            datadict['path-errors']=json.loads(document['data'][6])
-            datadict['dataset-accepted']=json.loads(document['data'][7])
-        except:
-            return False
-        self.tryIndex('hltrates',datadict)
-        return True
- 
- 
     def elasticize_fu_complete(self,timestamp):
         document = {}
-        document['host']=os.uname()[1]
+        document['host']=self.hostname
         document['fm_date']=timestamp
         self.tryIndex('fu-complete',document)
  
@@ -264,7 +229,7 @@ class elasticBand():
                 if attempts==0:
                     self.indexFailures+=1
                     if self.indexFailures<2:
-                        self.logger.error("Elasticsearch connection error.")
+                        self.logger.warning("Elasticsearch connection error.")
                 time.sleep(5)
             except ElasticHttpError as ex:
                 if attempts==0:

@@ -17,12 +17,25 @@ class Daemon2:
     attn: May change in the near future to use PEP daemon
     """
 
-    def __init__(self, pidfile, processname, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
+    def __init__(self, processname, instance, confname=None, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
                       self.stdin = stdin
                       self.stdout = stdout
                       self.stderr = stderr
-                      self.pidfile = pidfile
                       self.processname = processname
+                      self.instance = instance
+                      if confname==None:confname=processname
+                      if instance=="main": 
+                          instsuffix=""
+                          self.instancemsg=""
+                      else:
+                          instsuffix="-"+instance
+                          self.instancemsg=" instance"+instance
+
+                      self.pidfile = "/var/run/" + processname + instsuffix + ".pid"
+                      self.conffile = "/etc/" + confname + instsuffix + ".conf"
+                      self.lockfile = '/var/lock/subsys/'+processname + instsuffix
+
+
 
     def daemonize(self):
 
@@ -35,7 +48,7 @@ class Daemon2:
             pid = os.fork()
             if pid > 0:
                 # exit first parent
-                sys.exit(0)
+                return -1
         except OSError, e:
             sys.stderr.write("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
             sys.exit(1)
@@ -71,14 +84,21 @@ class Daemon2:
         atexit.register(self.delpid)
         pid = str(os.getpid())
         file(self.pidfile,'w+').write("%s\n" % pid)
+        return 0
 
     def delpid(self):
-        os.remove(self.pidfile)
+        if os.path.exists(self.pidfile):
+            os.remove(self.pidfile)
     def start(self):
         """
         Start the daemon
         """
+        if not os.path.exists(self.conffile): 
+            print "Missing "+self.conffile+" - can not start instance"
+            #raise Exception("Missing "+self.conffile)
+            sys.exit(4)
         # Check for a pidfile to see if the daemon already runs
+
         try:
             pf = file(self.pidfile,'r')
             pid = int(pf.read().strip())
@@ -89,10 +109,13 @@ class Daemon2:
         if pid:
             message = "pidfile %s already exists. Daemon already running?\n"
             sys.stderr.write(message % self.pidfile)
-            sys.exit(1)
+            sys.exit(3)
         # Start the daemon
-        self.daemonize()
-        self.run()
+        ret = self.daemonize()
+        if ret == 0:
+           self.run()
+           ret = 0
+        return ret
 
     def status(self):
         """
@@ -107,16 +130,22 @@ class Daemon2:
         except IOError:
             pid = None
         if not pid:
-            message = self.processname+" not running, no pidfile %s\n"
+            message = self.processname + self.instancemsg +" not running, no pidfile %s\n"
         else:
             try:
                 os.kill(pid,0)
-                message = self.processname+" is running with pidfile %s\n"
+                message = self.processname + self.instancemsg + " is running with pidfile %s\n"
                 retval = True
+            except OSError as ex:
+                if ex.errno==1:
+                    message = self.processname + self.instancemsg + " is running with pidfile %s\n"
+                else:
+                    message = self.processname + self.instancemsg + " pid exist in %s but process is not running\n"
             except:
-                message = self.processname+" pid exist in %s but process is not running\n"
+                message = self.processname + self.instancemsg + " pid exist in %s but process is not running\n"
+                #should return true for puppet to detect service crash (also when stopped)
 
-        sys.stderr.write(message % self.pidfile)
+        sys.stdout.write(message % self.pidfile)
         return retval
 
     def silentStatus(self):
@@ -132,7 +161,7 @@ class Daemon2:
         except IOError:
             pid = None
         if not pid:
-            message = self.processname+" not running, no pidfile %s\n"
+            message = self.processname + self.instancemsg +" not running, no pidfile %s\n"
         else:
             try:
                 os.kill(pid,0)
@@ -155,12 +184,18 @@ class Daemon2:
             pid = None
 
         if not pid:
-            message = "pidfile %s does not exist. Daemon not running?\n"
-            sys.stderr.write(message % self.pidfile)
+            message = " not running, no pidfile %s\n"
+            sys.stdout.write(message % self.pidfile)
+            sys.stdout.flush()
             return # not an error in a restart
 
         # Try killing the daemon process
+        processPresent=False
         try:
+            #check is process is alive
+            os.kill(pid,0)
+            processPresent=True
+            sys.stdout.flush()
             # signal the daemon to stop
             timeout = 5.0 #kill timeout
             os.kill(pid, SIGINT)
@@ -183,25 +218,37 @@ class Daemon2:
                 time.sleep(0.5)
                 timeout-=0.5
         except OSError, err:
+            time.sleep(.1)
             err = str(err)
             if err.find("No such process") > 0:
                 #this handles the successful stopping of the daemon...
                 if os.path.exists(self.pidfile):
-                    print 'removing pidfile'
-                    os.remove(self.pidfile)
-                    sys.stdout.write('[OK]\n')
-                    sys.stdout.flush()
+                    if processPresent==False:
+                        sys.stdout.write(" process "+str(pid)+" is dead. Removing pidfile" + self.pidfile+ " pid:" + str(pid))
+                    try:
+                        os.remove(self.pidfile)
+                    except Exception as ex:
+                        sys.stdout.write(' [  \033[1;31mFAILED\033[0;39m  ]\n')
+                        sys.stderr.write(str(ex)+'\n')
+                        sys.exit(1)
+                elif not os.path.exists(self.pidfile):
+                    if processPresent==False:
+                        sys.stdout.write(' service is not running')
             else:
-                print str(err)
+                sys.stdout.write(' [  \033[1;31mFAILED\033[0;39m  ]\n')
+                sys.stderr.write(str(err)+'\n')
                 sys.exit(1)
-        sys.stdout.write('[OK]\n')
+
+        if (self.processname!="hltd"):sys.stdout.write("\t\t")
+        sys.stdout.write('\t\t\t [  \033[1;32mOK\033[0;39m  ]\n')
+        sys.stdout.flush()
 
     def restart(self):
         """
         Restart the daemon
         """
         self.stop()
-        self.start()
+        return self.start()
 
     def run(self):
         """
@@ -212,7 +259,7 @@ class Daemon2:
     def emergencyUmount(self):
 
         cfg = ConfigParser.SafeConfigParser()
-        cfg.read('/etc/hltd.conf')
+        cfg.read(self.conffile)
 
         bu_base_dir=None#/fff/BU0?
         ramdisk_subdirectory = 'ramdisk'
@@ -229,7 +276,7 @@ class Daemon2:
         process = subprocess.Popen(['mount'],stdout=subprocess.PIPE)
         out = process.communicate()[0]
         mounts = re.findall('/'+bu_base_dir+'[0-9]+',out)
-        if len(mounts)>1 and mounts[0]==mounts[1]: mounts=[mounts[0]]
+        mounts = sorted(list(set(mounts)))
         for point in mounts:
             sys.stdout.write("trying emergency umount of "+point+"\n")
             try:
@@ -237,7 +284,8 @@ class Daemon2:
             except subprocess.CalledProcessError, err1:
                 pass
             except Exception as ex:
-                sys.stdout.write(ex.args[0]+"\n")
+                #ok(legacy mountpoint)
+                pass
             try:
                 subprocess.check_call(['umount',os.path.join('/'+point,ramdisk_subdirectory)])
             except subprocess.CalledProcessError, err1:
@@ -252,4 +300,20 @@ class Daemon2:
                 sys.stdout.write(str(err1.returncode)+"\n")
             except Exception as ex:
                 sys.stdout.write(ex.args[0]+"\n")
+
+
+    def touchLockFile(self):
+        try:
+            with open(self.lockfile,"w+") as fi:
+                pass
+        except:
+            pass
+
+    def removeLockFile(self):
+        try:
+            os.unlink(self.lockfile)
+        except:
+            pass
+
+
  

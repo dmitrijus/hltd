@@ -1,0 +1,27 @@
+{
+  "DISABLED-dvbu-c2f34-30-01":
+  {
+    "names":["main","testing"],
+    "sizes":[20,30]
+  },
+  "DISABLED-dvrubu-c2f34-17-03":
+  {
+    "names":["testing"],
+    "sizes":[0]
+  },
+  "DISABLED-dvrubu-c2f34-17-04":
+  {
+    "names":["testing"],
+    "sizes":[0]
+  },
+  "bu-vm-01-01.cern.ch":
+  {
+    "names":["main","testing"],
+    "sizes":[1000,500]
+  },
+  "fu-vm-02-02.cern.ch":
+  {
+    "names":["testing"],
+    "sizes":[0]
+  }
+}

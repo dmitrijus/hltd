@@ -36,15 +36,17 @@ mkdir -p etc/init.d
 mkdir -p etc/logrotate.d
 mkdir -p etc/appliance/resources/idle
 mkdir -p etc/appliance/resources/online
-mkdir -p etc/appliance/resources/offline
 mkdir -p etc/appliance/resources/except
 mkdir -p etc/appliance/resources/quarantined
+mkdir -p etc/appliance/resources/cloud
 mkdir -p usr/lib64/python2.6/site-packages
 mkdir -p usr/lib64/python2.6/site-packages/pyelasticsearch
 ls
 cp -r $BASEDIR/python/hltd $TOPDIR/etc/init.d/hltd
-cp -r $BASEDIR/python/soap2file.py $TOPDIR/etc/init.d/soap2file
+cp -r $BASEDIR/python/soap2file $TOPDIR/etc/init.d/soap2file
 cp -r $BASEDIR/* $TOPDIR/opt/hltd
+rm -rf $TOPDIR/opt/hltd/python/hltd
+rm -rf $TOPDIR/opt/hltd/python/soap2file
 cp -r $BASEDIR/etc/hltd.conf $TOPDIR/etc/
 cp -r $BASEDIR/etc/logrotate.d/hltd $TOPDIR/etc/logrotate.d/
 echo "working in $PWD"
@@ -53,9 +55,9 @@ ls opt/hltd
 echo "Creating DQM directories"
 mkdir -p etc/appliance/dqm_resources/idle
 mkdir -p etc/appliance/dqm_resources/online
-mkdir -p etc/appliance/dqm_resources/offline
 mkdir -p etc/appliance/dqm_resources/except
 mkdir -p etc/appliance/dqm_resources/quarantined
+mkdir -p etc/appliance/dqm_resources/cloud
 
 cd $TOPDIR
 #pyelasticsearch
@@ -152,12 +154,18 @@ Classifier: Topic :: System :: Filesystems
 Classifier: Topic :: System :: Monitoring
 EOF
 
+
+cd $TOPDIR
+cd opt/hltd/lib/python-procname/
+./setup.py -q build
+cp build/lib.linux-x86_64-2.6/procname.so $TOPDIR/usr/lib64/python2.6/site-packages
+
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > hltd.spec <<EOF
 Name: hltd
-Version: 1.5.3
-Release: 6
+Version: 1.6.0
+Release: 1
 Summary: hlt daemon
 License: gpl
 Group: DAQ
@@ -192,11 +200,7 @@ tar -C $TOPDIR -c usr | tar -xC \$RPM_BUILD_ROOT
 rm \$RPM_BUILD_ROOT/opt/hltd/python/setupmachine.py
 rm \$RPM_BUILD_ROOT/opt/hltd/rpm/*.rpm
 %post
-rm -rf /etc/appliance/online/*
-rm -rf /etc/appliance/offline/*
-rm -rf /etc/appliance/except/*
 #/opt/hltd/python/fillresources.py #--> in fffmeta
-#/sbin/service hltd restart #restart delegated to fffmeta!
 %files
 %dir %attr(777, -, -) /var/log/hltd
 %dir %attr(777, -, -) /var/log/hltd/pid
@@ -212,10 +216,11 @@ rm -rf /etc/appliance/except/*
 /usr/lib64/python2.6/site-packages/*_inotify.so*
 /usr/lib64/python2.6/site-packages/*python_inotify*
 /usr/lib64/python2.6/site-packages/pyelasticsearch
+/usr/lib64/python2.6/site-packages/procname.so
 %preun
 if [ \$1 == 0 ]; then
-  /sbin/service hltd stop
-  /sbin/service hltd stop
+  /sbin/service hltd stop || true
+  /sbin/service soap2file stop || true
 fi
 EOF
 mkdir -p RPMBUILD/{RPMS/{noarch},SPECS,BUILD,SOURCES,SRPMS}

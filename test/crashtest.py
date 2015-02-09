@@ -88,7 +88,7 @@ if __name__ == "__main__":
     dirname = sys.argv[1]
     dirname = os.path.basename(os.path.normpath(dirname))
     watchDir = os.path.join(conf.watch_directory,dirname)
-    outputDir = conf.micromerge_output
+    #outputDir = conf.micromerge_output
 
     
 

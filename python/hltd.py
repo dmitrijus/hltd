@@ -48,6 +48,8 @@ active_runs=[]
 resource_lock = threading.Lock()
 suspended=False
 
+dqm_globalrun_filepattern = '.run{0}.global'
+
 logging.basicConfig(filename=os.path.join(conf.log_dir,"hltd.log"),
                     level=conf.service_log_level,
                     format='%(levelname)s:%(asctime)s - %(message)s',
@@ -482,6 +484,15 @@ class OnlineResource:
                             str(num_streams),
                             full_release]
         else: # a dqm machine
+            dqm_globalrun_file = input_disk + '/' + dqm_globalrun_filepattern.format(runnumber)
+            try:
+                with open(dqm_globalrun_file, 'r') as f:
+                    for line in f:
+                        run_type = re.search(r'run[_]*type\s*=\s*(\bcollision\b|\bcosmic\b|\bcommissioning\b)_run', line, re.I).group(1).lower()
+                        if run_type: break
+            except IOError,ex:
+                logging.exception(ex)
+                logging.info("the default run type will be used for the dqm jobs")
             new_run_args = [conf.cmssw_script_location+'/startDqmRun.sh',
                             conf.cmssw_base,
                             arch,
@@ -490,7 +501,9 @@ class OnlineResource:
                             input_disk,
                             used+self.cpu[0]]
             if self.watchdog:
-                new_run_args.append("skipFirstLumis=True")
+                new_run_args.append('skipFirstLumis=True')
+            if run_type:
+                new_run_args.append('runtype={0}.format(run_type)')
 
         logging.info("arg array "+str(new_run_args).translate(None, "'"))
         try:
@@ -1273,38 +1286,33 @@ class RunRanger:
         if dirname.startswith('run'):
             nr=int(dirname[3:])
             if nr!=0:
-                try:
-                    logging.info('new run '+str(nr))
-                    if conf.role == 'fu':
-                        bu_dir = bu_disk_list_ramdisk[0]+'/'+dirname
-                        try:
-                            os.symlink(bu_dir+'/jsd',event.fullpath+'/jsd')
-                        except:
-                            if not dqm_machine:
-                                self.logger.warning('jsd directory symlink error, continuing without creating link')
-                            pass
-                    else:
-                        bu_dir = ''
+                is_global_run = os.path.exists(event.fullpath[:event.fullpath.rfind("/")+1] + dqm_globalrun_filepattern.format(nr))
+                # the dqm machines ignore a run if it's NOT a global run or porcess it if the dqm global run file in not mandatory
+                if (not conf.dqm_machine) or (is_global_run or (not conf.dqm_globalrunfile_mandatory)):
+                    try:
+                        logging.info('new run '+str(nr))
+                        if conf.role == 'fu':
+                            bu_dir = bu_disk_list_ramdisk[0]+'/'+dirname
+                            try:
+                                os.symlink(bu_dir+'/jsd',event.fullpath+'/jsd')
+                            except:
+                                if not dqm_machine:
+                                    self.logger.warning('jsd directory symlink error, continuing without creating link')
+                                pass
+                        else:
+                            bu_dir = ''
 
-                    # in case of a DQM machines create an EoR file
-                    if conf.dqm_machine and conf.role == 'bu':
-                        for run in run_list:
-                            EoR_file_name = run.dirname + '/' + 'run' + str(run.runnumber).zfill(conf.run_number_padding) + '_ls0000_EoR.jsn'
-                            if run.is_active_run and not os.path.exists(EoR_file_name):
-                                # create an EoR file that will trigger all the running jobs to exit nicely
-                                open(EoR_file_name, 'w').close()
-                                
-                    run_list.append(Run(nr,event.fullpath,bu_dir))
-                    resource_lock.acquire()
-                    run_list[-1].AcquireResources(mode='greedy')
-                    run_list[-1].Start()
-                    resource_lock.release()
-                except OSError as ex:
-                    logging.error("RunRanger: "+str(ex)+" "+ex.filename)
-                    logging.exception(ex)
-                except Exception as ex:
-                    logging.error("RunRanger: unexpected exception encountered in forking hlt slave")
-                    logging.exception(ex)
+                        run_list.append(Run(nr,event.fullpath,bu_dir))
+                        resource_lock.acquire()
+                        run_list[-1].AcquireResources(mode='greedy')
+                        run_list[-1].Start()
+                        resource_lock.release()
+                    except OSError as ex:
+                        logging.error("RunRanger: "+str(ex)+" "+ex.filename)
+                        logging.exception(ex)
+                    except Exception as ex:
+                        logging.error("RunRanger: unexpected exception encountered in forking hlt slave")
+                        logging.exception(ex)
 
         elif dirname.startswith('emu'):
             nr=int(dirname[3:])

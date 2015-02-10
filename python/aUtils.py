@@ -270,12 +270,9 @@ class fileHandler(object):
 
     def getBoxData(self,filepath = None):
         if not filepath: filepath = self.filepath
-        sep = '\n'
         try:
             with open(filepath,'r') as fi:
-                data = fi.read()
-                data = data.strip(sep).split(sep)
-                data = dict([d.split('=') for d in data])
+                data = json.load(fi)
         except IOError,e:
             data = {}
         except StandardError,e:

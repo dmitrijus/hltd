@@ -347,7 +347,6 @@ class elasticBandBU:
              
 
 class elasticCollectorBU():
-
     
     def __init__(self, es, inRunDir):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -555,34 +554,23 @@ class BoxInfoUpdater(threading.Thread):
 
 class RunCompletedChecker(threading.Thread):
 
-    def __init__(self,conf,mode,nr,nresources,run_dir,active_runs,active_runs_errors,elastic_process):
+    def __init__(self,conf,runList,run):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.conf=conf
-        self.mode = mode
-        self.nr = nr
-        self.nresources = nresources
-        rundir = 'run'+ str(nr).zfill(conf.run_number_padding)
-        self.rundirCheckPath = os.path.join(conf.watch_directory, rundir)
-        self.eorCheckPath = os.path.join(self.rundirCheckPath,'run' +  str(nr).zfill(conf.run_number_padding) + '_ls0000_EoR.jsn')
-        self.indexPrefix = 'run'+str(nr).zfill(conf.run_number_padding) + '_' + conf.elastic_cluster
+        threading.Thread.__init__(self)
+        self.conf = conf
+        self.runList = runList
+        self.run = run
+        self.elastic_process=run.elastic_monitor
+        rundirstr = 'run'+ str(run.runnumber).zfill(conf.run_number_padding)
+        self.rundirCheckPath = os.path.join(conf.watch_directory, rundirstr)
+        self.eorCheckPath = os.path.join(self.rundirCheckPath,rundirstr + '_ls0000_EoR.jsn')
+        self.indexPrefix = rundirstr + '_' + conf.elastic_cluster
         self.url =       'http://'+conf.es_local+':9200/' + self.indexPrefix + '*/fu-complete/_count'
         self.urlclose =  'http://'+conf.es_local+':9200/' + self.indexPrefix + '*/_close'
         self.urlsearch = 'http://'+conf.es_local+':9200/' + self.indexPrefix + '*/fu-complete/_search?size=1'
         self.url_query = '{  "query": { "filtered": {"query": {"match_all": {}}}}, "sort": { "fm_date": { "order": "desc" }}}'
-
-
         self.stop = False
         self.threadEvent = threading.Event()
-        self.run_dir = run_dir
-        self.active_runs = active_runs
-        self.active_runs_errors = active_runs_errors
-        self.elastic_process=elastic_process
-        try:
-            threading.Thread.__init__(self)
-
-        except Exception,ex:
-            self.logger.exception(ex)
-
 
     def checkBoxes(self,dir):
 
@@ -657,11 +645,7 @@ class RunCompletedChecker(threading.Thread):
 
             if check_boxes==False:
                 try:
-                    self.active_runs_errors.pop(self.active_runs.index(int(self.nr)))
-                except:
-                    pass
-                try:
-                    self.active_runs.remove(int(self.nr))
+                    self.runList.remove(self.run)
                 except:
                     pass
 
@@ -669,7 +653,7 @@ class RunCompletedChecker(threading.Thread):
                 try:
                     resp = requests.post(self.url, '',timeout=5)
                     data = json.loads(resp.content)
-                    if int(data['count']) >= len(self.nresources):
+                    if int(data['count']) >= len(self.run.online_resource_list):
                         try:
                             respq = requests.post(self.urlsearch,self.url_query,timeout=5)
                             dataq = json.loads(respq.content)

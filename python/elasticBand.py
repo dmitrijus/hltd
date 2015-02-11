@@ -1,10 +1,7 @@
 import os,socket,time
 import sys
 from pyelasticsearch.client import ElasticSearch
-from pyelasticsearch.client import IndexAlreadyExistsError
-from pyelasticsearch.client import ElasticHttpError
-from pyelasticsearch.client import ConnectionError
-from pyelasticsearch.client import Timeout
+from pyelasticsearch.exceptions import *
 import simplejson as json
 import csv
 import math
@@ -22,7 +19,7 @@ class elasticBand():
         self.prcinBuffer = {}
         self.prcoutBuffer = {}
         self.fuoutBuffer = {}
-        self.es = ElasticSearch(es_server_url,timeout=20,revival_delay=60) 
+        self.es = ElasticSearch(es_server_url,timeout=20) 
         self.hostname = os.uname()[1]
         self.hostip = socket.gethostbyname_ex(self.hostname)[2][0]
         #self.number_of_data_nodes = self.es.health()['number_of_data_nodes']

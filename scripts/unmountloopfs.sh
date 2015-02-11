@@ -32,15 +32,12 @@ if [ -n "$1" ]; then
       if [ $point == "fff/ramdisk/" ]; then continue; fi
 
       echo "found mountpoint $point $image"
-      #kill any processes that might use the mount point and remove from NFS
-      fuser -km $point
-      #unmunt loop device
-      sleep 0.2
-      exportfs -u *:$point
-      umount $point
-      if [ $? != 0 ]; then
-        sleep 0.1
+      #run a check that this is not attempting killall on root mount point
+      mpcheck=`fuser -vm $point |& grep "1 .rce. init"`
+      if [ "${mpcheck}" == "" ]; then
+        #kill any processes that might use the mount point and remove from NFS
         fuser -km $point
+        #unmunt loop device
         sleep 0.2
         exportfs -u *:$point
         umount $point

@@ -1,10 +1,7 @@
 import sys,os
 
 from pyelasticsearch.client import ElasticSearch
-from pyelasticsearch.client import IndexAlreadyExistsError
-from pyelasticsearch.client import ElasticHttpError
-from pyelasticsearch.client import ConnectionError
-from pyelasticsearch.client import Timeout
+from pyelasticsearch.exceptions import *
 
 import simplejson as json
 import socket
@@ -35,7 +32,7 @@ def delete_template(es,name):
     es.send_request('DELETE', ['_template', name])
 
 def create_template(es,name):
-    filepath = os.path.join("../json",name+"Template.json")
+    filepath = os.path.join(os.path.dirname((os.path.realpath(__file__))),'../json',name+"Template.json")
     try:
         with open(filepath) as json_file:    
             doc = json.load(json_file)
@@ -67,7 +64,7 @@ def main():
     #es.send_request('GET', ['_template', name],query_params=query_params)
 
     #list_template
-    res = es.cluster_state(filter_routing_table=True,filter_nodes=True, filter_blocks=True)
+    res = es.cluster_state(metric='metadata')
     templateList = res['metadata']['templates']
 
     for template_name in TEMPLATES:

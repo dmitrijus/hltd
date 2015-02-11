@@ -14,7 +14,7 @@ import _inotify as inotify
 
 
 ES_DIR_NAME = "TEMP_ES_DIRECTORY"
-UNKNOWN,OUTPUTJSD,DEFINITION,STREAM,INDEX,FAST,SLOW,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,INI,EOLS,EOR,COMPLETE,DAT,PDAT,PJSNDATA,PIDPB,PB,CRASH,MODULELEGEND,PATHLEGEND,BOX,BOLS,QSTATUS = range(25)            #file types 
+UNKNOWN,OUTPUTJSD,DEFINITION,STREAM,INDEX,FAST,SLOW,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,INI,EOLS,BOLS,EOR,COMPLETE,DAT,PDAT,PJSNDATA,PIDPB,PB,CRASH,MODULELEGEND,PATHLEGEND,BOX,QSTATUS = range(25)            #file types 
 TO_ELASTICIZE = [STREAM,INDEX,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,EOLS,EOR,COMPLETE]
 TEMPEXT = ".recv"
 ZEROLS = 'ls0000'
@@ -51,6 +51,7 @@ class MonitorRanger:
         self.maxReceivedEoLS=-1
         self.maxClosedLumi=-1
         self.numOpenLumis=-1
+        self.maxCMSSWLumi=-1
         self.lock = threading.Lock()
 
     def register_inotify_path(self,path,mask):
@@ -98,6 +99,20 @@ class MonitorRanger:
                 self.logger.warning("Problem checking new EoLS filename: "+str(os.path.basename(event.fullpath)) + " error:"+str(ex))
                 try:self.lock.release()
                 except:pass
+        elif event.fullpath.endswith("_BoLS.jsn"):
+            try:
+                queuedLumi = int(os.path.basename(event.fullpath).split('_')[1][2:])
+                if queuedLumi>self.maxCMSSWLumi:
+                    self.maxCMSSWLumi = queuedLumi
+                self.updateQueueStatusFile()
+            except:
+                pass
+            #delete file without passing it to the
+            try:
+                os.unlink(event.fullpath)
+            except:
+                pass
+            return False
         return True
 
     def notifyLumi(self,ls,maxReceivedEoLS,maxClosedLumi,numOpenLumis):
@@ -123,13 +138,15 @@ class MonitorRanger:
             self.logger.error("No directory to write queueStatusFile: "+str(self.queueStatusPathDir))
         else:
             self.logger.info("Update status file - queued lumis:"+str(num_queued_lumis)+ " EoLS:: max queued:"+str(self.maxQueuedLumi) \
-                             +" un-queued:"+str(self.maxReceivedEoLS)+"  Lumis:: last closed:"+str(self.maxClosedLumi)+ " num open:"+str(self.numOpenLumis))
+                             +" un-queued:"+str(self.maxReceivedEoLS)+"  Lumis:: last closed:"+str(self.maxClosedLumi) \
+                             + " num open:"+str(self.numOpenLumis) + " max LS in cmssw:"+str(self.maxCMSSWLumi))
         #write json
         doc = {"numQueuedLS":num_queued_lumis,
                "maxQueuedLS":self.maxQueuedLumi,
                "numReadFromQueueLS:":self.maxReceivedEoLS,
                "maxClosedLS":self.maxClosedLumi,
-               "numReadOpenLS":self.numOpenLumis
+               "numReadOpenLS":self.numOpenLumis,
+               "CMSSWMaxLS":self.maxCMSSWLumi
                }
         try:
             if self.queueStatusPath!=None:
@@ -210,13 +227,12 @@ class fileHandler(object):
             if ext == ".jsd" : return DEFINITION
             if ext == ".jsn":
                 if STREAMERRORNAME.upper() in name: return STREAMERR
-                elif "_BOLS" in name : return BOLS
                 elif "_STREAM" in name and "_PID" in name: return STREAM
                 elif "_INDEX" in name and  "_PID" in name: return INDEX
                 elif "_CRASH" in name and "_PID" in name: return CRASH
                 elif "_EOLS" in name: return EOLS
+                elif "_BOLS" in name: return BOLS
                 elif "_EOR" in name: return EOR
-                elif "_TRANSFER" in name: return DEFINITION
         if ext==".jsn":
             if STREAMDQMHISTNAME.upper() in name and "_PID" not in name: return STREAMDQMHISTOUTPUT
             if "_STREAM" in name and "_PID" not in name: return OUTPUT
@@ -242,7 +258,7 @@ class fileHandler(object):
         elif filetype == FAST: self.run,self.pid = splitname
         elif filetype in [DAT,PB,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT]: self.run,self.ls,self.stream,self.host = splitname
         elif filetype == INDEX: self.run,self.ls,self.index,self.pid = splitname
-        elif filetype == EOLS: self.run,self.ls,self.eols = splitname
+        elif filetype in [EOLS,BOLS]: self.run,self.ls,self.eols = splitname
         else: 
             self.logger.warning("Bad filetype: %s" %self.filepath)
             self.run,self.ls,self.stream = [None]*3
@@ -368,7 +384,7 @@ class fileHandler(object):
                 return False
         return True
 
-    def moveFile(self,newpath,copy = False,adler32=False,silent=False, createDestinationDir=True):
+    def moveFile(self,newpath,copy = False,adler32=False,silent=False, createDestinationDir=True, missingDirAlert=True):
         checksum=1
         if not self.exists(): return True,checksum
         oldpath = self.filepath
@@ -386,9 +402,15 @@ class fileHandler(object):
           try:
               if not os.path.isdir(newdir):
                   if createDestinationDir==False:
-                      if silent==False: self.logger.error("Unable to transport file "+str(oldpath)+". Destination directory does not exist: " + str(newdir))
+                      if silent==False and missingDirAlert==True:
+                          self.logger.error("Unable to transport file "+str(oldpath)+". Destination directory does not exist: " + str(newdir))
                       return False,checksum
-                  os.makedirs(newdir)
+                  try:
+                      os.makedirs(newdir)
+                  except:
+                      #repeated check if dir was created in the meantime
+                      if not os.path.isdir(newdir):
+                          os.makedirs(newdir)
 
               if adler32:checksum=self.moveFileAdler32(oldpath,newpath_tmp,copy)
               else:
@@ -403,16 +425,20 @@ class fileHandler(object):
               retries-=1
               if retries == 0:
                   if silent==False:
-                      self.logger.error("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp))
+                      #do not print this warning if directory was removed
+                      if os.path.isdir(newdir):
+                          self.logger.error("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp))
+                      else:
+                          self.logger.warning("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp)+'.Target directory is gone')
                   return False,checksum
               else:
                   time.sleep(0.5)
           except Exception, e:
               self.logger.exception(e)
               raise e
+        #renaming
         retries = 5
         while True:
-        #renaming
             try:
                 os.rename(newpath_tmp,newpath)
                 break
@@ -422,7 +448,11 @@ class fileHandler(object):
                 retries-=1
                 if retries == 0:
                     if silent==False:
-                        self.logger.error("Failure to rename the temporary file "+str(newpath_tmp)+" to "+str(newpath))
+                        #do not print this warning if directory was deleted
+                        if os.path.isdir(newdir):
+                            self.logger.error("Failure to rename temporary file "+str(newpath_tmp)+" to "+str(newpath))
+                        else:
+                            self.logger.warning("Failure to rename temporary file "+str(newpath_tmp)+" to "+str(newpath)+'.Target directory is gone')
                     return False,checksum
                 else:
                     time.sleep(0.5)

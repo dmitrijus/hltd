@@ -41,12 +41,10 @@ class LumiSectionRanger():
         self.tempdir = tempdir
         self.jsdfile = None
         self.buffer = []        # file list before the first stream file
-        self.emptyOutTemplate = None
         self.useTimeout=60
         self.maxQueuedLumi=0
         self.maxReceivedEoLS=0
         self.maxClosedLumi=0
-
 
     def join(self, stop=False, timeout=None):
         if stop: self.stop()
@@ -118,12 +116,18 @@ class LumiSectionRanger():
                 self.processDefinitionFile()
             if filetype == OUTPUTJSD and not self.jsdfile:
                 self.jsdfile=self.infile.filepath
-                self.createEmptyOutputTemplate()
             elif filetype == COMPLETE:
                 self.processCompleteFile()
             elif filetype == INI: self.processINIfile()
             elif not self.firstStream.isSet():
                 self.buffer.append(self.infile)
+                if filetype == EOLS:
+                    run,ls = (self.infile.run,self.infile.ls)
+                    ls_num=int(ls[2:])
+                    self.logger.info('Received early EOLS file: '+self.infile.filepath)
+                    if self.maxReceivedEoLS<ls_num:
+                        self.maxReceivedEoLS=ls_num
+                    self.mr.notifyLumi(ls_num,self.maxReceivedEoLS,-1,-1)
                 if filetype == STREAM: self.flushBuffer()
             elif filetype in [STREAM,STREAMDQMHISTOUTPUT,INDEX,EOLS,DAT,PB]:
                 run,ls = (self.infile.run,self.infile.ls)
@@ -149,14 +153,13 @@ class LumiSectionRanger():
                             self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
                         self.LSHandlerList.pop(key,None)
 
-
             elif filetype == CRASH:
                 self.processCRASHfile()
             elif filetype == EOR:
                 self.processEORFile()
 #        elif eventtype & inotify.IN_MOVED_TO:
 #           if filetype == OUTPUTJSD and not self.jsdfile: self.jsdfile=self.infile.filepath
-    
+
     def processCRASHfile(self):
         #send CRASHfile to every LSHandler
         lsList = self.LSHandlerList
@@ -311,33 +314,8 @@ class LumiSectionRanger():
         except: logging.exception("unable to create %r" %srcName)
 
         f = fileHandler(srcName)
-        f.moveFile(destName)
+        f.moveFile(destName,createDestinationDir=False,missingDirAlert=False)
         self.logger.info('created local EoR files for output')
-
-    def createEmptyOutputTemplate(self):
-        if self.emptyOutTemplate!=None:return
-        tempname = os.path.join(conf.watch_directory,'run'+self.run_number.zfill(conf.run_number_padding)+'/output_template.jsn')
-        document = {"definition":self.jsdfile,"data":[str(0),str(0),str(0),str(0),str(""),str(0),str("")],"source":os.uname()[1]}
-        try:
-            with open(tempname,"w") as fi:
-                json.dump(document,fi)
-            self.emptyOutTemplate=fileHandler(tempname)
-        except:logging.exception("unable to create %r" %tempname)
-
-    #special handling for DQM stream (empty lumisection output json is created)
-    def copyEmptyDQMJsons(self,ls):
-        run = 'run'+self.run_number.zfill(conf.run_number_padding)
-        destinationStem = os.path.join(outputDir,run,run+'_'+ls)
-        if "streamDQM" in self.activeStreams and self.emptyOutTemplate:
-            destinationName = destinationStem+'_streamDQM_'+os.uname()[1]+'.jsn'
-            self.logger.info("writing empty output json for streamDQM: "+str(ls))
-            self.createBoLS(run,ls,"streamDQM")
-            self.emptyOutTemplate.moveFile(destinationName,True)
-        if "streamDQMHistograms" in self.activeStreams and self.emptyOutTemplate:
-            destinationName = destinationStem+'_streamDQMHistograms_'+os.uname()[1]+'.jsn'
-            self.logger.info("writing empty output json for streamDQMHistograms: "+str(ls))
-            self.createBoLS(run,ls,"streamDQMHistograms")
-            self.emptyOutTemplate.moveFile(destinationName,True)
 
     def createBoLS(self,run,ls,stream):
         #create BoLS file in output dir
@@ -520,6 +498,8 @@ class LumiSectionHandler():
         file2merge.setJsdfile(self.jsdfile)
         file2merge.setFieldByName("ErrorEvents",numEvents)
         file2merge.setFieldByName("ReturnCodeMask",errCode)
+        #if file2merge.getFieldIndex("transferDestination")>-1:
+        #    file2merge.setFieldByName("transferDestination","ErrorArea")
         
         streamDiff = list(set(self.activeStreams)-set(self.pidList[pid]["streamList"]))
         for outfile in self.outfileList:

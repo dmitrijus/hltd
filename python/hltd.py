@@ -197,25 +197,35 @@ def cleanup_mountpoints(remount=True):
             except subprocess.CalledProcessError, err1:
                 logger.info("trying to kill users of ramdisk")
                 try:
-		    pass
-                    #subprocess.check_call(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)])
-                except subprocess.CalledProcessError, err2:
-                    logger.error("Error calling umount in cleanup_mountpoints (ramdisk), return code:"+str(err2.returncode))
+                    nsslock.acquire()
+                    f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
+                    nsslock.release()
+                    f_user.wait()
+                except:
+                    try:nsslock.release()
+                    except:pass
                 try:
+                    time.sleep(.5)
                     subprocess.check_call(['umount',os.path.join('/'+point,conf.ramdisk_subdirectory)])
                 except subprocess.CalledProcessError, err2:
                     logger.error("Error calling umount in cleanup_mountpoints (ramdisk), return code:"+str(err2.returncode))
                     umount_failure=True
             try:
-                subprocess.check_call(['umount',os.path.join('/'+point,conf.output_subdirectory)])
+                #only attempt this if first umount was successful
+                if umount_failure==False:
+                    subprocess.check_call(['umount',os.path.join('/'+point,conf.output_subdirectory)])
             except subprocess.CalledProcessError, err1:
                 logger.info("trying to kill users of output")
                 try:
-	            pass
-                    #subprocess.check_call(['fuser','-km',os.path.join('/'+point,conf.output_subdirectory)])
-                except subprocess.CalledProcessError, err2:
-                    logger.error("Error calling umount in cleanup_mountpoints (output), return code:"+str(err2.returncode))
+                    nsslock.acquire()
+                    f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
+                    nsslock.release()
+                    f_user.wait()
+                except:
+                    try:nsslock.release()
+                    except:pass
                 try:
+                    time.sleep(.5)
                     subprocess.check_call(['umount',os.path.join('/'+point,conf.output_subdirectory)])
                 except subprocess.CalledProcessError, err2:
                     logger.error("Error calling umount in cleanup_mountpoints (output), return code:"+str(err2.returncode))
@@ -447,6 +457,8 @@ class system_monitor(threading.Thread):
             res_path_temp = os.path.join(conf.watch_directory,'appliance','resource_summary_temp')
             res_path = os.path.join(conf.watch_directory,'appliance','resource_summary')
             selfhost = os.uname()[1]
+            fu_stale_counter = 0
+            boxinfo_update_attempts=0
             counter=0
             while self.running:
                 self.threadEvent.wait(5 if counter>0 else 1)
@@ -475,15 +487,19 @@ class system_monitor(threading.Thread):
                     lastFURuns = []
                     lastFURun=-1
                     activeRunQueuedLumisNum = -1
+                    activeRunCMSSWMaxLumi = -1
                     current_time = time.time()
                     for key in boxinfoFUMap:
                         if key==selfhost:continue
                         entry = boxinfoFUMap[key]
                         if current_time - entry[1] > 10:continue
-                        resource_count_idle+=int(entry[0]['idles'])
-                        resource_count_used+=int(entry[0]['used'])
-                        resource_count_broken+=int(entry[0]['broken'])
-                        cloud_count+=int(entry[0]['cloud'])
+                        try:
+                            resource_count_idle+=int(entry[0]['idles'])
+                            resource_count_used+=int(entry[0]['used'])
+                            resource_count_broken+=int(entry[0]['broken'])
+                            cloud_count+=int(entry[0]['cloud'])
+                        except Exception as ex:
+                            logger.warning('problem updating boxinfo summary: '+str(ex))
                         try:
                             lastFURuns.append(int(entry[0]['activeRuns'].strip('[]').split(',')[-1]))
                         except:pass
@@ -500,6 +516,9 @@ class system_monitor(threading.Thread):
                                 if lastrun==lastFURun:
                                     qlumis = int(entry[0]['activeRunNumQueuedLS'])
                                     if qlumis>activeRunQueuedLumisNum:activeRunQueuedLumisNum=qlumis
+                                    maxcmsswls = int(entry[0]['activeRunCMSSWMaxLS'])
+                                    if maxcmsswls>activeRunCMSSWMaxLumi:activeRunCMSSWMaxLumi=maxcmsswls
+
                             except:pass
                     res_doc = {
                                 "active_resources":resource_count_idle+resource_count_used,
@@ -509,6 +528,7 @@ class system_monitor(threading.Thread):
                                 "cloud":cloud_count,
                                 "activeFURun":lastFURun,
                                 "activeRunNumQueuedLS":activeRunQueuedLumisNum,
+                                "activeRunCMSSWMaxLS":activeRunCMSSWMaxLumi,
                                 "ramdisk_occupancy":ramdisk_occ
                               }
                     with open(res_path_temp,'w') as fp:
@@ -517,6 +537,31 @@ class system_monitor(threading.Thread):
 
                 for mfile in self.file:
                     if conf.role == 'fu':
+                        try:
+                            #check for NFS stale file handle
+                            #this feature is disabled until investigation
+#                           #which kind of error is thrown with unresponsive Force10 network
+                            #trystat = bu_disk_list_ramdisk[0]
+                            #mpstat = os.stat(trystat)
+                            #trystat = bu_disk_list_output[0]
+                            #mpstat = os.stat(trystat)
+                            fu_stale_counter = 0
+                        except IOError as ex:
+                            if ex.errno == 116:
+                                #rigger ramdisk remount if detected more than 5 times in a row
+                                logger.fatal('stale file handle: '+trystat)
+                                if fu_stale_counter>=5:
+                                    fu_stale_counter=0
+                                    logger.exception(ex)
+                                    logger.fatal('initiating remount on stale file handle')
+                                    try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
+                                    except:pass
+                                    with open(os.path.join(conf.watch_directory,'suspend0'),'w') as fi:
+                                        pass
+                                    time.sleep(1)
+                                    continue
+                                fu_stale_counter+=1
+
                         dirstat = os.statvfs(conf.watch_directory)
                         try:
                             with open(mfile,'w+') as fp:
@@ -540,13 +585,24 @@ class system_monitor(threading.Thread):
                                 fp.write('activeRuns='+str(active_runs).strip('[]')+'\n')
                                 fp.write('activeRuns='+str(active_runs).strip('[]')+'\n')
                                 fp.write('activeRunsErrors='+str(active_runs_errors).strip('[]')+'\n')
-                                fp.write('activeRunNumQueuedLS='+self.getLumiQueueStat()+'\n')
+                                numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
+                                fp.write('activeRunNumQueuedLS='+numQueuedLumis+'\n')
+                                fp.write('activeRunCMSSWMaxLS='+maxCMSSWLumi+'\n')
                                 fp.write('entriesComplete=True')
+                            boxinfo_update_attempts=0
+                        except IOError as ex:
+                            logger.warning('boxinfo file write failed :'+str(ex))
+                            #detecting stale file handle on recreated loop fs and remount
+                            if conf.instance!='main' and (ex.errno==116 or ex.errno==2) and boxinfo_update_attempts>=5:
+                                boxinfo_update_attempts=0
+                                try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
+                                except:pass
+                                with open(os.path.join(conf.watch_directory,'suspend0'),'w'):
+                                    pass
+                                time.sleep(1)
+                            boxinfo_update_attempts+=1
                         except Exception as ex:
                             logger.warning('boxinfo file write failed +'+str(ex))
-                            #if counter==0:
-                            #    #in case something happened with the BU server, try remount
-                            #    cleanup_mountpoints()
 
                     if conf.role == 'bu':
                         #ramdisk = os.statvfs(conf.watch_directory)
@@ -601,9 +657,9 @@ class system_monitor(threading.Thread):
                       'open','queue_status.jsn'),'r') as fp:
                 #fcntl.flock(fp, fcntl.LOCK_EX)
                 statusDoc = json.load(fp)
-                return str(statusDoc["numQueuedLS"])
+                return str(statusDoc["numQueuedLS"]),str(statusDoc["CMSSWMaxLS"])
         except:
-          return "-1"
+          return "-1","-1"
 
     def stop(self):
         logger.debug("system_monitor: request to stop")
@@ -1002,7 +1058,8 @@ class ProcessWatchdog(threading.Thread):
             #        logger.info('exiting thread '+str(self.resource.process.pid))
 
         except Exception as ex:
-            resource_lock.release()
+            try:resource_lock.release()
+            except:pass
             logger.info("OnlineResource watchdog: exception")
             logger.exception(ex)
         return
@@ -1329,7 +1386,7 @@ class Run:
         except:pass
         
 
-    def Shutdown(self,herod):
+    def Shutdown(self,herod,killall=False):
         #herod mode sends sigkill to all process, however waits for all scripts to finish
         logger.debug("Run:Shutdown called")
         global runs_pending_shutdown
@@ -1350,7 +1407,7 @@ class Run:
                         logger.info('terminating process '+str(resource.process.pid)+
                                      ' in state '+str(resource.processstate))
 
-                        if herod:resource.process.kill()
+                        if herod or killall:resource.process.kill()
                         else:resource.process.terminate()
                         logger.info('process '+str(resource.process.pid)+' join watchdog thread')
                         #                    time.sleep(.1)
@@ -1531,7 +1588,8 @@ class Run:
                 resource_lock.release()
 
         except Exception as ex:
-            resource_lock.release()
+            try:resource_lock.release()
+            except:pass
             logger.error("exception encountered in ending run")
             logger.exception(ex)
 
@@ -1667,7 +1725,8 @@ class RunRanger:
                                     logger.warning("could not move all resources, retrying.")
                                 cloud_mode=False
                             except Exception as ex:
-                                #resource_lock.release()
+                                try:resource_lock.release()
+                                except:pass
                                 logger.fatal("failed to disable VM mode when receiving notification for run "+str(nr))
                                 logger.exception(ex)
                         if conf.role == 'fu':
@@ -1707,6 +1766,8 @@ class RunRanger:
                     except Exception as ex:
                         logger.error("RunRanger: unexpected exception encountered in forking hlt slave")
                         logger.exception(ex)
+                    try:resource_lock.release()
+                    except:pass
 
         elif dirname.startswith('emu'):
             nr=int(dirname[3:])
@@ -1848,6 +1909,21 @@ class RunRanger:
             replyport = int(dirname[7:]) if dirname[7:].isdigit()==True else conf.cgi_port
             global suspended
             suspended=True
+
+            #local request used in case of stale file handle
+            if replyport==0:
+                for run in run_list:
+                    run.Shutdown(herod=False,killall=True)#terminate everything
+                run_list=[]
+                time.sleep(.5)
+ 
+                umount_success = cleanup_mountpoints()
+                try:os.remove(event.fullpath)
+                except:pass
+                suspended=False
+                logger.info("Remount requested locally is performed.")
+                return
+
             for run in run_list:
                 run.Shutdown(run.runnumber in runs_pending_shutdown)#terminate all ongoing runs
             run_list=[]

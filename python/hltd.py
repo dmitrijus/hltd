@@ -60,6 +60,8 @@ boxinfoFUMap = {}
 
 logCollector = None
 
+dqm_globalrun_filepattern = '.run{0}.global'
+
 def setFromConf(myinstance):
 
     global conf
@@ -71,6 +73,7 @@ def setFromConf(myinstance):
     global cloud
 
     conf=initConf(myinstance)
+
 
     idles = conf.resource_base+'/idle/'
     used = conf.resource_base+'/online/'
@@ -738,6 +741,18 @@ class OnlineResource:
                             str(num_streams),
                             full_release]
         else: # a dqm machine
+            dqm_globalrun_file = input_disk + '/' + dqm_globalrun_filepattern.format(str(runnumber).zfill(conf.run_number_padding))
+            run_type = ''
+            try:
+                with open(dqm_globalrun_file, 'r') as f:
+                    for line in f:
+                        run_type = re.search(r'run[_]?type\s*=\s*(\bcollision_run\b|\bcosmic_run\b|\bcommissioning_run\b)', line, re.I)
+                        if run_type:
+                            run_type = run_type.group(1).lower()
+                            break
+            except IOError,ex:
+                logging.exception(ex)
+                logging.info("the default run type will be used for the dqm jobs")
             new_run_args = [conf.cmssw_script_location+'/startDqmRun.sh',
                             conf.cmssw_base,
                             arch,
@@ -746,7 +761,11 @@ class OnlineResource:
                             input_disk,
                             used+self.cpu[0]]
             if self.watchdog:
-                new_run_args.append("skipFirstLumis=True")
+                new_run_args.append('skipFirstLumis=True')
+            if run_type:
+                new_run_args.append('runtype={0}'.format(run_type))
+            else:
+                logging.info('Not able to determine the DQM run type from the "global" file. Default value from the input source will be used.')
 
         logger.info("arg array "+str(new_run_args).translate(None, "'"))
         try:
@@ -1616,73 +1635,78 @@ class RunRanger:
                 return
             nr=int(dirname[3:])
             if nr!=0:
-                try:
-                    logger.info('new run '+str(nr))
-                    #terminate quarantined runs     
-                    for q_runnumber in runs_pending_shutdown:
-                        q_run = filter(lambda x: x.runnumber==q_runnumber,run_list)
-                        if len(q_run):
-                            q_run[0].Shutdown(True)#run abort in herod mode (wait for anelastic/elastic to shut down)
-                            time.sleep(.1)
+                # the dqm BU processes a run if the "global run file" is not mandatory or if the run is a global run
+                is_global_run = os.path.exists(event.fullpath[:event.fullpath.rfind("/")+1] + dqm_globalrun_filepattern.format(str(nr).zfill(conf.run_number_padding)))
+                dqm_processing_criterion = (not conf.dqm_globallock) or (conf.role != 'bu') or  (is_global_run)
 
-                    if cloud_mode==True and entering_cloud_mode==False:
-                        logger.info("received new run notification in VM mode. Checking if idle cores are available...")
-                        try:
-                            if len(os.listdir(idles))<1:
-                                logger.info("this run is skipped because FU is in VM mode and resources have not been returned")
-                                return
-                            #return all resources to HLTD (TODO:check if VM tool is done)
-                            while True:
-                                resource_lock.acquire()
-                                #retry this operation in case cores get moved around by other means
-                                if cleanup_resources()==True:
+                if (not conf.dqm_machine) or dqm_processing_criterion:
+                    try:
+                        logger.info('new run '+str(nr))
+                        #terminate quarantined runs     
+                        for q_runnumber in runs_pending_shutdown:
+                            q_run = filter(lambda x: x.runnumber==q_runnumber,run_list)
+                            if len(q_run):
+                                q_run[0].Shutdown(True)#run abort in herod mode (wait for anelastic/elastic to shut down)
+                                time.sleep(.1)
+    
+                        if cloud_mode==True and entering_cloud_mode==False:
+                            logger.info("received new run notification in VM mode. Checking if idle cores are available...")
+                            try:
+                                if len(os.listdir(idles))<1:
+                                    logger.info("this run is skipped because FU is in VM mode and resources have not been returned")
+                                    return
+                                #return all resources to HLTD (TODO:check if VM tool is done)
+                                while True:
+                                    resource_lock.acquire()
+                                    #retry this operation in case cores get moved around by other means
+                                    if cleanup_resources()==True:
+                                        resource_lock.release()
+                                        break
                                     resource_lock.release()
-                                    break
-                                resource_lock.release()
-                                time.sleep(0.1)
-                                logger.warning("could not move all resources, retrying.")
-                            cloud_mode=False
-                        except Exception as ex:
-                            #resource_lock.release()
-                            logger.fatal("failed to disable VM mode when receiving notification for run "+str(nr))
-                            logger.exception(ex)
-                    if conf.role == 'fu':
-                        #bu_dir = random.choice(bu_disk_list_ramdisk_instance)+'/'+dirname
-                        bu_dir = bu_disk_list_ramdisk_instance[0]+'/'+dirname
-                        try:
-                            os.symlink(bu_dir+'/jsd',event.fullpath+'/jsd')
-                        except:
-                            if not dqm_machine:
-                                self.logger.warning('jsd directory symlink error, continuing without creating link')
-                            pass
-                    else:
-                        bu_dir = ''
+                                    time.sleep(0.1)
+                                    logger.warning("could not move all resources, retrying.")
+                                cloud_mode=False
+                            except Exception as ex:
+                                #resource_lock.release()
+                                logger.fatal("failed to disable VM mode when receiving notification for run "+str(nr))
+                                logger.exception(ex)
+                        if conf.role == 'fu':
+                            #bu_dir = random.choice(bu_disk_list_ramdisk_instance)+'/'+dirname
+                            bu_dir = bu_disk_list_ramdisk_instance[0]+'/'+dirname
+                            try:
+                                os.symlink(bu_dir+'/jsd',event.fullpath+'/jsd')
+                            except:
+                                if not dqm_machine:
+                                    self.logger.warning('jsd directory symlink error, continuing without creating link')
+                                pass
+                        else:
+                            bu_dir = ''
 
-                    # in case of a DQM machines create an EoR file
-                    if conf.dqm_machine and conf.role == 'bu':
-                        for run in run_list:
-                            EoR_file_name = run.dirname + '/' + 'run' + str(run.runnumber).zfill(conf.run_number_padding) + '_ls0000_EoR.jsn'
-                            if run.is_active_run and not os.path.exists(EoR_file_name):
-                                # create an EoR file that will trigger all the running jobs to exit nicely
-                                open(EoR_file_name, 'w').close()
-                                
-                    run_list.append(Run(nr,event.fullpath,bu_dir,self.instance))
-                    resource_lock.acquire()
-                    if run_list[-1].AcquireResources(mode='greedy'):
-                        run_list[-1].Start()
-                    else:
-                        run_list.remove(run_list[-1])
-                    resource_lock.release()
-                    if conf.role == 'bu' and conf.instance != 'main':
-                        logger.info('creating run symlink in main ramdisk directory')
-                        main_ramdisk = os.path.dirname(os.path.normpath(conf.watch_directory))
-                        os.symlink(event.fullpath,os.path.join(main_ramdisk,os.path.basename(event.fullpath)))
-                except OSError as ex:
-                    logger.error("RunRanger: "+str(ex)+" "+ex.filename)
-                    logger.exception(ex)
-                except Exception as ex:
-                    logger.error("RunRanger: unexpected exception encountered in forking hlt slave")
-                    logger.exception(ex)
+                        # in case of a DQM BU machines create an EoR file if it's not already there
+                        if conf.dqm_machine and conf.role == 'bu':
+                            for run in run_list:
+                                EoR_file_name = run.dirname + '/' + 'run' + str(run.runnumber).zfill(conf.run_number_padding) + '_ls0000_EoR.jsn'
+                                if run.is_active_run and not os.path.exists(EoR_file_name):
+                                    # create an EoR file that will trigger all the running jobs to exit nicely
+                                    open(EoR_file_name, 'w').close()
+    
+                        run_list.append(Run(nr,event.fullpath,bu_dir,self.instance))
+                        resource_lock.acquire()
+                        if run_list[-1].AcquireResources(mode='greedy'):
+                            run_list[-1].Start()
+                        else:
+                            run_list.remove(run_list[-1])
+                        resource_lock.release()
+                        if conf.role == 'bu' and conf.instance != 'main':
+                            logger.info('creating run symlink in main ramdisk directory')
+                            main_ramdisk = os.path.dirname(os.path.normpath(conf.watch_directory))
+                            os.symlink(event.fullpath,os.path.join(main_ramdisk,os.path.basename(event.fullpath)))
+                    except OSError as ex:
+                        logger.error("RunRanger: "+str(ex)+" "+ex.filename)
+                        logger.exception(ex)
+                    except Exception as ex:
+                        logger.error("RunRanger: unexpected exception encountered in forking hlt slave")
+                        logger.exception(ex)
 
         elif dirname.startswith('emu'):
             nr=int(dirname[3:])

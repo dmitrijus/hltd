@@ -181,6 +181,7 @@ central_boxinfo_mapping = {
               'totalOutput'   :{'type':'integer'},
               'activeRuns'    :{'type':'string'},
               'activeRunsErrors':{'type':'string',"index":"not_analyzed"},
+              'activeRunNumQueuedLS':{'type':'integer'}
               },
             '_timestamp' : { 
               'enabled'   : True,
@@ -208,7 +209,7 @@ central_boxinfo_mapping = {
               'activeRuns'    :{'type':'string'},
               'hosts'           :{'type':'string',"index":"not_analyzed"},
               'blacklistedHosts':{'type':'string',"index":"not_analyzed"},
-              'host'            :{'type':'string',"index":"not_analyzed"},
+              'appliance'       :{'type':'string',"index":"not_analyzed"},
               'instance'        :{'type':'string',"index":"not_analyzed"}
               },
             '_timestamp' : { 

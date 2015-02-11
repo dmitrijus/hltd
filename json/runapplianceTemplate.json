@@ -291,6 +291,9 @@
         "numReadOpenLS": {
           "type": "integer"
         },
+        "CMSSWMaxLS": {
+          "type": "integer"
+        },
         "fm_date": {
           "type": "date"
         },

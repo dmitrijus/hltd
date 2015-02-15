@@ -219,7 +219,7 @@ class LumiSectionRanger():
                 self.activeStreams.append(stream)
                 self.streamCounters[stream]=0
             self.infile.moveFile(newpath = localfilepath)
-            self.infile.moveFile(newpath = remotefilepath,copy = True)
+            self.infile.moveFile(newpath = remotefilepath,copy = True,createDestinationDir=False,missingDirAlert=False)
         else:
             self.logger.debug("compare %s , %s " %(localfilepath,filepath))
             if not filecmp.cmp(localfilepath,filepath,False):
@@ -242,13 +242,14 @@ class LumiSectionRanger():
             return
           except:
             pass
-          self.infile.moveFile(newpath,copy = True,adler32=False,silent=True)
+          self.infile.moveFile(newpath,copy = True,adler32=False,silent=True,createDestinationDir=False,missingDirAlert=False)
           #delete as we will use the one without pid
           try:os.unlink(oldpath)
           except:pass
         else:
           #name with pid: copy to output
-          self.infile.moveFile(os.path.join(outputDir,run,self.infile.basename),copy = True,adler32=False,silent=True)
+          self.infile.moveFile(os.path.join(outputDir,run,self.infile.basename),copy = True,adler32=False,
+                               silent=True,createDestinationDir=False,missingDirAlert=False)
           
     def createEOLSFile(self,ls):
         eolname = os.path.join(self.tempdir,'run'+self.run_number.zfill(conf.run_number_padding)+"_"+ls+"_EoLS.jsn")
@@ -614,7 +615,7 @@ class LumiSectionHandler():
                             except:pass
                             doChecksum=False
                         else: 
-                            (status,checksum)=datfile.moveFile(newfilepath,adler32=doChecksum)
+                            (status,checksum)=datfile.moveFile(newfilepath,adler32=doChecksum,createDestinationDir=False,missingDirAlert=True)
                         checksum_success=True
                         if doChecksum and status:
                             if checksum_cmssw!=checksum&0xffffffff:
@@ -652,7 +653,7 @@ class LumiSectionHandler():
                 if outfile.mergeAndMoveJsnDataMaybe(os.path.join(self.outdir,outfile.run))==False:return
 
                 outfile.esCopy()
-                result,checksum=outfile.moveFile(newfilepath)
+                result,checksum=outfile.moveFile(newfilepath,createDestinationDir=False)
                 if result:
                   self.outfileList.remove(outfile)
  
@@ -687,7 +688,7 @@ class LumiSectionHandler():
             errfile.setFieldByName("FileAdler32", "-1", warning=False)
             errfile.writeout()
             newfilepath = os.path.join(self.outdir,errfile.run,errfile.basename)
-            errfile.moveFile(newfilepath)
+            errfile.moveFile(newfilepath,createDestinationDir=False)
 
 
             #close lumisection if all streams are closed
@@ -875,6 +876,8 @@ if __name__ == "__main__":
     watchDir = os.path.join(conf.watch_directory,dirname)
     outputDir = sys.argv[4]
 
+    outputRunDir = os.path.join(outputDir,'run'+run_number.zfill(conf.run_number_padding))
+ 
     dqmHandler = None
 
     mask = inotify.IN_CLOSE_WRITE | inotify.IN_MOVED_TO  # watched events
@@ -896,6 +899,24 @@ if __name__ == "__main__":
         mr.setQueueStatusPath(os.path.join(watchDir,"open","queue_status.jsn"),os.path.join(watchDir,"mon","queue_status.jsn"))
         mr.register_inotify_path(watchDir,mask)
         mr.start_inotify()
+
+        #ensuring that output run dir gets created (after inotify init)
+        attempts = 3
+        while attempts>0:
+            attempts-=1
+            try:
+                os.makedirs(outputRunDir)
+                logger.info("created "+outputRunDir)
+                break
+            except OSError as ex:
+                if ex.errno == 17: break
+                logging.exception(ex)
+                time.sleep(.5)
+                continue
+            except Exception as ex:
+                logging.exception(ex)
+                time.sleep(.5)
+                continue
 
         #starting lsRanger thread
         ls = LumiSectionRanger(mr,watchDir,outputDir,run_number)

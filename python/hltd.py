@@ -1690,75 +1690,76 @@ class RunRanger:
                 return
             nr=int(dirname[3:])
             if nr!=0:
-                try:
-                    logger.info('new run '+str(nr))
-                    #terminate quarantined runs     
-                    for run in runList.getQuarantinedRuns():
-                        #run shutdown waiting for scripts to finish
-                        run.Shutdown(True,False)
-                        time.sleep(.1)
+                if True:
+                    try:
+                        logger.info('new run '+str(nr))
+                        #terminate quarantined runs     
+                        for run in runList.getQuarantinedRuns():
+                            #run shutdown waiting for scripts to finish
+                            run.Shutdown(True,False)
+                            time.sleep(.1)
 
-                    if cloud_mode==True and entering_cloud_mode==False:
-                        logger.info("received new run notification in VM mode. Checking if idle cores are available...")
-                        try:
-                            if len(os.listdir(idles))<1:
-                                logger.info("this run is skipped because FU is in VM mode and resources have not been returned")
-                                return
-                            #return all resources to HLTD (TODO:check if VM tool is done)
-                            while True:
-                                resource_lock.acquire()
-                                #retry this operation in case cores get moved around by other means
-                                if cleanup_resources()==True:
+                        if cloud_mode==True and entering_cloud_mode==False:
+                            logger.info("received new run notification in VM mode. Checking if idle cores are available...")
+                            try:
+                                if len(os.listdir(idles))<1:
+                                    logger.info("this run is skipped because FU is in VM mode and resources have not been returned")
+                                    return
+                                #return all resources to HLTD (TODO:check if VM tool is done)
+                                while True:
+                                    resource_lock.acquire()
+                                    #retry this operation in case cores get moved around by other means
+                                    if cleanup_resources()==True:
+                                        resource_lock.release()
+                                        break
                                     resource_lock.release()
-                                    break
-                                resource_lock.release()
-                                time.sleep(0.1)
-                                logger.warning("could not move all resources, retrying.")
-                            cloud_mode=False
-                        except Exception as ex:
-                            try:resource_lock.release()
-                            except:pass
-                            logger.fatal("failed to disable VM mode when receiving notification for run "+str(nr))
-                            logger.exception(ex)
-                    if conf.role == 'fu':
-                        #bu_dir = random.choice(bu_disk_list_ramdisk_instance)+'/'+dirname
-                        bu_dir = bu_disk_list_ramdisk_instance[0]+'/'+dirname
-                        try:
-                            os.symlink(bu_dir+'/jsd',event.fullpath+'/jsd')
-                        except:
-                            if not dqm_machine:
-                                self.logger.warning('jsd directory symlink error, continuing without creating link')
-                            pass
-                    else:
-                        bu_dir = ''
-
-                    # in case of a DQM machines create an EoR file
-                    if conf.dqm_machine and conf.role == 'bu':
-                        for run in runList.getOngoingRuns():
-                            EoR_file_name = run.dirname + '/' + 'run' + str(run.runnumber).zfill(conf.run_number_padding) + '_ls0000_EoR.jsn'
-                            if run.is_ongoing_run and not os.path.exists(EoR_file_name):
-                                # create an EoR file that will trigger all the running jobs to exit nicely
-                                open(EoR_file_name, 'w').close()
-                    with Run(nr,event.fullpath,bu_dir,self.instance) as run:
-                        runList.add(run)
-                        resource_lock.acquire()
-                        if run.AcquireResources(mode='greedy'):
-                            run.Start()
+                                    time.sleep(0.1)
+                                    logger.warning("could not move all resources, retrying.")
+                                cloud_mode=False
+                            except Exception as ex:
+                                try:resource_lock.release()
+                                except:pass
+                                logger.fatal("failed to disable VM mode when receiving notification for run "+str(nr))
+                                logger.exception(ex)
+                        if conf.role == 'fu':
+                            #bu_dir = random.choice(bu_disk_list_ramdisk_instance)+'/'+dirname
+                            bu_dir = bu_disk_list_ramdisk_instance[0]+'/'+dirname
+                            try:
+                                os.symlink(bu_dir+'/jsd',event.fullpath+'/jsd')
+                            except:
+                                if not dqm_machine:
+                                    self.logger.warning('jsd directory symlink error, continuing without creating link')
+                                pass
                         else:
-                            runList.remove(run)
-                        resource_lock.release()
-                    if conf.role == 'bu' and conf.instance != 'main':
-                        logger.info('creating run symlink in main ramdisk directory')
-                        main_ramdisk = os.path.dirname(os.path.normpath(conf.watch_directory))
-                        os.symlink(event.fullpath,os.path.join(main_ramdisk,os.path.basename(event.fullpath)))
-                except OSError as ex:
-                    logger.error("RunRanger: "+str(ex)+" "+ex.filename)
-                    logger.exception(ex)
-                except Exception as ex:
-                    logger.error("RunRanger: unexpected exception encountered in forking hlt slave")
-                    logger.exception(ex)
-                try:resource_lock.release()
-                except:pass
+                            bu_dir = ''
+
+                        # in case of a DQM machines create an EoR file
+                        if conf.dqm_machine and conf.role == 'bu':
+                            for run in runList.getOngoingRuns():
+                                EoR_file_name = run.dirname + '/' + 'run' + str(run.runnumber).zfill(conf.run_number_padding) + '_ls0000_EoR.jsn'
+                                if run.is_ongoing_run and not os.path.exists(EoR_file_name):
+                                    # create an EoR file that will trigger all the running jobs to exit nicely
+                                    open(EoR_file_name, 'w').close()
+                        with Run(nr,event.fullpath,bu_dir,self.instance) as run:
+                            runList.add(run)
+                            resource_lock.acquire()
+                            if run.AcquireResources(mode='greedy'):
+                                run.Start()
+                            else:
+                                runList.remove(run)
+                            resource_lock.release()
+                        if conf.role == 'bu' and conf.instance != 'main':
+                            logger.info('creating run symlink in main ramdisk directory')
+                            main_ramdisk = os.path.dirname(os.path.normpath(conf.watch_directory))
+                            os.symlink(event.fullpath,os.path.join(main_ramdisk,os.path.basename(event.fullpath)))
+                    except OSError as ex:
+                        logger.error("RunRanger: "+str(ex)+" "+ex.filename)
+                        logger.exception(ex)
+                    except Exception as ex:
+                        logger.error("RunRanger: unexpected exception encountered in forking hlt slave")
+                        logger.exception(ex)
+                    try:resource_lock.release()
+                    except:pass
 
         elif dirname.startswith('emu'):
             nr=int(dirname[3:])

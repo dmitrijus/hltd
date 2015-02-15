@@ -59,6 +59,8 @@ boxinfoFUMap = {}
 
 logCollector = None
 
+dqm_globalrun_filepattern = '.run{0}.global'
+
 def setFromConf(myinstance):
 
     global conf
@@ -70,6 +72,7 @@ def setFromConf(myinstance):
     global cloud
 
     conf=initConf(myinstance)
+
 
     idles = conf.resource_base+'/idle/'
     used = conf.resource_base+'/online/'
@@ -782,6 +785,18 @@ class OnlineResource:
                             str(num_streams),
                             full_release]
         else: # a dqm machine
+            dqm_globalrun_file = input_disk + '/' + dqm_globalrun_filepattern.format(str(runnumber).zfill(conf.run_number_padding))
+            run_type = ''
+            try:
+                with open(dqm_globalrun_file, 'r') as f:
+                    for line in f:
+                        run_type = re.search(r'run[_]?type\s*=\s*(\bcollision_run\b|\bcosmic_run\b|\bcommissioning_run\b)', line, re.I)
+                        if run_type:
+                            run_type = run_type.group(1).lower()
+                            break
+            except IOError,ex:
+                logging.exception(ex)
+                logging.info("the default run type will be used for the dqm jobs")
             new_run_args = [conf.cmssw_script_location+'/startDqmRun.sh',
                             conf.cmssw_base,
                             arch,
@@ -790,7 +805,11 @@ class OnlineResource:
                             input_disk,
                             used+self.cpu[0]]
             if self.watchdog:
-                new_run_args.append("skipFirstLumis=True")
+                new_run_args.append('skipFirstLumis=True')
+            if run_type:
+                new_run_args.append('runtype={0}'.format(run_type))
+            else:
+                logging.info('Not able to determine the DQM run type from the "global" file. Default value from the input source will be used.')
 
         logger.info("arg array "+str(new_run_args).translate(None, "'"))
         try:
@@ -1690,7 +1709,11 @@ class RunRanger:
                 return
             nr=int(dirname[3:])
             if nr!=0:
-                if True:
+                # the dqm BU processes a run if the "global run file" is not mandatory or if the run is a global run
+                is_global_run = os.path.exists(event.fullpath[:event.fullpath.rfind("/")+1] + dqm_globalrun_filepattern.format(str(nr).zfill(conf.run_number_padding)))
+                dqm_processing_criterion = (not conf.dqm_globallock) or (conf.role != 'bu') or  (is_global_run)
+
+                if (not conf.dqm_machine) or dqm_processing_criterion:
                     try:
                         logger.info('new run '+str(nr))
                         #terminate quarantined runs     

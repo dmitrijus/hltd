@@ -121,6 +121,13 @@ class LumiSectionRanger():
             elif filetype == INI: self.processINIfile()
             elif not self.firstStream.isSet():
                 self.buffer.append(self.infile)
+                if filetype == EOLS:
+                    run,ls = (self.infile.run,self.infile.ls)
+                    ls_num=int(ls[2:])
+                    self.logger.info('Received early EOLS file: '+self.infile.filepath)
+                    if self.maxReceivedEoLS<ls_num:
+                        self.maxReceivedEoLS=ls_num
+                    self.mr.notifyLumi(ls_num,self.maxReceivedEoLS,-1,-1)
                 if filetype == STREAM: self.flushBuffer()
             elif filetype in [STREAM,STREAMDQMHISTOUTPUT,INDEX,EOLS,DAT,PB]:
                 run,ls = (self.infile.run,self.infile.ls)

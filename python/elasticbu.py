@@ -161,7 +161,7 @@ class elasticBandBU:
                         properties = inmapping[indexname]['mappings'][key]['properties']
 
                         self.logger.info('checking mapping '+ indexname + '/' + key + ' which has '
-                            + len(mapping[key]['properties']) + '(index:' + len(properties) + ') entries..')
+                            + str(len(mapping[key]['properties'])) + '(index:' + str(len(properties)) + ') entries..')
 
                         #should be size 1
                         for pdoc in mapping[key]['properties']:
@@ -623,8 +623,9 @@ class RunCompletedChecker(threading.Thread):
                                 break
                         runstring = l.split('=')
                         try:
-                            runs = runstring[1].strip('\n ').split(',')
-                            for run in runs:
+                            runs = runstring[1].strip('\n').split(',')
+                            for rrun in runs:
+                                run = rrun.strip()
                                 if run.isdigit()==False:continue
                                 if int(run)==int(self.nr):
                                     runFound=True

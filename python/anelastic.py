@@ -45,6 +45,7 @@ class LumiSectionRanger():
         self.maxQueuedLumi=0
         self.maxReceivedEoLS=0
         self.maxClosedLumi=0
+        self.iniReceived=False
 
     def join(self, stop=False, timeout=None):
         if stop: self.stop()
@@ -86,6 +87,21 @@ class LumiSectionRanger():
                 if endTimeout==0: break
                 endTimeout-=1
 
+            if self.iniReceived==False:
+                try:
+                    os.stat(rawinputdir)
+                except OSError as ex:
+                    try:
+                        time.sleep(.5)
+                        os.stat(rawinputdir)
+                    except:
+                        #no such file or directory
+                        if ex.errno==2:
+                            self.logger.error('Starting run with input directory missing. anelastic script will die.')
+                            os._exit(1)
+                except:
+                    pass
+
         if self.checkClosure()==False:
             self.logger.error('not all lumisections were closed on exit!')
             try:
@@ -118,7 +134,9 @@ class LumiSectionRanger():
                 self.jsdfile=self.infile.filepath
             elif filetype == COMPLETE:
                 self.processCompleteFile()
-            elif filetype == INI: self.processINIfile()
+            elif filetype == INI:
+                self.processINIfile()
+                self.iniReceived=True
             elif not self.firstStream.isSet():
                 self.buffer.append(self.infile)
                 if filetype == EOLS:

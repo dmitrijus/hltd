@@ -764,7 +764,7 @@ class OnlineResource:
         except Exception as ex:
             logger.exception(ex)
 
-    def StartNewProcess(self ,runnumber, startindex, arch, version, menu,num_threads,num_streams):
+    def StartNewProcess(self ,runnumber, startindex, arch, version, menu,transfermode,num_threads,num_streams):
         logger.debug("OnlineResource: StartNewProcess called")
         self.runnumber = runnumber
 
@@ -790,6 +790,7 @@ class OnlineResource:
                             version,
                             conf.exec_directory,
                             menu,
+                            transfermode,
                             str(runnumber),
                             input_disk,
                             conf.watch_directory,
@@ -1092,6 +1093,7 @@ class Run:
         self.arch = None
         self.version = None
         self.menu = None
+        self.transfermode = None
         self.waitForEndThread = None
         self.beginTime = datetime.datetime.now()
         self.anelasticWatchdog = None
@@ -1113,38 +1115,47 @@ class Run:
 
         readMenuAttempts=0
         #polling for HLT menu directory
-        while os.path.exists(self.menu_directory)==False and conf.dqm_machine==False and conf.role=='fu':
-            readMenuAttempts+=1
-            #10 seconds allowed before defaulting to local configuration
-            if readMenuAttempts>50: break
+        def paramsPresent():
+            return os.path.exists(self.menu_directory) and os.path.exists(os.path.join(self.menu_directory,self.menu)) and os.path.exists(os.path.join(self.menu_directory,self.param_file))
 
-        readMenuAttempts=0
-        #try to read HLT parameters
-        if os.path.exists(self.menu_directory):
-            while True:
-                self.menu = self.menu_directory+'/'+conf.menu_name
-                if os.path.exists(self.menu_directory+'/'+conf.arch_file):
-                    with open(self.menu_directory+'/'+conf.arch_file,'r') as fp:
-                        self.arch = fp.readline().strip()
-                if os.path.exists(self.menu_directory+'/'+conf.version_file):
-                    with open(self.menu_directory+'/'+conf.version_file,'r') as fp:
-                        self.version = fp.readline().strip()
+        paramsDetected = False
+        while conf.dqm_machine==False and conf.role=='fu':
+            if paramsPresent():
                 try:
-                    logger.info("Run "+str(self.runnumber)+" uses "+ self.version+" ("+self.arch+") with "+self.menu)
+                    with open(os.path.join(self.menu_directory,self.param_file),'r') as fp:
+                           fffparams = json.load(fp)
+
+                           self.arch = fffparams['SCRAM_ARCH']
+                           self.version = fffparams['CMSSW_VERSION']
+                           self.transfermode = fffparams['TRANSFER_MODE']
+                           paramsDetected = True
+                           logger.info("Run " + str(self.runnumber) + " uses " + self.version + " ("+self.arch + ") with " + self.menu + ' transfers:'+self.transfermode)
                     break
+
+                except ValueError as ex:
+                    if readMenuAttempts>50:
+                        self.logger.exception(ex)
+                        break
                 except Exception as ex:
-                    logger.exception(ex)
-                    logger.error("Run parameters obtained for run "+str(self.runnumber)+": "+ str(self.version)+" ("+str(self.arch)+") with "+str(self.menu))
-                    time.sleep(.5)
-                    readMenuAttempts+=1
-                    if readMenuAttempts==3: raise Exception("Unable to parse HLT parameters")
-                    continue
-        else:
+                    if readMenuAttempts>50:
+                        self.logger.exception(ex)
+                        break
+
+            else:
+                if readMenuAttempts>50:
+                    self.logger.error("FFF parameter or HLT menu files not found in ramdisk")
+                    break
+            readMenuAttempts+=1
+            time.sleep(.1)
+            continue
+
+        if not paramsDetected:
             self.arch = conf.cmssw_arch
             self.version = conf.cmssw_default_version
             self.menu = conf.test_hlt_config1
+            self.transfermode = 'null'
             if conf.role=='fu':
-                logger.warn("Using default values for run "+str(self.runnumber)+": "+self.version+" ("+self.arch+") with "+self.menu)
+                logger.warn("Using default values for run " + str(self.runnumber) + ": " + self.version + " (" + self.arch + ") with " + self.menu)
 
         self.rawinputdir = None
         #
@@ -1303,6 +1314,7 @@ class Run:
                                  self.arch,
                                  self.version,
                                  self.menu,
+                                 self.transfermode,
                                  int(round((len(resource.cpu)*float(nthreads)/nstreams))),
                                  len(resource.cpu))
         logger.debug("StartOnResource process started")

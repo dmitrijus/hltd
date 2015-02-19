@@ -619,7 +619,7 @@ class fileHandler(object):
               self.setFieldByName("FileAdler32","-1")
               self.writeout() 
               jsndatFile = fileHandler(outfile)
-              jsndatFile.moveFile(os.path.join(outDir, os.path.basename(outfile)),adler32=False)
+              jsndatFile.moveFile(os.path.join(outDir, os.path.basename(outfile)),adler32=False,createDestinationDir=False)
             except Exception as ex:
               self.logger.error("Unable to copy jsonStream data file "+str(outfile)+" to output.")
               self.logger.exception(ex)

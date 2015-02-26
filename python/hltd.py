@@ -695,13 +695,14 @@ class BUEmu:
                         conf.cmssw_arch,
                         conf.cmssw_default_version,
                         conf.exec_directory,
+                        full_release,
+                        '""',
                         configtouse,
                         str(nr),
                         '/tmp', #input dir is not needed
                         destination_base,
                         '1',
-                        '1',
-                        full_release]
+                        '1']
         try:
             self.process = subprocess.Popen(new_run_args,
                                             preexec_fn=preexec_function,
@@ -789,14 +790,14 @@ class OnlineResource:
                             arch,
                             version,
                             conf.exec_directory,
+                            full_release,
                             menu,
                             transfermode,
                             str(runnumber),
                             input_disk,
                             conf.watch_directory,
                             str(num_threads),
-                            str(num_streams),
-                            full_release]
+                            str(num_streams)]
         else: # a dqm machine
             dqm_globalrun_file = input_disk + '/' + dqm_globalrun_filepattern.format(str(runnumber).zfill(conf.run_number_padding))
             run_type = ''
@@ -1092,7 +1093,6 @@ class Run:
 
         self.arch = None
         self.version = None
-        self.menu = None
         self.transfermode = None
         self.waitForEndThread = None
         self.beginTime = datetime.datetime.now()
@@ -1111,25 +1111,27 @@ class Run:
             active_runs.append(int(self.runnumber))
             active_runs_errors.append(0)
 
-        self.menu_directory = bu_dir+'/'+conf.menu_directory
+        self.hlt_directory = os.path.join(bu_dir,conf.menu_directory)
+        self.menu_path = os.path.join(self.hlt_directory,conf.menu_name)
+        self.paramfile_path = os.path.join(self.hlt_directory,conf.paramfile_name)
 
         readMenuAttempts=0
         #polling for HLT menu directory
         def paramsPresent():
-            return os.path.exists(self.menu_directory) and os.path.exists(os.path.join(self.menu_directory,self.menu)) and os.path.exists(os.path.join(self.menu_directory,self.param_file))
+            return os.path.exists(self.hlt_directory) and os.path.exists(self.menu_path) and os.path.exists(self.paramfile_path)
 
         paramsDetected = False
         while conf.dqm_machine==False and conf.role=='fu':
             if paramsPresent():
                 try:
-                    with open(os.path.join(self.menu_directory,self.param_file),'r') as fp:
+                    with open(self.paramfile_path,'r') as fp:
                            fffparams = json.load(fp)
 
                            self.arch = fffparams['SCRAM_ARCH']
                            self.version = fffparams['CMSSW_VERSION']
                            self.transfermode = fffparams['TRANSFER_MODE']
                            paramsDetected = True
-                           logger.info("Run " + str(self.runnumber) + " uses " + self.version + " ("+self.arch + ") with " + self.menu + ' transfers:'+self.transfermode)
+                           logger.info("Run " + str(self.runnumber) + " uses " + self.version + " ("+self.arch + ") with " + str(conf.menu_name) + ' transferDest:'+self.transfermode)
                     break
 
                 except ValueError as ex:
@@ -1143,7 +1145,7 @@ class Run:
 
             else:
                 if readMenuAttempts>50:
-                    self.logger.error("FFF parameter or HLT menu files not found in ramdisk")
+                    logger.error("FFF parameter or HLT menu files not found in ramdisk")
                     break
             readMenuAttempts+=1
             time.sleep(.1)
@@ -1152,10 +1154,13 @@ class Run:
         if not paramsDetected:
             self.arch = conf.cmssw_arch
             self.version = conf.cmssw_default_version
-            self.menu = conf.test_hlt_config1
+            self.menu_path = conf.test_hlt_config1
             self.transfermode = 'null'
             if conf.role=='fu':
-                logger.warn("Using default values for run " + str(self.runnumber) + ": " + self.version + " (" + self.arch + ") with " + self.menu)
+                logger.warn("Using default values for run " + str(self.runnumber) + ": " + self.version + " (" + self.arch + ") with " + self.menu_path)
+
+        #give this command line parameter quoted in case it is empty
+        self.transfermode='"'+self.transfermode+'"'
 
         self.rawinputdir = None
         #
@@ -1313,7 +1318,7 @@ class Run:
                                  self.online_resource_list.index(resource),
                                  self.arch,
                                  self.version,
-                                 self.menu,
+                                 self.menu_path,
                                  self.transfermode,
                                  int(round((len(resource.cpu)*float(nthreads)/nstreams))),
                                  len(resource.cpu))

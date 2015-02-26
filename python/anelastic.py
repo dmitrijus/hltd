@@ -704,6 +704,7 @@ class LumiSectionHandler():
             total = self.totalEvent
             errfile.setFieldByName("Processed", str(total - numErr) )
             errfile.setFieldByName("FileAdler32", "-1", warning=False)
+            errfile.setFieldByName("TransferDestination","ErrorArea",warning=False)
             errfile.writeout()
             newfilepath = os.path.join(self.outdir,errfile.run,errfile.basename)
             errfile.moveFile(newfilepath,createDestinationDir=False)

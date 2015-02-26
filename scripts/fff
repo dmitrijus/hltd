@@ -20,11 +20,12 @@ def executeService(service,commands):
    proc = Popen(arr, stdout=PIPE)
    output = proc.communicate()[0]
    time.sleep(.1)
-   if proc.returncode==0:
+   isHltdStatus = service == 'hltd' and 'status' in commands
+   if (isHltdStatus and 'is running' in output) or (not isHltdStatus and proc.returncode==0):
        print commands+' '+service+ ':\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
        return 0
    else:
-      print commands + ' ' + service + ' return code:'+str(proc.returncode)+' :\t\t\t\t [  \033[1;31mFAILED\033[0;39m  ]'
+      print commands + ' ' + service + '  (return code '+str(proc.returncode)+') : [  \033[1;31mFAILED\033[0;39m  ]'
       print 'command output:\n',output
       return proc.returncode
 
@@ -33,14 +34,14 @@ def reconfigureScript(services=['elasticsearch','hltd']):
       proc = Popen(['/etc/init.d/hltd','status'], stdout=PIPE)
       output = proc.communicate()[0]
       if 'is running' in output:
-        print "Unable to reconfigure if hltd already running"
+        print "Unable to reconfigure if hltd already running",' [  \033[1;31mFAILED\033[0;39m  ]'
         return 1
 
   if 'elasticsearch' in services:
     proc = Popen(['/etc/init.d/elasticsearch','status'], stdout=PIPE)
     output = proc.communicate()[0]
     if proc.returncode==0:
-      print "Unable to reconfigure if elasticsearch already running"
+      print "Unable to reconfigure if elasticsearch already running",' [  \033[1;31mFAILED\033[0;39m  ]'
       return 1
 
   #TODO:detect problems in execution of the reconfigure script
@@ -50,7 +51,7 @@ def reconfigureScript(services=['elasticsearch','hltd']):
     proc = Popen(['/opt/fff/configurefff.sh',services[0]], stdout=PIPE, stderr=PIPE)
   output = proc.communicate()[0]
   if proc.returncode!=0:
-      print 'Failed to run reconfigure script: ',output
+      print 'Failed to run reconfigure script: ',output,' [  \033[1;31mFAILED\033[0;39m  ]'
       return 1
   time.sleep(.1)
   return 0

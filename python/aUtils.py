@@ -680,6 +680,9 @@ class Aggregator(object):
         return str(res)
 
     def action_same(self,data1,data2):
+        #this is not ideal..
+        if str(data1)=='' or str(data1)=='0':
+            return str(data2)
         if str(data1) == str(data2):
             return str(data1)
         else:

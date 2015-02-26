@@ -1160,7 +1160,8 @@ class Run:
                 logger.warn("Using default values for run " + str(self.runnumber) + ": " + self.version + " (" + self.arch + ") with " + self.menu_path)
 
         #give this command line parameter quoted in case it is empty
-        self.transfermode='"'+self.transfermode+'"'
+        if len(self.transfermode)==0:
+            self.transfermode='null'
 
         self.rawinputdir = None
         #

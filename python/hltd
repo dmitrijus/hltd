@@ -58,7 +58,7 @@ if __name__ == "__main__":
             #determine runlevel
             std_out=""
             try:
-                p = Popen("runlevel", shell=True, stdout=PIPE)
+                p = Popen("/sbin/runlevel", shell=True, stdout=PIPE)
                 p.wait()
                 std_out=p.stdout.read()
                 from_level = std_out.split('\t')[0].rstrip('\n').strip().split(' ')[0]

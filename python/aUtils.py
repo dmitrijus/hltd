@@ -99,6 +99,11 @@ class MonitorRanger:
                 self.logger.warning("Problem checking new EoLS filename: "+str(os.path.basename(event.fullpath)) + " error:"+str(ex))
                 try:self.lock.release()
                 except:pass
+            #delete associated BoLS file 
+            try:
+                os.unlink(event.fullpath[:event.fullpath.rfind("_EoLS.jsn")]+"_BoLS.jsn")
+            except:
+                pass
         elif event.fullpath.endswith("_BoLS.jsn"):
             try:
                 queuedLumi = int(os.path.basename(event.fullpath).split('_')[1][2:])
@@ -107,11 +112,7 @@ class MonitorRanger:
                 self.updateQueueStatusFile()
             except:
                 pass
-            #delete file without passing it to the
-            try:
-                os.unlink(event.fullpath)
-            except:
-                pass
+            #not passed to the queue
             return False
         return True
 

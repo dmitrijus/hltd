@@ -1753,7 +1753,7 @@ class RunRanger:
                             try:
                                 os.symlink(bu_dir+'/jsd',event.fullpath+'/jsd')
                             except:
-                                if not dqm_machine:
+                                if not conf.dqm_machine:
                                     self.logger.warning('jsd directory symlink error, continuing without creating link')
                                 pass
                         else:

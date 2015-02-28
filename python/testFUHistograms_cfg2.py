@@ -329,6 +329,13 @@ options.register ('numFwkStreams',
                   VarParsing.VarParsing.varType.int,          # string, int, or float 
                   "Number of CMSSW streams") 
 
+options.register ('transferMode', 
+                  '', # default value 
+                  VarParsing.VarParsing.multiplicity.singleton, 
+                  VarParsing.VarParsing.varType.string,          # string, int, or float 
+                  "Selected transfer mode propagated by RCMS")
+
+
 options.parseArguments() 
 
 process.options = cms.untracked.PSet( 
@@ -345,4 +352,8 @@ process.PoolDBESSource.pfnPrefix = cms.untracked.string('frontier://FrontierProd
 
 process.EvFDaqDirector.buBaseDir    = options.buBaseDir 
 process.EvFDaqDirector.baseDir      = options.dataDir 
-process.EvFDaqDirector.runNumber    = options.runNumber 
+process.EvFDaqDirector.runNumber    = options.runNumber
+
+#for now allow to not find the field (older CMSSW versions)
+try:process.EvFDaqDirector.selectedTransferMode = options.transferMode
+except:pass

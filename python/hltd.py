@@ -929,8 +929,11 @@ class ProcessWatchdog(threading.Thread):
                 resource_lock.release()
                 return
 
-            #bump error count in active_runs_errors which is logged in the box file
-            if returncode!=0:
+
+            #cleanup actions- remove process from list and attempt restart on same resource
+            if returncode != 0 and returncode!=None:
+
+                #bump error count in active_runs_errors which is logged in the box file
                 try:
                     global active_runs
                     global active_runs_errors
@@ -938,8 +941,7 @@ class ProcessWatchdog(threading.Thread):
                 except:
                     pass
 
-            #cleanup actions- remove process from list and attempt restart on same resource
-            if returncode != 0:
+
                 if returncode < 0:
                     logger.error("process "+str(pid)
                               +" for run "+str(self.resource.runnumber)
@@ -1035,7 +1037,7 @@ class ProcessWatchdog(threading.Thread):
                         logger.exception(ex)
 
             #successful end= release resource (TODO:maybe should mark aborted for non-0 error codes)
-            elif returncode == 0:
+            elif returncode == 0 or returncode == None:
                 logger.info('releasing resource, exit 0 meaning end of run '+str(self.resource.cpu))
 
                 # generate an end-of-run marker if it isn't already there - it will be picked up by the RunRanger

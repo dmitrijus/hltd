@@ -683,13 +683,14 @@ class BUEmu:
                         conf.cmssw_arch,
                         conf.cmssw_default_version,
                         conf.exec_directory,
+                        full_release,
+                        '""',
                         configtouse,
                         str(nr),
                         '/tmp', #input dir is not needed
                         destination_base,
                         '1',
-                        '1',
-                        full_release]
+                        '1']
         try:
             self.process = subprocess.Popen(new_run_args,
                                             preexec_fn=preexec_function,
@@ -752,7 +753,7 @@ class OnlineResource:
         except Exception as ex:
             logger.exception(ex)
 
-    def StartNewProcess(self ,runnumber, startindex, arch, version, menu,num_threads,num_streams):
+    def StartNewProcess(self ,runnumber, startindex, arch, version, menu,transfermode,num_threads,num_streams):
         logger.debug("OnlineResource: StartNewProcess called")
         self.runnumber = runnumber
 
@@ -777,13 +778,14 @@ class OnlineResource:
                             arch,
                             version,
                             conf.exec_directory,
+                            full_release,
                             menu,
+                            transfermode,
                             str(runnumber),
                             input_disk,
                             conf.watch_directory,
                             str(num_threads),
-                            str(num_streams),
-                            full_release]
+                            str(num_streams)]
         else: # a dqm machine
             dqm_globalrun_file = input_disk + '/' + dqm_globalrun_filepattern.format(str(runnumber).zfill(conf.run_number_padding))
             run_type = ''
@@ -915,12 +917,12 @@ class ProcessWatchdog(threading.Thread):
                 resource_lock.release()
                 return
 
-            #bump error count which is logged in the box file
-            if returncode!=0:
+            #cleanup actions- remove process from list and attempt restart on same resource
+            if returncode != 0 and returncode!=None:
+
+                #bump error count in active_runs_errors which is logged in the box file
                 self.num_errors+=1
 
-            #cleanup actions- remove process from list and attempt restart on same resource
-            if returncode != 0:
                 if returncode < 0:
                     logger.error("process "+str(pid)
                               +" for run "+str(self.resource.runnumber)
@@ -1016,7 +1018,7 @@ class ProcessWatchdog(threading.Thread):
                         logger.exception(ex)
 
             #successful end= release resource (TODO:maybe should mark aborted for non-0 error codes)
-            elif returncode == 0:
+            elif returncode == 0 or returncode == None:
                 logger.info('releasing resource, exit 0 meaning end of run '+str(self.resource.cpu))
 
                 # generate an end-of-run marker if it isn't already there - it will be picked up by the RunRanger
@@ -1078,7 +1080,7 @@ class Run:
 
         self.arch = None
         self.version = None
-        self.menu = None
+        self.transfermode = None
         self.waitForEndThread = None
         self.beginTime = datetime.datetime.now()
         self.anelasticWatchdog = None
@@ -1090,42 +1092,57 @@ class Run:
 #            if int(self.runnumber) in active_runs:
 #                raise Exception("Run "+str(self.runnumber)+ "already active")
 
-        self.menu_directory = bu_dir+'/'+conf.menu_directory
+        self.hlt_directory = os.path.join(bu_dir,conf.menu_directory)
+        self.menu_path = os.path.join(self.hlt_directory,conf.menu_name)
+        self.paramfile_path = os.path.join(self.hlt_directory,conf.paramfile_name)
 
         readMenuAttempts=0
         #polling for HLT menu directory
-        while os.path.exists(self.menu_directory)==False and conf.dqm_machine==False and conf.role=='fu':
-            readMenuAttempts+=1
-            #10 seconds allowed before defaulting to local configuration
-            if readMenuAttempts>50: break
+        def paramsPresent():
+            return os.path.exists(self.hlt_directory) and os.path.exists(self.menu_path) and os.path.exists(self.paramfile_path)
 
-        readMenuAttempts=0
-        #try to read HLT parameters
-        if os.path.exists(self.menu_directory):
-            while True:
-                self.menu = self.menu_directory+'/'+conf.menu_name
-                if os.path.exists(self.menu_directory+'/'+conf.arch_file):
-                    with open(self.menu_directory+'/'+conf.arch_file,'r') as fp:
-                        self.arch = fp.readline().strip()
-                if os.path.exists(self.menu_directory+'/'+conf.version_file):
-                    with open(self.menu_directory+'/'+conf.version_file,'r') as fp:
-                        self.version = fp.readline().strip()
+        paramsDetected = False
+        while conf.dqm_machine==False and conf.role=='fu':
+            if paramsPresent():
                 try:
-                    logger.info("Run "+str(self.runnumber)+" uses "+ self.version+" ("+self.arch+") with "+self.menu)
+                    with open(self.paramfile_path,'r') as fp:
+                           fffparams = json.load(fp)
+
+                           self.arch = fffparams['SCRAM_ARCH']
+                           self.version = fffparams['CMSSW_VERSION']
+                           self.transfermode = fffparams['TRANSFER_MODE']
+                           paramsDetected = True
+                           logger.info("Run " + str(self.runnumber) + " uses " + self.version + " ("+self.arch + ") with " + str(conf.menu_name) + ' transferDest:'+self.transfermode)
                     break
+
+                except ValueError as ex:
+                    if readMenuAttempts>50:
+                        self.logger.exception(ex)
+                        break
                 except Exception as ex:
-                    logger.exception(ex)
-                    logger.error("Run parameters obtained for run "+str(self.runnumber)+": "+ str(self.version)+" ("+str(self.arch)+") with "+str(self.menu))
-                    time.sleep(.5)
-                    readMenuAttempts+=1
-                    if readMenuAttempts==3: raise Exception("Unable to parse HLT parameters")
-                    continue
-        else:
+                    if readMenuAttempts>50:
+                        self.logger.exception(ex)
+                        break
+
+            else:
+                if readMenuAttempts>50:
+                    logger.error("FFF parameter or HLT menu files not found in ramdisk")
+                    break
+            readMenuAttempts+=1
+            time.sleep(.1)
+            continue
+
+        if not paramsDetected:
             self.arch = conf.cmssw_arch
             self.version = conf.cmssw_default_version
-            self.menu = conf.test_hlt_config1
+            self.menu_path = conf.test_hlt_config1
+            self.transfermode = 'null'
             if conf.role=='fu':
-                logger.warn("Using default values for run "+str(self.runnumber)+": "+self.version+" ("+self.arch+") with "+self.menu)
+                logger.warn("Using default values for run " + str(self.runnumber) + ": " + self.version + " (" + self.arch + ") with " + self.menu_path)
+
+        #give this command line parameter quoted in case it is empty
+        if len(self.transfermode)==0:
+            self.transfermode='null'
 
         self.rawinputdir = None
         #
@@ -1283,7 +1300,8 @@ class Run:
                                  self.online_resource_list.index(resource),
                                  self.arch,
                                  self.version,
-                                 self.menu,
+                                 self.menu_path,
+                                 self.transfermode,
                                  int(round((len(resource.cpu)*float(nthreads)/nstreams))),
                                  len(resource.cpu))
         logger.debug("StartOnResource process started")
@@ -1750,7 +1768,7 @@ class RunRanger:
                             try:
                                 os.symlink(bu_dir+'/jsd',event.fullpath+'/jsd')
                             except:
-                                if not dqm_machine:
+                                if not conf.dqm_machine:
                                     self.logger.warning('jsd directory symlink error, continuing without creating link')
                                 pass
                         else:

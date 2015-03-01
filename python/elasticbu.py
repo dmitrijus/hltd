@@ -159,11 +159,17 @@ class elasticBandBU:
                     inmapping = json.loads(res.content)
                     for indexname in inmapping:
                         properties = inmapping[indexname]['mappings'][key]['properties']
+
+                        self.logger.info('checking mapping '+ indexname + '/' + key + ' which has '
+                            + str(len(mapping[key]['properties'])) + '(index:' + str(len(properties)) + ') entries..')
+
                         #should be size 1
                         for pdoc in mapping[key]['properties']:
                             if pdoc not in properties:
                                 requests.post(self.ip_url+'/'+index_name+'/'+key+'/_mapping',json.dumps(doc))
                                 break
+            else:
+                self.logger.warning('requests error code '+res.status_code+' in mapping request')
 
     def read_line(self,fullpath):
         with open(fullpath,'r') as fp:
@@ -299,11 +305,11 @@ class elasticBandBU:
         basename = infile.basename
         self.logger.info(basename)
         data = infile.data['data']
-        data.append(infile.mtime)
-        data.append(infile.ls[2:])
+        data.insert(0,infile.mtime)
+        data.insert(0,infile.ls[2:])
         
         values = [int(f) if f.isdigit() else str(f) for f in data]
-        keys = ["NEvents","NFiles","TotalEvents","fm_date","ls"]
+        keys = ["ls","fm_date","NEvents","NFiles","TotalEvents","NLostEvents"]
         document = dict(zip(keys, values))
 
         document['id'] = infile.name+"_"+os.uname()[1]
@@ -605,8 +611,9 @@ class RunCompletedChecker(threading.Thread):
                                 break
                         runstring = l.split('=')
                         try:
-                            runs = runstring[1].strip('\n ').split(',')
-                            for run in runs:
+                            runs = runstring[1].strip('\n').split(',')
+                            for rrun in runs:
+                                run = rrun.strip()
                                 if run.isdigit()==False:continue
                                 if int(run)==int(self.nr):
                                     runFound=True

@@ -99,6 +99,11 @@ class MonitorRanger:
                 self.logger.warning("Problem checking new EoLS filename: "+str(os.path.basename(event.fullpath)) + " error:"+str(ex))
                 try:self.lock.release()
                 except:pass
+            #delete associated BoLS file 
+            try:
+                os.unlink(event.fullpath[:event.fullpath.rfind("_EoLS.jsn")]+"_BoLS.jsn")
+            except:
+                pass
         elif event.fullpath.endswith("_BoLS.jsn"):
             try:
                 queuedLumi = int(os.path.basename(event.fullpath).split('_')[1][2:])
@@ -107,11 +112,7 @@ class MonitorRanger:
                 self.updateQueueStatusFile()
             except:
                 pass
-            #delete file without passing it to the
-            try:
-                os.unlink(event.fullpath)
-            except:
-                pass
+            #not passed to the queue
             return False
         return True
 
@@ -616,7 +617,7 @@ class fileHandler(object):
               self.setFieldByName("FileAdler32","-1")
               self.writeout() 
               jsndatFile = fileHandler(outfile)
-              jsndatFile.moveFile(os.path.join(outDir, os.path.basename(outfile)),adler32=False)
+              jsndatFile.moveFile(os.path.join(outDir, os.path.basename(outfile)),adler32=False,createDestinationDir=False)
             except Exception as ex:
               self.logger.error("Unable to copy jsonStream data file "+str(outfile)+" to output.")
               self.logger.exception(ex)
@@ -677,6 +678,9 @@ class Aggregator(object):
         return str(res)
 
     def action_same(self,data1,data2):
+        #this is not ideal..
+        if str(data1)=='' or str(data1)=='0':
+            return str(data2)
         if str(data1) == str(data2):
             return str(data1)
         else:

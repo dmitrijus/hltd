@@ -119,7 +119,8 @@ central_runindex_mapping = {
                     'ls'            :{'type':'integer'},
                     'NEvents'       :{'type':'integer'},
                     'NFiles'        :{'type':'integer'},
-                    'TotalEvents'   :{'type':'integer'}
+                    'TotalEvents'   :{'type':'integer'},
+                    'NLostEvents'   :{'type':'integer'}
                     },
                 '_timestamp' : { 
                     'enabled'   : True,

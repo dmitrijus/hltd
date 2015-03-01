@@ -168,7 +168,7 @@ cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta.spec <<EOF
 Name: $PACKAGENAME
-Version: 1.6.1
+Version: 1.6.3
 Release: 0
 Summary: hlt daemon
 License: gpl
@@ -184,6 +184,7 @@ Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/setupmachine.py
 Provides:/opt/fff/instances.input
 Provides:/etc/init.d/fffmeta
+Provides:/etc/init.d/fff
 
 #Provides:/opt/fff/backup/elasticsearch.yml
 #Provides:/opt/fff/backup/elasticsearch
@@ -209,8 +210,19 @@ mkdir -p etc/init.d/
 cp $BASEDIR/python/setupmachine.py %{buildroot}/opt/fff/setupmachine.py
 cp $BASEDIR/etc/instances.input %{buildroot}/opt/fff/instances.input
 echo "#!/bin/bash" > %{buildroot}/opt/fff/configurefff.sh
-echo python2.6 /opt/hltd/python/fillresources.py >>  %{buildroot}/opt/fff/configurefff.sh
-echo python2.6 /opt/fff/setupmachine.py elasticsearch,hltd $params >> %{buildroot}/opt/fff/configurefff.sh 
+echo
+
+echo "if [ -n \"\\\$1\" ]; then"                                       >> %{buildroot}/opt/fff/configurefff.sh
+echo "  if [ \\\$1 == \"elasticsearch\" ]; then"                       >> %{buildroot}/opt/fff/configurefff.sh
+echo "    python2.6 /opt/fff/setupmachine.py elasticsearch $params"    >> %{buildroot}/opt/fff/configurefff.sh
+echo "  elif [ \\\$1 == \"hltd\" ]; then"                              >> %{buildroot}/opt/fff/configurefff.sh
+echo "    python2.6 /opt/hltd/python/fillresources.py"                 >> %{buildroot}/opt/fff/configurefff.sh
+echo "    python2.6 /opt/fff/setupmachine.py hltd $params"             >> %{buildroot}/opt/fff/configurefff.sh
+echo "  fi"                                                            >> %{buildroot}/opt/fff/configurefff.sh
+echo "else"                                                            >> %{buildroot}/opt/fff/configurefff.sh
+echo "  python2.6 /opt/hltd/python/fillresources.py"                   >> %{buildroot}/opt/fff/configurefff.sh
+echo "  python2.6 /opt/fff/setupmachine.py elasticsearch,hltd $params" >> %{buildroot}/opt/fff/configurefff.sh 
+echo "fi"                                                              >> %{buildroot}/opt/fff/configurefff.sh
 
 cp $BASEDIR/esplugins/$pluginfile1 %{buildroot}/opt/fff/esplugins/$pluginfile1
 cp $BASEDIR/esplugins/$pluginfile2 %{buildroot}/opt/fff/esplugins/$pluginfile2
@@ -218,6 +230,8 @@ cp $BASEDIR/esplugins/$pluginfile3 %{buildroot}/opt/fff/esplugins/$pluginfile3
 cp $BASEDIR/esplugins/$pluginfile4 %{buildroot}/opt/fff/esplugins/$pluginfile4
 cp $BASEDIR/esplugins/install.sh %{buildroot}/opt/fff/esplugins/install.sh
 cp $BASEDIR/esplugins/uninstall.sh %{buildroot}/opt/fff/esplugins/uninstall.sh
+
+cp $BASEDIR/scripts/fff %{buildroot}/etc/init.d/fff
 
 echo "#!/bin/bash"                       >> %{buildroot}/etc/init.d/fffmeta
 echo "#"                                 >> %{buildroot}/etc/init.d/fffmeta
@@ -246,6 +260,7 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 755 ,root, root) /opt/fff/instances.input
 %attr( 700 ,root, root) /opt/fff/configurefff.sh
 %attr( 755 ,root, root) /etc/init.d/fffmeta
+%attr( 755 ,root, root) /etc/init.d/fff
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile1
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile2
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile3

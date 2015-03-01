@@ -431,7 +431,6 @@ class system_monitor(threading.Thread):
     def rehash(self):
         if conf.role == 'fu':
             self.directory = [os.path.join(bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
-            #self.directory = ['/'+x+'/appliance/boxes/' for x in bu_disk_list_ramdisk_instance]
             #write only in one location
         else:
             self.directory = [os.path.join(conf.watch_directory,'appliance/boxes/')]
@@ -590,10 +589,7 @@ class system_monitor(threading.Thread):
                                 'activeRuns' :   runList.getActiveRunNumbers(),
                                 'activeRunNumQueuedLS':numQueuedLumis,
                                 'activeRunCMSSWMaxLS':maxCMSSWLumi,
-                                #'activeRunStats':
-                                #TODO
-                                #'activeRunStats':
-                                #'activeRunsErrors' : runList.getActiveRunNumbers(),
+                                'activeRunStats':runList.getStateJson()
                             }
 
                             with open(mfile,'w+') as fp:
@@ -709,8 +705,9 @@ bu_emulator=BUEmu()
 
 class OnlineResource:
 
-    def __init__(self,resourcenames,lock):
-        self.hoststate = 0 #@@MO what is this used for?
+    def __init__(self,parent,resourcenames,lock):
+        self.parent = parent
+        #self.hoststate = 0 #@@MO what is this used for?
         self.cpu = resourcenames
         self.process = None
         self.processstate = None
@@ -724,7 +721,7 @@ class OnlineResource:
 
     def ping(self):
         if conf.role == 'bu':
-            if not os.system("ping -c 1 "+self.cpu[0])==0: self.hoststate = 0
+            if not os.system("ping -c 1 "+self.cpu[0])==0: pass #self.hoststate = 0
 
     def NotifyNewRun(self,runnumber):
         self.runnumber = runnumber
@@ -735,7 +732,7 @@ class OnlineResource:
             response = connection.getresponse()
             #do something intelligent with the response code
             logger.error("response was "+str(response.status))
-            if response.status > 300: self.hoststate = 1
+            #if response.status > 300: self.hoststate = 1
             else:
                 logger.info(response.read())
         except Exception as ex:
@@ -749,7 +746,7 @@ class OnlineResource:
             response = connection.getresponse()
             time.sleep(0.05)
             #do something intelligent with the response code
-            if response.status > 300: self.hoststate = 0
+            #if response.status > 300: self.hoststate = 0
         except Exception as ex:
             logger.exception(ex)
 
@@ -854,6 +851,8 @@ class OnlineResource:
                 logger.info('Clearing quarantined resource '+cpu)
                 os.rename(quarantined+cpu,idles+cpu)
             self.quarantined = []
+            parent.n_used=0
+            parent.n_quarantined=0
         except Exception as ex:
             logger.exception(ex)
         resource_lock.release()
@@ -911,6 +910,7 @@ class ProcessWatchdog(threading.Thread):
                     for cpu in self.resource.cpu:
                         try:
                             os.rename(used+cpu,idles+cpu)
+                            self.resource.parent.n_used-=1
                         except Exception as ex:
                             logger.exception(ex)
                 except:pass
@@ -1004,6 +1004,7 @@ class ProcessWatchdog(threading.Thread):
                     for cpu in self.resource.cpu:
                         os.rename(used+cpu,quarantined+cpu)
                         self.resource.quarantined.append(cpu)
+                        self.resource.parent.n_quarantined+=1
                     resource_lock.release()
                     self.quarantined=True
 
@@ -1086,6 +1087,10 @@ class Run:
         self.anelasticWatchdog = None
         self.threadEvent = threading.Event()
 
+        #stats on usage of resources
+        self.n_used = 0
+        self.n_quarantined = 0
+
         if conf.role == 'fu':
             self.changeMarkerMaybe(Run.STARTING)
 #TODO:raise from runList
@@ -1149,17 +1154,10 @@ class Run:
         if conf.role == "bu":
             try:
                 self.rawinputdir = conf.watch_directory+'/run'+str(self.runnumber).zfill(conf.run_number_padding)
-                #if conf.instance!="main" and conf.instance_same_destination==False:
-                #    try:os.mkdir(os.path.join(conf.micromerge_output,conf.instance))
-                #    except:pass
-                #    self.buoutputdir = os.path.join(conf.micromerge_output,instance,'run'+str(self.runnumber).zfill(conf.run_number_padding))
-                #else:
-                #    self.buoutputdir = os.path.join(conf.micromerge_output,'run'+str(self.runnumber).zfill(conf.run_number_padding))
                 os.mkdir(self.rawinputdir+'/mon')
             except Exception, ex:
                 logger.error("could not create mon dir inside the run input directory")
         else:
-            #self.rawinputdir= os.path.join(random.choice(bu_disk_list_ramdisk_instance),'run' + str(self.runnumber).zfill(conf.run_number_padding))
             self.rawinputdir= os.path.join(bu_disk_list_ramdisk_instance[0],'run' + str(self.runnumber).zfill(conf.run_number_padding))
 
         self.lock = threading.Lock()
@@ -1187,7 +1185,6 @@ class Run:
         if conf.role == "fu" and conf.dqm_machine==False:
             try:
                 logger.info("starting anelastic.py with arguments:"+self.dirname)
-                #elastic_args = ['/opt/hltd/python/anelastic.py',self.dirname,str(self.runnumber), self.rawinputdir,random.choice(bu_disk_list_output_instance)]
                 elastic_args = ['/opt/hltd/python/anelastic.py',self.dirname,str(self.runnumber), self.rawinputdir,bu_disk_list_output_instance[0]]
                 self.anelastic_monitor = subprocess.Popen(elastic_args,
                                                     preexec_fn=preexec_function,
@@ -1208,10 +1205,11 @@ class Run:
 
             for resourcename in resourcenames:
               os.rename(idles+resourcename,used+resourcename)
+              self.n_used+=1
             if not filter(lambda x: x.cpu==resourcenames,self.online_resource_list):
                 logger.debug("resource(s) "+str(resourcenames)
                               +" not found in online_resource_list, creating new")
-                self.online_resource_list.append(OnlineResource(resourcenames,self.lock))
+                self.online_resource_list.append(OnlineResource(self,resourcenames,self.lock))
                 return self.online_resource_list[-1]
             logger.debug("resource(s) "+str(resourcenames)
                           +" found in online_resource_list")
@@ -1221,7 +1219,7 @@ class Run:
             logger.info(ex)
 
     def ContactResource(self,resourcename):
-        self.online_resource_list.append(OnlineResource(resourcename,self.lock))
+        self.online_resource_list.append(OnlineResource(self,resourcename,self.lock))
         self.online_resource_list[-1].ping() #@@MO this is not doing anything useful, afaikt
 
     def ReleaseResource(self,res):
@@ -1418,6 +1416,7 @@ class Run:
                     for cpu in resource.cpu:
                         try:
                             os.rename(used+cpu,idles+cpu)
+                            self.n_used-=1
                         except OSError:
                             #@SM:happens if it was quarantined
                             logger.warning('Unable to find resource file '+used+cpu+'.')
@@ -1688,8 +1687,11 @@ class RunList:
     def isHighestRun(self,runObj):
         return len(filter(lambda x: x.runnumber>runObj.runNumber,self.runs))==0
 
-    def getStatJson(self):
-        pass
+    def getStateJson(self):
+        docArray = []
+        for run in self.runs:
+          docArray.append({runObj.runNumber:{'total':runObj.n_used,'q':runObj.n_quarantined,'ongoing':runObj.is_ongoing_run,'errors':runObj.num_errors}})
+        return docArray
 
 
 class RunRanger:
@@ -1763,7 +1765,6 @@ class RunRanger:
                                 logger.fatal("failed to disable VM mode when receiving notification for run "+str(nr))
                                 logger.exception(ex)
                         if conf.role == 'fu':
-                            #bu_dir = random.choice(bu_disk_list_ramdisk_instance)+'/'+dirname
                             bu_dir = bu_disk_list_ramdisk_instance[0]+'/'+dirname
                             try:
                                 os.symlink(bu_dir+'/jsd',event.fullpath+'/jsd')

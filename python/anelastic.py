@@ -145,7 +145,7 @@ class LumiSectionRanger():
                     self.LSHandlerList.pop(key,None)
         elif filetype == DEFINITION:
             self.processDefinitionFile()
-        elif filetype == OUTPUTJSD
+        elif filetype == OUTPUTJSD:
             if not self.jsdfile:self.jsdfile=self.infile.filepath
         elif filetype == COMPLETE:
             self.processCompleteFile()

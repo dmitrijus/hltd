@@ -2156,7 +2156,7 @@ class RunRanger:
             #hook to restart logcollector process manually
             restartLogCollector(self.instance)
             os.remove(event.fullpath)
- 
+
         logger.debug("RunRanger completed handling of event "+event.fullpath)
 
     def process_default(self, event):
@@ -2474,6 +2474,10 @@ class hltd(Daemon2,object):
                 rr.register_inotify_path(resource_base, imask)
                 rr.register_inotify_path(resource_base+'/boxes', imask)
             else:
+                #status file for cloud
+                #with open(os.path.join(watch_directory,'mode'),'w') as fp:
+                #  json.dump({"mode":"hlt"},fp))
+                #
                 imask_appl  = inotify.IN_MODIFY
                 imask  = inotify.IN_MOVED_TO
                 rr.register_inotify_path(appliance_base, imask_appl)

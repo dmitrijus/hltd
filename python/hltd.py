@@ -51,6 +51,7 @@ resource_lock = threading.Lock()
 nsslock = threading.Lock()
 suspended=False
 entering_cloud_mode=False
+exiting_cloud_mode=False
 cloud_mode=False
 abort_cloud_mode=False
 
@@ -143,16 +144,50 @@ def move_resources_to_cloud():
     for cpu in dirlist:
         os.rename(idles+cpu,cloud+cpu)
 
-
-#todo:interface to the cloud script
+#interfaces to the cloud igniter script
 def ignite_cloud():
-    pass
+    try:
+        proc = subprocess.Popen([conf.cloud_igniter,'start'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        out = process.communicate()[0]
+        if proc.returncode==0:
+            return True
+        else:
+            logger.error("cloud igniter start returned code "+str(proc.returncode))
+        if proc.returncode>1:
+             logger.error(out)
+
+    except OSError as ex:
+        logger.error("Failed to run cloud igniter start")
+        logger.exception(ex)
+    return False
 
 def extinguish_cloud():
-    pass
+    try:
+        proc = subprocess.Popen([conf.cloud_igniter,'stop'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        out = process.communicate()[0]
+        if proc.returncode in [0,1]:
+            return True
+        else:
+            logger.error("cloud igniter stop returned "+str(proc.returncode))
+            logger.error(out)
+
+    except OSError as ex:
+        logger.error("Failed to run cloud igniter stop")
+        logger.exception(ex)
+    return False
 
 def is_cloud_inactive():
-    pass
+    try:
+        proc = subprocess.Popen([conf.cloud_igniter,'status'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        out = process.communicate()[0]
+        if proc.returncode >1:
+            logger.error("cloud igniter status returned error code "+str(proc.returncode))
+            logger.error(out)
+    except OSError as ex:
+        logger.error("Failed to run cloud igniter status")
+        logger.exception(ex)
+        return 100
+    return proc.returncode
 
 def cleanup_mountpoints(remount=True):
 
@@ -587,6 +622,14 @@ class system_monitor(threading.Thread):
                             n_quarantined = len(os.listdir(quarantined))
                             numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
 
+                            cloud_state = "off"
+                            if cloud_mode:
+                                if entering_cloud_mode: cloud_state="starting"
+                                elif exiting_cloud_mode:cloud_state="stopping"
+                                else: cloud_state="on"
+                            else:
+                              cloud_state = "off"
+
                             boxdoc = {
                                 'fm_date':tstring,
                                 'idles' : n_idles,
@@ -599,7 +642,8 @@ class system_monitor(threading.Thread):
                                 'activeRuns' :   runList.getActiveRunNumbers(),
                                 'activeRunNumQueuedLS':numQueuedLumis,
                                 'activeRunCMSSWMaxLS':maxCMSSWLumi,
-                                'activeRunStats':runList.getStateJson()
+                                'activeRunStats':runList.getStateDoc(),
+                                'cloudState':cloud_state
                             }
 
                             with open(mfile,'w+') as fp:
@@ -1103,9 +1147,9 @@ class Run:
 
         if conf.role == 'fu':
             self.changeMarkerMaybe(Run.STARTING)
-#TODO:raise from runList
-#            if int(self.runnumber) in active_runs:
-#                raise Exception("Run "+str(self.runnumber)+ "already active")
+        #TODO:raise from runList
+        #            if int(self.runnumber) in active_runs:
+        #                raise Exception("Run "+str(self.runnumber)+ "already active")
 
         self.hlt_directory = os.path.join(bu_dir,conf.menu_directory)
         self.menu_path = os.path.join(self.hlt_directory,conf.menu_name)
@@ -1522,6 +1566,7 @@ class Run:
         logger.info("wait for end thread!")
         global cloud_mode
         global entering_cloud_mode
+        global abort_cloud_mode
         try:
             for resource in self.online_resource_list:
                 resource.disableRestart()
@@ -1714,10 +1759,10 @@ class RunList:
     def isHighestRun(self,runObj):
         return len(filter(lambda x: x.runnumber>runObj.runNumber,self.runs))==0
 
-    def getStateJson(self):
+    def getStateDoc(self):
         docArray = []
         for run in self.runs:
-          docArray.append({runObj.runNumber:{'total':runObj.n_used,'q':runObj.n_quarantined,'ongoing':runObj.is_ongoing_run,'errors':runObj.num_errors}})
+          docArray.append({'run':runObj.runNumber,'totalRes':runObj.n_used,'qRes':runObj.n_quarantined,'ongoing':runObj.is_ongoing_run,'errors':runObj.num_errors})
         return docArray
 
 
@@ -1743,6 +1788,8 @@ class RunRanger:
         global runList
         global cloud_mode
         global entering_cloud_mode
+        global exiting_cloud_mode
+        global abort_cloud_mode
         logger.info('RunRanger: event '+event.fullpath)
         dirname=event.fullpath[event.fullpath.rfind("/")+1:]
         logger.info('RunRanger: new filename '+dirname)
@@ -2087,19 +2134,23 @@ class RunRanger:
             resource_lock.release()
 
             #run stop cloud notification
+            exiting_cloud_mode=True
             extinguish_cloud()
 
             while True:
                 last_status = is_cloud_inactive()
                 logger.info('cloud last status, deactivated:'+str(last_status))
-                if last_status==False:
+                if last_status==0: #state: running
                     time.sleep(1)
                     continue
                 else:
+                    if last_status>1:
+                        logger.warning('Received error code from cloud igniter script. Switching off cloud mode')
                     resource_lock.acquire()
                     cloud_mode=False
                     cleanup_resources()
                     resource_lock.release()
+            exiting_cloud_mode=False
             os.remove(event.fullpath)
         elif dirname.startswith('logrestart'):
             #hook to restart logcollector process manually

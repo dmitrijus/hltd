@@ -181,8 +181,21 @@ central_boxinfo_mapping = {
               'usedOutput'    :{'type':'integer'},
               'totalOutput'   :{'type':'integer'},
               'activeRuns'    :{'type':'string'},
-              'activeRunsErrors':{'type':'string',"index":"not_analyzed"},
-              'activeRunNumQueuedLS':{'type':'integer'}
+              'activeRunNumQueuedLS':{'type':'integer'},
+              'activeRunCMSSWMaxLS': {'type':'integer'},
+              'activeRunStats'    :{
+                  'type':'nested',
+                  #"include_in_parent": True,
+                  'properties': {
+                      'run':      {'type': 'integer'},
+                      'ongoing':  {'type': 'boolean'},
+                      'totalRes': {'type': 'integer'},
+                      'qRes':     {'type': 'integer'},
+                      'errors':   {'type': 'integer'}
+                  }
+              },
+              'cloudState'    :{'type':'string',"index":"not_analyzed"}
+              #'activeRunsErrors':{'type':'string',"index":"not_analyzed"},#deprecated
               },
             '_timestamp' : { 
               'enabled'   : True,

@@ -22,6 +22,8 @@ STREAMERRORNAME = 'streamError'
 STREAMDQMHISTNAME = 'streamDQMHistograms'
 THISHOST = os.uname()[1]
 
+jsdCache = {}
+
 #Output redirection class
 class stdOutLog:
     def __init__(self):
@@ -365,7 +367,10 @@ class fileHandler(object):
             self.logger.warning("jsd file not set")
             self.definitions = {}
             return False
-        self.definitions = self.getJsonData(self.jsdfile)["data"]
+        if self.jsdfile not in jsdCache.keys():
+          jsdCache[self.jsdfile] = self.getJsonData(self.jsdfile)
+        self.definitions = jsdCache[self.jsdfile]["data"]
+        #self.definitions = self.getJsonData(self.jsdfile)["data"]
         return True
 
 

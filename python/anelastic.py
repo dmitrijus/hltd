@@ -23,10 +23,11 @@ class LumiSectionRanger():
     host = os.uname()[1]        
     def __init__(self,mr,tempdir,outdir,run_number):
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.dqmHandler = None
+        self.dqmQueue = Queue.Queue()
         self.mr = mr
         self.stoprequest = threading.Event()
         self.emptyQueue = threading.Event()  
-        self.firstStream = threading.Event()  
         self.errIniFile = threading.Event()  
         self.LSHandlerList = {}  # {(run,ls): LumiSectionHandler()}
         self.activeStreams = [] # updated by the ini files
@@ -40,7 +41,6 @@ class LumiSectionRanger():
         self.outdir = outdir
         self.tempdir = tempdir
         self.jsdfile = None
-        self.buffer = []        # file list before the first stream file
         self.useTimeout=60
         self.maxQueuedLumi=0
         self.maxReceivedEoLS=0
@@ -113,72 +113,52 @@ class LumiSectionRanger():
         #generate and move EoR completition file
         self.createOutputEoR()
 
+        self.logger.info("joining DQM merger thread")
+        self.dqmHandler.waitFinish()
         self.logger.info("Stop main loop")
-
-    def flushBuffer(self):
-        self.firstStream.set()
-        for self.infile in self.buffer:
-            self.process()
 
         #send the fileEvent to the proper LShandlerand remove closed LSs, or process INI and EOR files
     
     def process(self):
         
         filetype = self.infile.filetype
-        eventtype = self.eventtype
-
-        if eventtype:# & inotify.IN_CLOSE_WRITE:
-            if filetype == DEFINITION:
-                self.processDefinitionFile()
-            if filetype == OUTPUTJSD and not self.jsdfile:
-                self.jsdfile=self.infile.filepath
-            elif filetype == COMPLETE:
-                self.processCompleteFile()
-            elif filetype == INI:
-                self.processINIfile()
-                self.iniReceived=True
-            elif not self.firstStream.isSet():
-                self.buffer.append(self.infile)
-                if filetype == EOLS:
-                    run,ls = (self.infile.run,self.infile.ls)
-                    ls_num=int(ls[2:])
-                    self.logger.info('Received early EOLS file: '+self.infile.filepath)
-                    if self.maxReceivedEoLS<ls_num:
-                        self.maxReceivedEoLS=ls_num
-                    self.mr.notifyLumi(ls_num,self.maxReceivedEoLS,-1,-1)
-                if filetype == STREAM: self.flushBuffer()
-            elif filetype in [STREAM,STREAMDQMHISTOUTPUT,INDEX,EOLS,DAT,PB]:
-                run,ls = (self.infile.run,self.infile.ls)
-                key = (run,ls)
-                ls_num=int(ls[2:])
-                if filetype == EOLS :
-                    if self.maxReceivedEoLS<ls_num:
-                         self.maxReceivedEoLS=ls_num
-                    self.mr.notifyLumi(ls_num,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
-                    for lskey in self.LSHandlerList:
-                        if  int(self.LSHandlerList[lskey].ls[2:]) < ls_num and not self.LSHandlerList[lskey].EOLS:
-                            self.createEOLSFile(self.LSHandlerList[lskey].ls)
-                if key not in self.LSHandlerList and not filetype == EOLS :
-                    self.LSHandlerList[key] = LumiSectionHandler(run,ls,self.activeStreams,self.streamCounters,self.tempdir,self.outdir,self.jsdfile)
-                    self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
-                #if key not in self.LSHandlerList and filetype == EOLS :
-                #    self.copyEmptyDQMJsons(ls)
-                if key in self.LSHandlerList:
-                    self.LSHandlerList[key].processFile(self.infile)
-                    if self.LSHandlerList[key].closed.isSet():
-                        if self.maxClosedLumi<ls_num:
-                            self.maxClosedLumi=ls_num
-                            self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
-                        self.LSHandlerList.pop(key,None)
-
-            elif filetype == CRASH:
-                self.processCRASHfile()
-            elif filetype == EOR:
-                self.processEORFile()
-#        elif eventtype & inotify.IN_MOVED_TO:
-#           if filetype == OUTPUTJSD and not self.jsdfile: self.jsdfile=self.infile.filepath
+        if filetype in [STREAM,STREAMDQMHISTOUTPUT,INDEX,EOLS,DAT,PB]:
+            run,ls = (self.infile.run,self.infile.ls)
+            key = (run,ls)
+            ls_num=int(ls[2:])
+            if filetype == EOLS :
+                if self.maxReceivedEoLS<ls_num:
+                    self.maxReceivedEoLS=ls_num
+                self.mr.notifyLumi(ls_num,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
+                for lskey in self.LSHandlerList:
+                    if  int(self.LSHandlerList[lskey].ls_num) < ls_num and not self.LSHandlerList[lskey].EOLS:
+                        self.createEOLSFile(self.LSHandlerList[lskey].ls)
+            if key not in self.LSHandlerList and not filetype == EOLS :
+                self.LSHandlerList[key] = LumiSectionHandler(self,run,ls,self.activeStreams,self.streamCounters,self.tempdir,self.outdir,self.jsdfile)
+                self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
+            if key in self.LSHandlerList:
+                self.LSHandlerList[key].processFile(self.infile)
+                if self.LSHandlerList[key].closed.isSet():
+                    if self.maxClosedLumi<ls_num:
+                        self.maxClosedLumi=ls_num
+                        self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
+                    self.LSHandlerList.pop(key,None)
+        elif filetype == DEFINITION:
+            self.processDefinitionFile()
+        elif filetype == OUTPUTJSD:
+            if not self.jsdfile:self.jsdfile=self.infile.filepath
+        elif filetype == COMPLETE:
+            self.processCompleteFile()
+        elif filetype == INI:
+            self.processINIfile()
+            self.iniReceived=True
+        elif filetype == CRASH:
+            self.processCRASHfile()
+        elif filetype == EOR:
+            self.processEORFile()
 
     def processCRASHfile(self):
+
         #send CRASHfile to every LSHandler
         lsList = self.LSHandlerList
         basename = self.infile.basename
@@ -188,6 +168,7 @@ class LumiSectionRanger():
             item.processFile(self.infile)
     
     def createErrIniFile(self):
+
         if self.errIniFile.isSet(): return 
 
         runname = 'run'+self.run_number.zfill(conf.run_number_padding)
@@ -205,7 +186,6 @@ class LumiSectionRanger():
         self.logger.info("created error ini file")
 
 
-
     def processINIfile(self):
 
         self.logger.info(self.infile.basename)
@@ -216,12 +196,11 @@ class LumiSectionRanger():
 
         #start DQM merger thread
         if STREAMDQMHISTNAME.upper() in stream.upper():
-            global dqmHandler
-            if dqmHandler == None:
+            if self.dqmHandler is None:
                 self.logger.info('DQM histogram ini file: starting DQM merger...')
-                dqmHandler = DQMMerger()
-                if dqmHandler.active==False:
-                    dqmHandler = None
+                self.dqmHandler = DQMMerger(self.dqmQueue)
+                if not self.dqmHandler.active:
+                    self.dqmHandler = None
                     self.logger.error('Failed to start DQM merging thread. Histogram stream will be ignored in this run.')
                     return
 
@@ -352,13 +331,14 @@ class LumiSectionRanger():
 
 class LumiSectionHandler():
     host = os.uname()[1]
-    def __init__(self,run,ls,activeStreams,streamCounters,tempdir,outdir,jsdfile):
+    def __init__(self,parent,run,ls,activeStreams,streamCounters,tempdir,outdir,jsdfile):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info(ls)
-
+        self.parent=parent
         self.activeStreams = activeStreams      
         self.streamCounters = streamCounters
         self.ls = ls
+        self.ls_num = int(ls[2:])
         self.run = run
         self.outdir = outdir
         self.tempdir = tempdir   
@@ -425,7 +405,7 @@ class LumiSectionHandler():
         self.logger.info(self.infile.basename)
 
         #fastHadd was not detected, delete files from histogram stream
-        if self.infile.stream=="streamDQMHistograms" and dqmHandler==None:
+        if self.infile.stream=="streamDQMHistograms" and self.parent.dqmHandler is not None:
             try:
                 (filestem,ext)=os.path.splitext(self.infile.filepath)
                 os.remove(filestem + '.pb')
@@ -587,7 +567,7 @@ class LumiSectionHandler():
                     if outfile.mergeStage==0:
                         #give to the merging thread
                         outfile.mergeStage+=1
-                        dqmQueue.put(outfile)
+                        self.parent.dqmQueue.put(outfile)
                         continue
                     elif outfile.mergeStage==1:
                         #still merging
@@ -731,9 +711,10 @@ class LumiSectionHandler():
 
 class DQMMerger(threading.Thread):
 
-    def __init__(self):
+    def __init__(self,queue):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.dqmQueue = queue
         self.command = 'fastHadd'
         self.threadEvent = threading.Event()
         self.abort = False
@@ -758,7 +739,7 @@ class DQMMerger(threading.Thread):
     def run(self):
         while self.abort == False:
             try:
-                dqmJson = dqmQueue.get(True,0.5) #blocking with timeout
+                dqmJson = self.dqmQueue.get(True,0.5) #blocking with timeout
                 #self.emptyQueue.clear()
                 self.process(dqmJson) 
             except Queue.Empty as e:
@@ -886,7 +867,6 @@ if __name__ == "__main__":
     sys.stdout = stdOutLog()
 
     eventQueue = Queue.Queue()
-    dqmQueue = Queue.Queue()
     
     dirname = sys.argv[1]
     run_number = sys.argv[2]
@@ -894,11 +874,8 @@ if __name__ == "__main__":
     dirname = os.path.basename(os.path.normpath(dirname))
     watchDir = os.path.join(conf.watch_directory,dirname)
     outputDir = sys.argv[4]
-
     outputRunDir = os.path.join(outputDir,'run'+run_number.zfill(conf.run_number_padding))
  
-    dqmHandler = None
-
     mask = inotify.IN_CLOSE_WRITE | inotify.IN_MOVED_TO  # watched events
     logger.info("starting anelastic for "+dirname)
     mr = None
@@ -942,19 +919,15 @@ if __name__ == "__main__":
         ls.setSource(eventQueue)
         ls.start()
 
+        logging.info("Closing notifier")
+        mr.stop_inotify()
+
     except Exception,e:
-        logger.exception("error: ")
+        logger.exception(e)
         logging.info("Closing notifier")
         if mr is not None:
             mr.stop_inotify()
-        sys.exit(1)
-
-    #wait for termination of DQM handler
-    if dqmHandler:dqmHandler.waitFinish()
-
-    logging.info("Closing notifier")
-    if mr is not None:
-        mr.stop_inotify()
+        os._exit(1)
 
     logging.info("Quit")
     sys.exit(0)

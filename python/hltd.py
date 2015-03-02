@@ -52,6 +52,7 @@ nsslock = threading.Lock()
 suspended=False
 entering_cloud_mode=False
 cloud_mode=False
+abort_cloud_mode=False
 
 ramdisk_submount_size=0
 machine_blacklist=[]
@@ -143,6 +144,15 @@ def move_resources_to_cloud():
         os.rename(idles+cpu,cloud+cpu)
 
 
+#todo:interface to the cloud script
+def ignite_cloud():
+    pass
+
+def extinguish_cloud():
+    pass
+
+def is_cloud_inactive():
+    pass
 
 def cleanup_mountpoints(remount=True):
 
@@ -707,7 +717,7 @@ class OnlineResource:
 
     def __init__(self,parent,resourcenames,lock):
         self.parent = parent
-        #self.hoststate = 0 #@@MO what is this used for?
+        self.hoststate = 0 #@@MO what is this used for?
         self.cpu = resourcenames
         self.process = None
         self.processstate = None
@@ -732,7 +742,7 @@ class OnlineResource:
             response = connection.getresponse()
             #do something intelligent with the response code
             logger.error("response was "+str(response.status))
-            #if response.status > 300: self.hoststate = 1
+            if response.status > 300: self.hoststate = 1
             else:
                 logger.info(response.read())
         except Exception as ex:
@@ -1455,7 +1465,12 @@ class Run:
             logger.info("exception encountered in shutting down resources")
             logger.exception(ex)
 
-        runList.remove(self)
+        resource_lock.acquire()
+        try:
+            runList.remove(self)
+        except Exception as ex:
+            logger.exception(ex)
+        resource_lock.release()
 
         try:
             if conf.delete_run_dir is not None and conf.delete_run_dir == True:
@@ -1521,7 +1536,6 @@ class Run:
                         resource.join()
                         logger.info('process '+str(resource.process.pid)+' completed')
                     except:pass
-#                os.rename(used+resource.cpu,idles+resource.cpu)
                 resource.clearQuarantined()
                 resource.process=None
             self.online_resource_list = []
@@ -1550,20 +1564,33 @@ class Run:
 
             global runList
             #todo:clear this external thread
+            resource_lock.acquire()
             logger.info("active runs.."+str(runList.getActiveRunNumbers()))
-            runList.remove(self)
+            try:
+                runList.remove(self)
+            except Exception as ex:
+                logger.exception(ex)
             logger.info("new active runs.."+str(runList.getActiveRuns()))
 
             if cloud_mode==True:
-                resource_lock.acquire()
                 if len(runList.getActiveRuns)>=1:
                     logger.info("VM mode: waiting for runs: " + str(runList.getActiveRunNumbers()) + " to finish")
                 else:
                     logger.info("No active runs. moving all resource files to cloud")
                     #give resources to cloud and bail out
-                    move_resources_to_cloud()
                     entering_cloud_mode=False 
-                resource_lock.release()
+                    #check if cloud mode switch has been aborted in the meantime
+                    if abort_cloud_mode:
+                        abort_cloud_mode=False
+                        cloud_mode=False
+                        resource_lock.release()
+                        return
+
+                    move_resources_to_cloud()
+                    resource_lock.release()
+                    ignite_cloud()
+            try:resource_lock.release()
+            except:pass
 
         except Exception as ex:
             try:resource_lock.release()
@@ -1573,7 +1600,7 @@ class Run:
 
     def changeMarkerMaybe(self,marker):
         dir = self.dirname
-        current = filter(lambda x: x in Run.VALID_MARKERS, os.listdir(dir)
+        current = filter(lambda x: x in Run.VALID_MARKERS, os.listdir(dir))
         if (len(current)==1 and current[0] != marker) or len(current)==0:
             if len(current)==1: os.remove(dir+'/'+current[0])
             fp = open(dir+'/'+marker,'w+')
@@ -1681,7 +1708,7 @@ class RunList:
     def getRun(self,runNumber):
         try:
             return filter(lambda x: x.runnumber==runNumber,self.runs)[0]
-        except
+        except:
             return None
 
     def isHighestRun(self,runObj):
@@ -1742,28 +1769,9 @@ class RunRanger:
                             run.Shutdown(True,False)
                             time.sleep(.1)
 
-                        if cloud_mode==True and entering_cloud_mode==False:
-                            logger.info("received new run notification in VM mode. Checking if idle cores are available...")
-                            try:
-                                if len(os.listdir(idles))<1:
-                                    logger.info("this run is skipped because FU is in VM mode and resources have not been returned")
-                                    return
-                                #return all resources to HLTD (TODO:check if VM tool is done)
-                                while True:
-                                    resource_lock.acquire()
-                                    #retry this operation in case cores get moved around by other means
-                                    if cleanup_resources()==True:
-                                        resource_lock.release()
-                                        break
-                                    resource_lock.release()
-                                    time.sleep(0.1)
-                                    logger.warning("could not move all resources, retrying.")
-                                cloud_mode=False
-                            except Exception as ex:
-                                try:resource_lock.release()
-                                except:pass
-                                logger.fatal("failed to disable VM mode when receiving notification for run "+str(nr))
-                                logger.exception(ex)
+                        if cloud_mode==True:
+                            logger.info("received new run notification in VM mode. Ignoring...")
+                            return
                         if conf.role == 'fu':
                             bu_dir = bu_disk_list_ramdisk_instance[0]+'/'+dirname
                             try:
@@ -2020,44 +2028,78 @@ class RunRanger:
 
         elif dirname.startswith('exclude') and conf.role == 'fu':
             #service on this machine is asked to be excluded for cloud use
-            logger.info('machine exclude initiated')
+            if cloud_mode:
+                logger.info('already in cloud mode')
+                return
+            else:
+                logger.info('machine exclude initiated')
+
+            try:
+                #TODO:avoid keeping the run for long..
+                for run in runList.getQuarantinedRuns():
+                    run.Shutdown(True,False)
+            except Exception as ex:
+                logger.fatal("Unable to clear quarantined runs. Will not enter VM mode.")
+                logger.exception(ex)
+                return #
+ 
             resource_lock.acquire()
             cloud_mode=True
             entering_cloud_mode=True
             try:
-                for run in runList.quarantinedRuns():
-                        run.Shutdown(True,False)
-                    else:
+                #check again for quarantined runs
+                for run in runList.getQuarantinedRuns():
+                    run.Shutdown(True,False)
+
+                listOfActiveRuns = runList.getActiveRuns()
+                if len(listOfActiveRuns)>0:
+                    for run in listOfActiveRuns:
                         #write signal file for CMSSW to quit with 0 after certain LS
                         run.Stop()
+                else:
+                    #no runs present, switch to cloud mode immediately
+                    entering_cloud_mode=False
+                    move_resources_to_cloud()
+                    resource_lock.release()
+                    ignite_cloud()
             except Exception as ex:
                 logger.fatal("Unable to clear runs. Will not enter VM mode.")
                 logger.exception(ex)
                 cloud_mode=False
-            resource_lock.release()
+            try:resource_lock.release()
+            except:pass
             os.remove(event.fullpath)
 
         elif dirname.startswith('include') and conf.role == 'fu':
-            #TODO: pick up latest working run..
-            tries=1000
-            if cloud_mode==True:
-                while True:
+            #TODO: pick up latest ongoing run when activated ?
+            # even if this run was not active before on this FU? (problem with FU EoR in BU output event counting)
+            if cloud_mode==False:
+                logger.error('received notification to exit from cloud but machine is not in cloud mode!')
+                os.remove(event.fullpath)
+                return
+
+            resource_lock.acquire()
+            if entering_cloud_mode:
+                abort_cloud_mode=True
+                resource_lock.release()
+                os.remove(event.fullpath)
+                return
+            resource_lock.release()
+
+            #run stop cloud notification
+            extinguish_cloud()
+
+            while True:
+                last_status = is_cloud_inactive()
+                logger.info('cloud last status, deactivated:'+str(last_status))
+                if last_status==False:
+                    time.sleep(1)
+                    continue
+                else:
                     resource_lock.acquire()
-                    #retry this operation in case cores get moved around by other means
-                    if entering_cloud_mode==False and cleanup_resources()==True:
-                        resource_lock.release()
-                        break
+                    cloud_mode=False
+                    cleanup_resources()
                     resource_lock.release()
-                    time.sleep(0.1)
-                    tries-=1
-                    if tries==0:
-                        logger.fatal("Timeout: taking resources from cloud after waiting for 100 seconds")
-                        cleanup_resources()
-                        entering_cloud_mode=False
-                        break
-                    if (tries%10)==0:
-                        logger.warning("could not move all resources, retrying.")
-                cloud_mode=False
             os.remove(event.fullpath)
         elif dirname.startswith('logrestart'):
             #hook to restart logcollector process manually

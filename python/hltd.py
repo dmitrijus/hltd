@@ -474,6 +474,7 @@ class system_monitor(threading.Thread):
         self.file = []
         self.rehash()
         self.threadEvent = threading.Event()
+        self.create_file=True
 
     def rehash(self):
         if conf.role == 'fu':
@@ -531,7 +532,7 @@ class system_monitor(threading.Thread):
                     resource_count_broken = 0
                     cloud_count = 0
                     lastFURuns = []
-                    lastFURun=-1
+                    lastFUrun=-1
                     activeRunQueuedLumisNum = -1
                     activeRunCMSSWMaxLumi = -1
 
@@ -552,7 +553,7 @@ class system_monitor(threading.Thread):
                         except:pass
                     fuRuns = sorted(list(set(lastFURuns)))
                     if len(fuRuns)>0:
-                        lastFURun = fuRuns[-1]
+                        lastFUrun = fuRuns[-1]
                         #second pass
                         for key in boxinfoFUMap:
                             if key==selfhost:continue
@@ -560,7 +561,7 @@ class system_monitor(threading.Thread):
                             if current_time - etime > 10:continue
                             try:
                                 lastrun = edata['activeRuns'][-1]
-                                if lastrun==lastFURun:
+                                if lastrun==lastFUrun:
                                     qlumis = int(edata['activeRunNumQueuedLS'])
                                     if qlumis>activeRunQueuedLumisNum:activeRunQueuedLumisNum=qlumis
                                     maxcmsswls = int(edata['activeRunCMSSWMaxLS'])
@@ -573,7 +574,7 @@ class system_monitor(threading.Thread):
                                 "used":resource_count_used,
                                 "broken":resource_count_broken,
                                 "cloud":cloud_count,
-                                "activeFURun":lastFURun,
+                                "activeFURun":lastFUrun,
                                 "activeRunNumQueuedLS":activeRunQueuedLumisNum,
                                 "activeRunCMSSWMaxLS":activeRunCMSSWMaxLumi,
                                 "ramdisk_occupancy":ramdisk_occ
@@ -584,8 +585,15 @@ class system_monitor(threading.Thread):
 
                 for mfile in self.file:
                     if conf.role == 'fu':
+                        #ensure that file is recreated on FU when this threads starts
+                        #this is used to detect machine coming up later in the run
+                        if self.create_file:
+                            self.create_file=False
+                            try:
+                                os.unlink(mfile)
+                            except:pass
                         try:
-                            #check for NFS stale file handle
+                            #check for NFS stale file handle (TODO)
                             #this feature is disabled until investigation
 #                           #which kind of error is thrown with unresponsive Force10 network
                             #trystat = bu_disk_list_ramdisk[0]
@@ -1355,6 +1363,33 @@ class Run:
         else:
             self.startCompletedChecker()
 
+    def maybeNotifyNewRun(self,resourcename,resourceage):
+        if conf.role=='fu':
+            logger.fatal('this functino should *never* have been called when role == fu')
+            return
+
+        if self.rawinputdir != None:
+            #TODO:check also for EoR file?
+            try:
+                os.stat(self.rawinputdir)
+            except:
+                logger.warning('Unable to find raw directory of '+str(self.runnumber))
+                return
+
+        for resource in self.online_resource_list:
+            if resource.cpu == resourcename:
+                logger.info('New resource was already processing this run. Skipping')
+
+            if resourcename in machine_blacklist:
+                logger.info("skipping blacklisted resource "+str(cpu))
+                return
+            cpu_group.append(resourcename)
+            current_time = time.time()
+            age = current_time - resourceage
+            logger.info("found resource "+resourcename+" which is "+str(age)+" seconds old")
+            if age < 10:
+                self.ContactResource([resourcename])
+ 
     def StartOnResource(self, resource):
         logger.debug("StartOnResource called")
         resource.statefiledir=conf.watch_directory+'/run'+str(self.runnumber).zfill(conf.run_number_padding)
@@ -2337,6 +2372,20 @@ class ResourceRanger:
             logger.error("exception in ResourceRanger")
             logger.error(ex)
 
+    def process_IN_CREATE(self, event):
+        logger.debug('ResourceRanger-CREATE: event '+event.fullpath)
+        if conf.dqm_machine:return
+        basename = os.path.basename(event.fullpath)
+        if conf.role!='bu' or basename.endswith(os.uname()[1]):
+            return
+        try:
+            resourceage = os.path.getmtime(event.fullpath)
+            lrun = runList.getLastRun(self)
+            if lrun!=None:
+                lrun.maybeNotifyNewRun(basename,resourceage)
+        except Exception as ex:
+            logger.exception(ex)
+
     def process_default(self, event):
         logger.debug('ResourceRanger: event '+event.fullpath +' type '+ str(event.mask))
         filename=event.fullpath[event.fullpath.rfind("/")+1:]
@@ -2496,7 +2545,7 @@ class hltd(Daemon2,object):
             if conf.role == 'bu':
                 pass
                 #currently does nothing on bu
-                imask  = inotify.IN_MOVED_TO | inotify.IN_CLOSE_WRITE | inotify.IN_DELETE
+                imask  = inotify.IN_MOVED_TO | inotify.IN_CLOSE_WRITE | inotify.IN_DELETE | inotify.IN_CREATE
                 rr.register_inotify_path(resource_base, imask)
                 rr.register_inotify_path(resource_base+'/boxes', imask)
             else:

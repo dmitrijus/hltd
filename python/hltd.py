@@ -54,6 +54,8 @@ entering_cloud_mode=False
 exiting_cloud_mode=False
 cloud_mode=False
 abort_cloud_mode=False
+cached_pending_run = None
+
 
 ramdisk_submount_size=0
 machine_blacklist=[]
@@ -1145,6 +1147,8 @@ class Run:
         self.n_used = 0
         self.n_quarantined = 0
 
+        self.inputdir_exists = False
+
         if conf.role == 'fu':
             self.changeMarkerMaybe(Run.STARTING)
         #TODO:raise from runList
@@ -1213,6 +1217,15 @@ class Run:
                 logger.error("could not create mon dir inside the run input directory")
         else:
             self.rawinputdir= os.path.join(bu_disk_list_ramdisk_instance[0],'run' + str(self.runnumber).zfill(conf.run_number_padding))
+
+        #verify existence of the input directory
+        if not paramsDetected and conf.role=='fu':
+            try:
+                os.stat(self.rawinputdir)
+                self.inputdir_exists = True
+            except:
+                logger.error("unable to stat raw input directory for run "+str(self.runnumber))
+                return
 
         self.lock = threading.Lock()
 
@@ -1790,6 +1803,7 @@ class RunRanger:
         global entering_cloud_mode
         global exiting_cloud_mode
         global abort_cloud_mode
+        global cached_pending_run
         logger.info('RunRanger: event '+event.fullpath)
         dirname=event.fullpath[event.fullpath.rfind("/")+1:]
         logger.info('RunRanger: new filename '+dirname)
@@ -1818,6 +1832,9 @@ class RunRanger:
 
                         if cloud_mode==True:
                             logger.info("received new run notification in VM mode. Ignoring...")
+                            #remember this run and attempt to continue it once hltd exits the cloud mode
+                            cached_pending_run = event.fullpath
+                            os.unlink(event.fullpath)
                             return
                         if conf.role == 'fu':
                             bu_dir = bu_disk_list_ramdisk_instance[0]+'/'+dirname
@@ -1838,6 +1855,10 @@ class RunRanger:
                                     # create an EoR file that will trigger all the running jobs to exit nicely
                                     open(EoR_file_name, 'w').close()
                         with Run(nr,event.fullpath,bu_dir,self.instance) as run:
+                            if not run.inputdir_exists:
+                                logger.info('skipping '+event.fullpath + ' with raw input directory missing')
+                                os.unlink(event.fullpath)
+                                return
                             runList.add(run)
                             resource_lock.acquire()
                             if run.AcquireResources(mode='greedy'):
@@ -2152,6 +2173,11 @@ class RunRanger:
                     resource_lock.release()
             exiting_cloud_mode=False
             os.remove(event.fullpath)
+            if cached_pending_run != None:
+                #create last pending run received during the cloud mode
+                os.mkdir(cached_pending_run)
+                cached_pending_run = None
+
         elif dirname.startswith('logrestart'):
             #hook to restart logcollector process manually
             restartLogCollector(self.instance)

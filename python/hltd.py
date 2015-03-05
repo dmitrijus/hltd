@@ -539,27 +539,26 @@ class system_monitor(threading.Thread):
                     if conf.role == 'fu':
                         try:
                             #check for NFS stale file handle
-                            #this feature is disabled until investigation
-#                           #which kind of error is thrown with unresponsive Force10 network
-                            #trystat = bu_disk_list_ramdisk[0]
-                            #mpstat = os.stat(trystat)
-                            #trystat = bu_disk_list_output[0]
-                            #mpstat = os.stat(trystat)
+                            for disk in  bu_disk_list_ramdisk:
+                                mpstat = os.stat(disk)
+                            for disk in  bu_disk_list_output:
+                                mpstat = os.stat(disk)
+                            #no issue if we reached this point
                             fu_stale_counter = 0
                         except IOError as ex:
+                            #TODO:which kind of error is thrown with unresponsive Force10 network
                             if ex.errno == 116:
-                                #rigger ramdisk remount if detected more than 5 times in a row
-                                logger.fatal('stale file handle: '+trystat)
-                                if fu_stale_counter>=5:
-                                    fu_stale_counter=0
-                                    logger.exception(ex)
-                                    logger.fatal('initiating remount on stale file handle')
-                                    try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
-                                    except:pass
-                                    with open(os.path.join(conf.watch_directory,'suspend0'),'w') as fi:
-                                        pass
-                                    time.sleep(1)
-                                    continue
+                                if fu_stale_counter==0 or fu_stale_counter%20==0:
+                                  logger.fatal('detected stale file handle: '+str(disk))
+                                #if fu_stale_counter>=5:
+                                #    fu_stale_counter=0
+                                #    logger.fatal('initiating remount on stale file handle')
+                                #    try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
+                                #    except:pass
+                                #    with open(os.path.join(conf.watch_directory,'suspend0'),'w') as fi:
+                                #        pass
+                                #    time.sleep(1)
+                                #    continue
                                 fu_stale_counter+=1
 
                         dirstat = os.statvfs(conf.watch_directory)
@@ -588,6 +587,7 @@ class system_monitor(threading.Thread):
                                 numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
                                 fp.write('activeRunNumQueuedLS='+numQueuedLumis+'\n')
                                 fp.write('activeRunCMSSWMaxLS='+maxCMSSWLumi+'\n')
+                                fp.write('detectedStaleHandle='+str(fu_stale_counter>0))
                                 fp.write('entriesComplete=True')
                             boxinfo_update_attempts=0
                         except IOError as ex:

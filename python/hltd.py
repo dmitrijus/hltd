@@ -545,7 +545,7 @@ class system_monitor(threading.Thread):
                                 mpstat = os.stat(disk)
                             #no issue if we reached this point
                             fu_stale_counter = 0
-                        except IOError as ex:
+                        except (IOError,OSError) as ex:
                             #TODO:which kind of error is thrown with unresponsive Force10 network
                             if ex.errno == 116:
                                 if fu_stale_counter==0 or fu_stale_counter%20==0:
@@ -587,10 +587,10 @@ class system_monitor(threading.Thread):
                                 numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
                                 fp.write('activeRunNumQueuedLS='+numQueuedLumis+'\n')
                                 fp.write('activeRunCMSSWMaxLS='+maxCMSSWLumi+'\n')
-                                fp.write('detectedStaleHandle='+str(fu_stale_counter>0))
+                                fp.write('detectedStaleHandle='+str(fu_stale_counter>0)+'\n')
                                 fp.write('entriesComplete=True')
                             boxinfo_update_attempts=0
-                        except IOError as ex:
+                        except (IOError,OSError) as ex:
                             logger.warning('boxinfo file write failed :'+str(ex))
                             #detecting stale file handle on recreated loop fs and remount
                             if conf.instance!='main' and (ex.errno==116 or ex.errno==2) and boxinfo_update_attempts>=5:
@@ -602,7 +602,7 @@ class system_monitor(threading.Thread):
                                 time.sleep(1)
                             boxinfo_update_attempts+=1
                         except Exception as ex:
-                            logger.warning('boxinfo file write failed +'+str(ex))
+                            logger.warning('exception on boxinfo file write failed : +'+str(ex))
 
                     if conf.role == 'bu':
                         #ramdisk = os.statvfs(conf.watch_directory)

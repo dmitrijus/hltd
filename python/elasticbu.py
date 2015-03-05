@@ -257,7 +257,7 @@ class elasticBandBU:
             #only here
             document['host']=basename
             try:
-                document['detectedStaleHandle']=bool(document['detectedStaleHandle'])
+                document['detectedStaleHandle']=bool(document['detectedStaleHandle']=='True')
             except:
                 pass
             self.index_documents('boxinfo',[document])

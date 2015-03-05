@@ -182,7 +182,8 @@ central_boxinfo_mapping = {
               'totalOutput'   :{'type':'integer'},
               'activeRuns'    :{'type':'string'},
               'activeRunsErrors':{'type':'string',"index":"not_analyzed"},
-              'activeRunNumQueuedLS':{'type':'integer'}
+              'activeRunNumQueuedLS':{'type':'integer'},
+              'detectedStaleHandle':{'type':'boolean'}
               },
             '_timestamp' : { 
               'enabled'   : True,

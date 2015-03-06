@@ -593,28 +593,27 @@ class system_monitor(threading.Thread):
                                 os.unlink(mfile)
                             except:pass
                         try:
-                            #check for NFS stale file handle (TODO)
-                            #this feature is disabled until investigation
-#                           #which kind of error is thrown with unresponsive Force10 network
-                            #trystat = bu_disk_list_ramdisk[0]
-                            #mpstat = os.stat(trystat)
-                            #trystat = bu_disk_list_output[0]
-                            #mpstat = os.stat(trystat)
+                            #check for NFS stale file handle
+                            for disk in  bu_disk_list_ramdisk:
+                                mpstat = os.stat(disk)
+                            for disk in  bu_disk_list_output:
+                                mpstat = os.stat(disk)
+                            #no issue if we reached this point
                             fu_stale_counter = 0
-                        except IOError as ex:
+                        except (IOError,OSError) as ex:
+                            #TODO:which kind of error is thrown with unresponsive Force10 network
                             if ex.errno == 116:
-                                #trigger ramdisk remount if detected more than 5 times in a row
-                                logger.fatal('stale file handle: '+trystat)
-                                if fu_stale_counter>=5:
-                                    fu_stale_counter=0
-                                    logger.exception(ex)
-                                    logger.fatal('initiating remount on stale file handle')
-                                    try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
-                                    except:pass
-                                    with open(os.path.join(conf.watch_directory,'suspend0'),'w') as fi:
-                                        pass
-                                    time.sleep(1)
-                                    continue
+                                if fu_stale_counter==0 or fu_stale_counter%20==0:
+                                    logger.fatal('detected stale file handle: '+str(disk))
+                                #if fu_stale_counter>=5:
+                                #    fu_stale_counter=0
+                                #    logger.fatal('initiating remount on stale file handle')
+                                #    try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
+                                #    except:pass
+                                #    with open(os.path.join(conf.watch_directory,'suspend0'),'w') as fi:
+                                #        pass
+                                #    time.sleep(1)
+                                #    continue
                                 fu_stale_counter+=1
 
                         dirstat = os.statvfs(conf.watch_directory)
@@ -653,15 +652,14 @@ class system_monitor(threading.Thread):
                                 'activeRunNumQueuedLS':numQueuedLumis,
                                 'activeRunCMSSWMaxLS':maxCMSSWLumi,
                                 'activeRunStats':runList.getStateDoc(),
-                                'cloudState':cloud_state
+                                'cloudState':cloud_state,
+                                'detectedStaleHandle':fu_stale_counter>0
                             }
-
                             with open(mfile,'w+') as fp:
-                                json.dump(doc,fp)
-
+                                json.dump(boxdoc,fp)
                             boxinfo_update_attempts=0
 
-                        except IOError as ex:
+                        except (IOError,OSError) as ex:
                             logger.warning('boxinfo file write failed :'+str(ex))
                             #detecting stale file handle on recreated loop fs and remount
                             if conf.instance!='main' and (ex.errno==116 or ex.errno==2) and boxinfo_update_attempts>=5:
@@ -673,7 +671,7 @@ class system_monitor(threading.Thread):
                                 time.sleep(1)
                             boxinfo_update_attempts+=1
                         except Exception as ex:
-                            logger.warning('boxinfo file write failed +'+str(ex))
+                            logger.warning('exception on boxinfo file write failed : +'+str(ex))
 
                     if conf.role == 'bu':
                         outdir = os.statvfs('/fff/output')
@@ -686,7 +684,7 @@ class system_monitor(threading.Thread):
                             'activeRuns':runList.getActiveRunNumbers()
                         }
                         with open(mfile,'w+') as fp:
-                                json.dump(doc,fp)
+                                json.dump(boxdoc,fp)
 
         except Exception as ex:
             logger.exception(ex)
@@ -744,7 +742,7 @@ class BUEmu:
                         conf.cmssw_default_version,
                         conf.exec_directory,
                         full_release,
-                        '""',
+                        'null',
                         configtouse,
                         str(nr),
                         '/tmp', #input dir is not needed

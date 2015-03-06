@@ -696,7 +696,7 @@ class BUEmu:
                         conf.cmssw_default_version,
                         conf.exec_directory,
                         full_release,
-                        '""',
+                        'null',
                         configtouse,
                         str(nr),
                         '/tmp', #input dir is not needed

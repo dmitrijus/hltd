@@ -192,9 +192,10 @@ central_boxinfo_mapping = {
                       'totalRes': {'type': 'integer'},
                       'qRes':     {'type': 'integer'},
                       'errors':   {'type': 'integer'}
-                  }
-              },
-              'cloudState'    :{'type':'string',"index":"not_analyzed"}
+                      }
+                  },
+              'cloudState'    :{'type':'string',"index":"not_analyzed"},
+              'detectedStaleHandle':{'type':'boolean'}
               #'activeRunsErrors':{'type':'string',"index":"not_analyzed"},#deprecated
               },
             '_timestamp' : { 

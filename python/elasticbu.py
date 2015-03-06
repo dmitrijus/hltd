@@ -256,10 +256,6 @@ class elasticBandBU:
             document['instance']=self.conf.instance
             #only here
             document['host']=basename
-            try:
-                document['detectedStaleHandle']=bool(document['detectedStaleHandle']=='True')
-            except:
-                pass
             self.index_documents('boxinfo',[document])
         except Exception as ex:
             self.logger.warning('box info not injected: '+str(ex))

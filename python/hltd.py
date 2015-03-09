@@ -1655,7 +1655,7 @@ class Run:
                 logger.info('start checking completition of run '+str(self.runnumber))
                 #mode 1: check for complete entries in ES
                 #mode 2: check for runs in 'boxes' files
-                self.endChecker = RunCompletedChecker(conf,1,int(self.runnumber),self.online_resource_list,self.dirname,active_runs,active_runs_errors,self.elastic_monitor)
+                self.endChecker = RunCompletedChecker(conf,1,int(self.runnumber),self.online_resource_list,self.dirname,active_runs,active_runs_errors,self)
                 self.endChecker.start()
             except Exception,ex:
                 logger.error('failure to start run completition checker:')

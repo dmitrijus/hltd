@@ -564,8 +564,9 @@ class BoxInfoUpdater(threading.Thread):
 
 class RunCompletedChecker(threading.Thread):
 
-    def __init__(self,conf,mode,nr,nresources,run_dir,active_runs,active_runs_errors,elastic_process):
+    def __init__(self,conf,mode,nr,nresources,run_dir,active_runs,active_runs_errors,parent):
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.parent = parent
         self.conf=conf
         self.mode = mode
         self.nr = nr
@@ -585,7 +586,6 @@ class RunCompletedChecker(threading.Thread):
         self.run_dir = run_dir
         self.active_runs = active_runs
         self.active_runs_errors = active_runs_errors
-        self.elastic_process=elastic_process
         try:
             threading.Thread.__init__(self)
 
@@ -642,6 +642,11 @@ class RunCompletedChecker(threading.Thread):
         if endAllowed==True and runFound==False: return False
         else:return True
 
+    def waitForAnelasticMon(self):
+        try:
+            self.parent.elastic_process.wait()
+        except:pass
+        self.parent.elastic_process = None
 
     def run(self):
 
@@ -650,10 +655,12 @@ class RunCompletedChecker(threading.Thread):
             self.threadEvent.wait(5)
             if self.stop:
                 try:
-                    self.elastic_process.wait()
+                    self.waitForAnelasticMon()
                 except:pass
                 return#giving up
             if os.path.exists(self.eorCheckPath) or os.path.exists(self.rundirCheckPath)==False:
+                self.waitForAnelasticMon()
+                self.logger.info('finished waiting for elastic process')
                 break
 
         dir = self.conf.resource_base+'/boxes/'
@@ -723,10 +730,6 @@ class RunCompletedChecker(threading.Thread):
             #check every 10 seconds
             self.threadEvent.wait(10)
 
-        try:
-            self.elastic_process.wait()
-        except:pass
- 
     def stop(self):
         self.stop = True
         self.threadEvent.set() 

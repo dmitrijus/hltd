@@ -721,7 +721,13 @@ if __name__ == "__main__":
         for addr in buDataAddr:
             if newline:f.writelines('\n')
             newline=True
-            f.writelines(getIPs(addr)[0])
+            try:
+              nameToWrite = getIPs(addr)[0]
+            except Exception as ex:
+              print ex
+              #write bus.config even if name is not yet available by DNS
+              nameToWrite = addr
+            f.writelines(nameToWrite)
             #break after writing first entry. it is not yet safe to use secondary interface
             break
         f.close()

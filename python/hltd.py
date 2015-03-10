@@ -2629,6 +2629,9 @@ class hltd(Daemon2,object):
         watch_directory = os.readlink(conf.watch_directory) if os.path.islink(conf.watch_directory) else conf.watch_directory
         resource_base = os.readlink(conf.resource_base) if os.path.islink(conf.resource_base) else conf.resource_base
 
+        global runList
+        runList = RunList()
+
         if conf.use_elasticsearch == True:
             time.sleep(.2)
             restartLogCollector(self.instance)

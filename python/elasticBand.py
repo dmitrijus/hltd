@@ -187,13 +187,16 @@ class elasticBand():
         if prcoutDocs: self.tryBulkIndex('prc-out',prcoutDocs,attempts=2)
         if fuoutDocs: self.tryBulkIndex('fu-out',fuoutDocs,attempts=5)
  
-    def flushAll(self):
-        self.flushMonBuffer()
+    def flushAllLS(self):
         lslist = list(  set(self.prcinBuffer.keys()) | 
                         set(self.prcoutBuffer.keys()) |
                         set(self.fuoutBuffer.keys()) )
         for ls in lslist:
             self.flushLS(ls)
+
+    def flushAll(self):
+        self.flushMonBuffer()
+        self.flushAllLS()
 
     def updateIndexSettingsMaybe(self):
 	return

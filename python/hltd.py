@@ -916,8 +916,8 @@ class OnlineResource:
                 logger.info('Clearing quarantined resource '+cpu)
                 os.rename(quarantined+cpu,idles+cpu)
             self.quarantined = []
-            parent.n_used=0
-            parent.n_quarantined=0
+            self.parent.n_used=0
+            self.parent.n_quarantined=0
         except Exception as ex:
             logger.exception(ex)
         resource_lock.release()
@@ -986,7 +986,7 @@ class ProcessWatchdog(threading.Thread):
             if returncode != 0 and returncode!=None:
 
                 #bump error count in active_runs_errors which is logged in the box file
-                self.num_errors+=1
+                self.resource.parent.num_errors+=1
 
                 if returncode < 0:
                     logger.error("process "+str(pid)
@@ -1056,6 +1056,7 @@ class ProcessWatchdog(threading.Thread):
                     resource_lock.acquire()
                     for cpu in self.resource.cpu:
                       os.rename(used+cpu,broken+cpu)
+                      self.resource.parent.n_used-=1
                     resource_lock.release()
                     logger.debug("resource(s) " +str(self.resource.cpu)+
                                   " successfully moved to except")
@@ -1109,10 +1110,10 @@ class ProcessWatchdog(threading.Thread):
             #        logger.info('exiting thread '+str(self.resource.process.pid))
 
         except Exception as ex:
-            try:resource_lock.release()
-            except:pass
             logger.info("OnlineResource watchdog: exception")
             logger.exception(ex)
+            try:resource_lock.release()
+            except:pass
         return
 
     def disableRestart(self):
@@ -1149,7 +1150,7 @@ class Run:
         self.waitForEndThread = None
         self.beginTime = datetime.datetime.now()
         self.anelasticWatchdog = None
-        self.elasticBuWatchdog = None
+        self.elasticBUWatchdog = None
         self.completedChecker = None
         self.threadEvent = threading.Event()
         self.stopThreads = False
@@ -1223,6 +1224,11 @@ class Run:
         if conf.role == "bu":
             try:
                 self.rawinputdir = conf.watch_directory+'/run'+str(self.runnumber).zfill(conf.run_number_padding)
+                os.stat(self.rawinputdir)
+                self.inputdir_exists = True
+            except Exception, ex:
+                logger.error("failed to stat "+self.rawinputdir)
+            try:
                 os.mkdir(self.rawinputdir+'/mon')
             except Exception, ex:
                 logger.error("could not create mon dir inside the run input directory")
@@ -1230,13 +1236,17 @@ class Run:
             self.rawinputdir= os.path.join(bu_disk_list_ramdisk_instance[0],'run' + str(self.runnumber).zfill(conf.run_number_padding))
 
         #verify existence of the input directory
-        if not paramsDetected and conf.role=='fu':
-            try:
-                os.stat(self.rawinputdir)
+        if conf.role=='fu':
+            if not paramsDetected and conf.dqm_machine==False:
+                try:
+                    os.stat(self.rawinputdir)
+                    self.inputdir_exists = True
+                except:
+                    logger.error("unable to stat raw input directory for run "+str(self.runnumber))
+                    return
+            else:
                 self.inputdir_exists = True
-            except:
-                logger.error("unable to stat raw input directory for run "+str(self.runnumber))
-                return
+            
 
         self.lock = threading.Lock()
 
@@ -1277,9 +1287,15 @@ class Run:
         self.stopThreads=True
         self.threadEvent.set()
         if self.completedChecker:
-            self.completedChecker.join()
-        if self.elasticBuWatchdog:
-            self.elasticBuWatchdog.join()
+            try:
+                self.completedChecker.join()
+            except RuntimeError:
+                pass
+        if self.elasticBUWatchdog:
+            try:
+                self.elasticBUWatchdog.join()
+            except RuntimeError:
+                pass
         logger.info('Run '+ str(self.runnumber) +' object __del__ has completed')
 
     def AcquireResource(self,resourcenames,fromstate):
@@ -1377,7 +1393,7 @@ class Run:
 
     def maybeNotifyNewRun(self,resourcename,resourceage):
         if conf.role=='fu':
-            logger.fatal('this functino should *never* have been called when role == fu')
+            logger.fatal('this function should *never* have been called when role == fu')
             return
 
         if self.rawinputdir != None:
@@ -1386,22 +1402,24 @@ class Run:
                 os.stat(self.rawinputdir)
             except:
                 logger.warning('Unable to find raw directory of '+str(self.runnumber))
-                return
+                return None
 
         for resource in self.online_resource_list:
-            if resource.cpu == resourcename:
-                logger.info('New resource was already processing this run. Skipping')
-
+            if resourcename in resource.cpu:
+                logger.error('Resource '+str(cpu)+' was already processing run ' + str(self.runnumber) + '. Will not participate in this run.')
+                return None
             if resourcename in machine_blacklist:
                 logger.info("skipping blacklisted resource "+str(cpu))
-                return
-            cpu_group.append(resourcename)
-            current_time = time.time()
-            age = current_time - resourceage
-            logger.info("found resource "+resourcename+" which is "+str(age)+" seconds old")
-            if age < 10:
-                self.ContactResource([resourcename])
- 
+                return None
+        current_time = time.time()
+        age = current_time - resourceage
+        logger.info("found resource "+resourcename+" which is "+str(age)+" seconds old")
+        if age < 10:
+            self.ContactResource([resourcename])
+            return self.online_resource_list[-1]
+        else:
+            return None
+
     def StartOnResource(self, resource):
         logger.debug("StartOnResource called")
         resource.statefiledir=conf.watch_directory+'/run'+str(self.runnumber).zfill(conf.run_number_padding)
@@ -1550,19 +1568,23 @@ class Run:
                     if killScripts:
                         self.anelastic_monitor.terminate()
                     self.anelastic_monitor.wait()
+            except OSError as ex:
+                if ex.errno==3:
+                    logger.info("anelastic.py for run " + str(self.runnumber) + " is not running")
             except Exception as ex:
-                logger.info("exception encountered in shutting down anelastic.py "+ str(ex))
-                #logger.exception(ex)
+                logger.exception(ex)
             if conf.use_elasticsearch == True:
                 try:
                     if self.elastic_monitor:
                         if killScripts:
                             self.elastic_monitor.terminate()
                         self.elastic_monitor.wait()
+                except OSError as ex:
+                    if ex.errno==3:
+                        logger.info("elastic.py for run " + str(self.runnumber) + " is not running")
+                    else :logger.exception(ex)
                 except Exception as ex:
-                    logger.info("exception encountered in shutting down elastic.py")
-                    if "No child processes" in str(ex):pass
-                    else:logger.exception(ex)
+                    logger.exception(ex)
             if self.waitForEndThread is not None:
                 self.waitForEndThread.join()
         except Exception as ex:
@@ -1599,7 +1621,13 @@ class Run:
             #logger.exception(ex)
 
         #should also trigger destructor of the Run
-        runList.remove(self)
+
+        resource_lock.acquire()
+        try:
+            runList.remove(self)
+        except Exception as ex:
+            logger.exception(ex)
+        resource_lock.release()
 
         logger.info('Shutdown of run '+str(self.runnumber).zfill(conf.run_number_padding)+' on BU completed')
 
@@ -1647,12 +1675,14 @@ class Run:
                         self.anelastic_monitor.wait()
                 except OSError,ex:
                     logger.info("Exception encountered in waiting for termination of anelastic:" +str(ex))
+                self.anelastic_monitor = None
 
             if conf.use_elasticsearch == True:
                 try:
                     self.elastic_monitor.wait()
                 except OSError,ex:
                     logger.info("Exception encountered in waiting for termination of anelastic:" +str(ex))
+                self.elastic_monitor = None
             if conf.delete_run_dir is not None and conf.delete_run_dir == True:
                 try:
                     shutil.rmtree(self.dirname)
@@ -1690,10 +1720,10 @@ class Run:
             except:pass
 
         except Exception as ex:
-            try:resource_lock.release()
-            except:pass
             logger.error("exception encountered in ending run")
             logger.exception(ex)
+            try:resource_lock.release()
+            except:pass
 
     def changeMarkerMaybe(self,marker):
         dir = self.dirname
@@ -1741,8 +1771,8 @@ class Run:
 
     def startElasticBUWatchdog(self):
         try:
-            self.enelasticBuWatchdog = threading.Thread(target = self.runElasticBUWatchdog)
-            self.elasticBuWatchdog.start()
+            self.elasticBUWatchdog = threading.Thread(target = self.runElasticBUWatchdog)
+            self.elasticBUWatchdog.start()
         except Exception as ex:
             logger.info("exception encountered in starting elasticbu watchdog thread")
             logger.info(ex)
@@ -1752,7 +1782,7 @@ class Run:
             self.elastic_monitor.wait()
         except:
             pass
-        self.anelastic_monitor=None
+        self.elastic_monitor=None
 
     def startCompletedChecker(self):
 
@@ -1766,28 +1796,53 @@ class Run:
 
     def runCompletedChecker(self):
 
-        rundirstr = 'run'+ str(run.runnumber).zfill(conf.run_number_padding)
+        rundirstr = 'run'+ str(self.runnumber).zfill(conf.run_number_padding)
         rundirCheckPath = os.path.join(conf.watch_directory, rundirstr)
         eorCheckPath = os.path.join(rundirCheckPath,rundirstr + '_ls0000_EoR.jsn')
  
         self.threadEvent.wait(10)
         while self.stopThreads == False:
             self.threadEvent.wait(5)
-            if os.path.exists(self.eorCheckPath) or os.path.exists(self.rundirCheckPath)==False:
+            if os.path.exists(eorCheckPath) or os.path.exists(rundirCheckPath)==False:
                 logger.info("Completed checker: detected end of run "+str(self.runnumber))
                 break
 
-            check_boxes=True
-            while self.stopThreads==False:
-                if check_boxes:
-                    success, runFound = rr.checkNotifiedBoxes(self.runnumber)
-                if success and runFound==False:
-                    try:
-                        runList.remove(self.runnumber)
-                    except:
-                        pass
-                    logger.info("Completed checker: end of processing of run "+str(self.runnumber))
-                    break
+        while self.stopThreads==False:
+            self.threadEvent.wait(5)
+            success, runFound = self.checkNotifiedBoxes()
+            if success and runFound==False:
+                resource_lock.acquire()
+                try:
+                    runList.remove(self.runnumber)
+                except Exception as ex:
+                    logger.exception(ex)
+                resource_lock.release()
+                logger.info("Completed checker: end of processing of run "+str(self.runnumber))
+                break
+
+    def checkNotifiedBoxes(self):
+        keys = boxinfoFUMap.keys()
+        c_time = time.time()
+        for key in keys:
+            #if key==thishost:continue #checked in inotify thread
+            try:
+                edata,etime,lastStatus = boxinfoFUMap[key]
+            except:
+                #key deleted
+                return False,False
+            if c_time - etime > 20:continue
+            #parsing or file access, check failed
+            if lastStatus==False: return False,False
+            try:
+                #run is found in at least one box
+                if self.runnumber in edata['activeRuns']:return True,True
+            except:
+                #invalid boxinfo data
+                return False,False
+        #all box data are valid, run not found
+        return True,False
+
+
 
 
 
@@ -1797,7 +1852,7 @@ class RunList:
 
     def add(self,runObj):
         runNumber = runObj.runnumber
-        check = filter(lambda x: runNumber in x.keys(),self.runs)
+        check = filter(lambda x: runNumber == x.runnumber,self.runs)
         if len(check):
           raise Exception("Run "+str(runNumber)+" already exists")
         #doc = {runNumber:runObj}
@@ -1806,10 +1861,10 @@ class RunList:
 
     def remove(self,runNumber):
         #runs =  map(lambda x: x.keys()[0]==runNumber)
-        runs =  map(lambda x: x.runnumber==runNumber)
+        runs =  filter(lambda x: x.runnumber==runNumber,self.runs)
         if len(runs)>1:
             logger.error("Multiple runs entries for "+str(runNumber)+" were found while removing run")
-        for run in runs: self.runs.pop(run)
+        for run in runs[:]: self.runs.pop(self.runs.index(run))
 
     def getOngoingRuns(self):
         #return map(lambda x: x[x.keys()[0]], filter(lambda x: x.is_ongoing_run==True,self.runs))
@@ -1845,12 +1900,12 @@ class RunList:
             return None
 
     def isHighestRun(self,runObj):
-        return len(filter(lambda x: x.runnumber>runObj.runNumber,self.runs))==0
+        return len(filter(lambda x: x.runnumber>runObj.runnumber,self.runs))==0
 
     def getStateDoc(self):
         docArray = []
-        for run in self.runs:
-          docArray.append({'run':runObj.runNumber,'totalRes':runObj.n_used,'qRes':runObj.n_quarantined,'ongoing':runObj.is_ongoing_run,'errors':runObj.num_errors})
+        for runObj in self.runs:
+          docArray.append({'run':runObj.runnumber,'totalRes':runObj.n_used,'qRes':runObj.n_quarantined,'ongoing':runObj.is_ongoing_run,'errors':runObj.num_errors})
         return docArray
 
 
@@ -1879,21 +1934,30 @@ class RunRanger:
         global exiting_cloud_mode
         global abort_cloud_mode
         global cached_pending_run
-        logger.info('RunRanger: event '+event.fullpath)
-        dirname=event.fullpath[event.fullpath.rfind("/")+1:]
+        fullpath = event.fullpath
+        logger.info('RunRanger: event '+fullpath)
+        dirname=fullpath[fullpath.rfind("/")+1:]
         logger.info('RunRanger: new filename '+dirname)
         if dirname.startswith('run'):
-
-            if os.path.islink(event.fullpath):
-                logger.info('directory ' + event.fullpath + ' is link. Ignoring this run')
+            if dirname.endswith('.reprocess'):
+                #reprocessing triggered
+                dirname = dirname[:dirname.rfind('.reprocess')]
+                fullpath = fullpath[:fullpath.rfind('.reprocess')]
+                logger.info('Triggered reprocessing of '+ dirname)
+                try:os.unlink(event.fullpath)
+                except:
+                    try:os.rmdir(event.fullpath)
+                    except:pass
+            if os.path.islink(fullpath):
+                logger.info('directory ' + fullpath + ' is link. Ignoring this run')
                 return
-            if not os.path.isdir(event.fullpath):
-                logger.info(event.fullpath +' is a file. A directory is needed to start a run.')
+            if not os.path.isdir(fullpath):
+                logger.info(fullpath +' is a file. A directory is needed to start a run.')
                 return
             nr=int(dirname[3:])
             if nr!=0:
                 # the dqm BU processes a run if the "global run file" is not mandatory or if the run is a global run
-                is_global_run = os.path.exists(event.fullpath[:event.fullpath.rfind("/")+1] + dqm_globalrun_filepattern.format(str(nr).zfill(conf.run_number_padding)))
+                is_global_run = os.path.exists(fullpath[:fullpath.rfind("/")+1] + dqm_globalrun_filepattern.format(str(nr).zfill(conf.run_number_padding)))
                 dqm_processing_criterion = (not conf.dqm_globallock) or (conf.role != 'bu') or  (is_global_run)
 
                 if (not conf.dqm_machine) or dqm_processing_criterion:
@@ -1908,13 +1972,13 @@ class RunRanger:
                         if cloud_mode==True:
                             logger.info("received new run notification in VM mode. Ignoring...")
                             #remember this run and attempt to continue it once hltd exits the cloud mode
-                            cached_pending_run = event.fullpath
-                            os.unlink(event.fullpath)
+                            cached_pending_run = fullpath
+                            os.rmdir(fullpath)
                             return
                         if conf.role == 'fu':
                             bu_dir = bu_disk_list_ramdisk_instance[0]+'/'+dirname
                             try:
-                                os.symlink(bu_dir+'/jsd',event.fullpath+'/jsd')
+                                os.symlink(bu_dir+'/jsd',fullpath+'/jsd')
                             except:
                                 if not conf.dqm_machine:
                                     self.logger.warning('jsd directory symlink error, continuing without creating link')
@@ -1923,7 +1987,7 @@ class RunRanger:
                             bu_dir = ''
 
                         #check if this run is a duplicate
-                        if runList.getRun(self,nr)!=None:
+                        if runList.getRun(nr)!=None:
                             raise Exception("Attempting to create duplicate run "+str(nr))
  
                         # in case of a DQM machines create an EoR file
@@ -1934,22 +1998,28 @@ class RunRanger:
                                     # create an EoR file that will trigger all the running jobs to exit nicely
                                     open(EoR_file_name, 'w').close()
 
-                        with Run(nr,event.fullpath,bu_dir,self.instance) as run:
-                            if not run.inputdir_exists:
-                                logger.info('skipping '+event.fullpath + ' with raw input directory missing')
-                                os.unlink(event.fullpath)
-                                return
-                            runList.add(run)
-                            resource_lock.acquire()
-                            if run.AcquireResources(mode='greedy'):
-                                run.Start()
-                            else:
-                                runList.remove(run)
+                        run = Run(nr,fullpath,bu_dir,self.instance)
+                        if not run.inputdir_exists and conf.role=='fu':
+                            logger.info('skipping '+ fullpath + ' with raw input directory missing')
+                            shutil.rmtree(fullpath)
+                            del(run)
+                            return
+                        resource_lock.acquire()
+                        runList.add(run)
+                        if run.AcquireResources(mode='greedy'):
+                            run.Start()
+                        else:
+                            #BU mode: failed to get blacklist
+                            runList.remove(nr)
                             resource_lock.release()
+                            del(run)
+                            return
+                        resource_lock.release()
+
                         if conf.role == 'bu' and conf.instance != 'main':
                             logger.info('creating run symlink in main ramdisk directory')
                             main_ramdisk = os.path.dirname(os.path.normpath(conf.watch_directory))
-                            os.symlink(event.fullpath,os.path.join(main_ramdisk,os.path.basename(event.fullpath)))
+                            os.symlink(fullpath,os.path.join(main_ramdisk,os.path.basename(fullpath)))
                     except OSError as ex:
                         logger.error("RunRanger: "+str(ex)+" "+ex.filename)
                         logger.exception(ex)
@@ -1972,7 +2042,7 @@ class RunRanger:
                     logger.info("exception encountered in starting BU emulator run")
                     logger.info(ex)
 
-                os.remove(event.fullpath)
+                os.remove(fullpath)
 
         elif dirname.startswith('end'):
             # need to check is stripped name is actually an integer to serve
@@ -1981,26 +2051,25 @@ class RunRanger:
                 nr=int(dirname[3:])
                 if nr!=0:
                     try:
-                        runtoend = runList.getRun(nr)
-                        if len(runtoend)==None:
+                        endingRun = runList.getRun(nr)
+                        if endingRun==None:
                             logger.warning('request to end run '+str(nr)
                                           +' which does not exist')
-                            os.remove(event.fullpath)
+                            os.remove(fullpath)
                         else:
                             logger.info('end run '+str(nr))
                             #remove from runList to prevent intermittent restarts
                             #lock used to fix a race condition when core files are being moved around
-                            runtoend.is_ongoing_run==False
+                            endingRun.is_ongoing_run==False
                             time.sleep(.1)
                             if conf.role == 'fu':
-                                runtoend[0].StartWaitForEnd()
+                                endingRun.StartWaitForEnd()
                             if bu_emulator and bu_emulator.runnumber != None:
                                 bu_emulator.stop()
                             #logger.info('run '+str(nr)+' removing end-of-run marker')
-                            #os.remove(event.fullpath)
+                            #os.remove(fullpath)
 
                     except Exception as ex:
-                        resource_lock.release()
                         logger.info("exception encountered when waiting hlt run to end")
                         logger.info(ex)
                 else:
@@ -2013,7 +2082,7 @@ class RunRanger:
                               +'*never* happen')
 
         elif dirname.startswith('herod'):
-            os.remove(event.fullpath)
+            os.remove(fullpath)
             if conf.role == 'fu':
                 logger.info("killing all CMSSW child processes")
                 for run in runList.getActiveRuns():
@@ -2047,10 +2116,10 @@ class RunRanger:
                     elif conf.role=='bu':
                         run.ShutdownBU()
                 logger.info("terminated all ongoing runs via cgi interface (populationcontrol)")
-            os.remove(event.fullpath)
+            os.remove(fullpath)
 
         elif dirname.startswith('harakiri') and conf.role == 'fu':
-            os.remove(event.fullpath)
+            os.remove(fullpath)
             pid=os.getpid()
             logger.info('asked to commit seppuku:'+str(pid))
             try:
@@ -2094,7 +2163,7 @@ class RunRanger:
             #local request used in case of stale file handle
             if replyport==0:
                 umount_success = cleanup_mountpoints()
-                try:os.remove(event.fullpath)
+                try:os.remove(fullpath)
                 except:pass
                 suspended=False
                 logger.info("Remount requested locally is performed.")
@@ -2106,9 +2175,9 @@ class RunRanger:
                 time.sleep(1)
                 logger.error("Suspend initiated from BU failed, trying again...")
                 #notifying itself again
-                try:os.remove(event.fullpath)
+                try:os.remove(fullpath)
                 except:pass
-                fp = open(event.fullpath,"w+")
+                fp = open(fullpath,"w+")
                 fp.close()
                 return 
 
@@ -2124,7 +2193,7 @@ class RunRanger:
             try:
                 if bu_name==None:
                     logger.fatal("No BU name was found in the bus.config file. Leaving mount points unmounted until the hltd service restart.")
-                    os.remove(event.fullpath)
+                    os.remove(fullpath)
                     return
                 connection = httplib.HTTPConnection(bu_name, replyport+20,timeout=5)
                 connection.request("GET",'cgi-bin/report_suspend_cgi.py?host='+os.uname()[1])
@@ -2169,7 +2238,7 @@ class RunRanger:
 
             #mount again
             cleanup_mountpoints()
-            try:os.remove(event.fullpath)
+            try:os.remove(fullpath)
             except:pass
             suspended=False
             logger.info("Remount is performed")
@@ -2216,21 +2285,21 @@ class RunRanger:
                 cloud_mode=False
             try:resource_lock.release()
             except:pass
-            os.remove(event.fullpath)
+            os.remove(fullpath)
 
         elif dirname.startswith('include') and conf.role == 'fu':
             #TODO: pick up latest ongoing run when activated ?
             # even if this run was not active before on this FU? (problem with FU EoR in BU output event counting)
             if cloud_mode==False:
                 logger.error('received notification to exit from cloud but machine is not in cloud mode!')
-                os.remove(event.fullpath)
+                os.remove(fullpath)
                 return
 
             resource_lock.acquire()
             if entering_cloud_mode:
                 abort_cloud_mode=True
                 resource_lock.release()
-                os.remove(event.fullpath)
+                os.remove(fullpath)
                 return
             resource_lock.release()
 
@@ -2252,7 +2321,7 @@ class RunRanger:
                     cleanup_resources()
                     resource_lock.release()
             exiting_cloud_mode=False
-            os.remove(event.fullpath)
+            os.remove(fullpath)
             if cached_pending_run != None:
                 #create last pending run received during the cloud mode
                 os.mkdir(cached_pending_run)
@@ -2261,9 +2330,9 @@ class RunRanger:
         elif dirname.startswith('logrestart'):
             #hook to restart logcollector process manually
             restartLogCollector(self.instance)
-            os.remove(event.fullpath)
+            os.remove(fullpath)
 
-        logger.debug("RunRanger completed handling of event "+event.fullpath)
+        logger.debug("RunRanger completed handling of event "+fullpath)
 
     def process_default(self, event):
         logger.info('RunRanger: event '+event.fullpath+' type '+str(event.mask))
@@ -2429,11 +2498,19 @@ class ResourceRanger:
             return
         try:
             resourceage = os.path.getmtime(event.fullpath)
-            lrun = runList.getLastRun(self)
+            resource_lock.acquire()
+            lrun = runList.getLastRun()
+            newRes = None
             if lrun!=None:
-                lrun.maybeNotifyNewRun(basename,resourceage)
+                logger.info('Try attaching FU resource: last run is '+str(lrun.runnumber))
+                newRes = lrun.maybeNotifyNewRun(basename,resourceage)
+            resource_lock.release()
+            if newRes:
+                newRes.NotifyNewRun(lrun.runnumber)
         except Exception as ex:
             logger.exception(ex)
+            try:resource_lock.release()
+            except:pass
 
     def process_default(self, event):
         logger.debug('ResourceRanger: event '+event.fullpath +' type '+ str(event.mask))
@@ -2697,9 +2774,10 @@ class hltd(Daemon2,object):
             httpd.serve_forever()
         except KeyboardInterrupt:
             logger.info("stop signal detected")
-            if len(runList.runs)>0:
+            aRuns =  runList.getActiveRuns()
+            if len(aRuns)>0:
                 logger.info("terminating all ongoing runs")
-                for run in runList.getActiveRuns:
+                for run in aRuns:
                     if conf.role=='fu':
                         run.Shutdown(True,True)
                     elif conf.role=='bu':

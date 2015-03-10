@@ -559,16 +559,12 @@ class BoxInfoUpdater(threading.Thread):
 
 class RunCompletedChecker(threading.Thread):
 
-    def __init__(self,conf,runList,run):
+    def __init__(self,conf,run):
         self.logger = logging.getLogger(self.__class__.__name__)
         threading.Thread.__init__(self)
         self.conf = conf
-        self.runList = runList
         self.run = run
-        self.elastic_process=run.elastic_monitor
         rundirstr = 'run'+ str(run.runnumber).zfill(conf.run_number_padding)
-        self.rundirCheckPath = os.path.join(conf.watch_directory, rundirstr)
-        self.eorCheckPath = os.path.join(self.rundirCheckPath,rundirstr + '_ls0000_EoR.jsn')
         self.indexPrefix = rundirstr + '_' + conf.elastic_cluster
         self.url =       'http://'+conf.es_local+':9200/' + self.indexPrefix + '*/fu-complete/_count'
         self.urlclose =  'http://'+conf.es_local+':9200/' + self.indexPrefix + '*/_close'
@@ -577,87 +573,13 @@ class RunCompletedChecker(threading.Thread):
         self.stop = False
         self.threadEvent = threading.Event()
 
-    def checkBoxes(self,dir):
-
-        files = os.listdir(dir)
-        endAllowed=True
-        runFound=False
-        for file in files:
-            if file != os.uname()[1]:
-                #ignore file if it is too old (FU with a problem)
-                if time.time() - os.path.getmtime(dir+file) > 20:continue
-
-                f = open(dir+file,'r')
-                lines = f.readlines()
-                #test that we are not reading incomplete file
-                try:
-                    if lines[-1].startswith('entriesComplete'):pass
-                    else:
-                        endAllowed=False
-                        break
-                except:
-                    endAllowed=False
-                    break
-                firstCopy=None
-                for l in lines:
-                    if l.startswith('activeRuns='):
-                        if firstCopy==None:
-                            firstCopy=l
-                            continue
-                        else:
-                            if firstCopy!=l:
-                                endAllowed=False
-                                break
-                        runstring = l.split('=')
-                        try:
-                            runs = runstring[1].strip('\n').split(',')
-                            for rrun in runs:
-                                run = rrun.strip()
-                                if run.isdigit()==False:continue
-                                if int(run)==int(self.nr):
-                                    runFound=True
-                                    break
-                        except:
-                            endAllowed=False
-                        break
-                if firstCopy==None:endAllowed=False
-                if runFound==True:break
-                if endAllowed==False:break
-        if endAllowed==True and runFound==False: return False
-        else:return True
-
-    def waitForAnelasticMon(self):
-        try:
-            self.run.elastic_process.wait()
-        except:pass
-        self.run.elastic_process = None
 
     def run(self):
 
-        self.threadEvent.wait(10)
-        while self.stop == False:
-            self.threadEvent.wait(5)
-            if self.stop:
-                return
-            if os.path.exists(self.eorCheckPath) or os.path.exists(self.rundirCheckPath)==False:
-                self.waitForAnelasticMon()
-                self.logger.info('finished waiting for elastic process')
-                break
-
-        dir = self.conf.resource_base+'/boxes/'
-        check_boxes=True
         check_es_complete=True
         total_es_elapsed=0
 
         while self.stop==False:
-            if check_boxes:
-                check_boxes = self.checkBoxes(dir)
-
-            if check_boxes==False:
-                try:
-                    self.runList.remove(self.run)
-                except:
-                    pass
 
             if check_es_complete:
                 try:
@@ -680,7 +602,6 @@ class RunCompletedChecker(threading.Thread):
                         check_es_complete=False
                         continue
                     else:
-                        #TODO:do this only using active runs
                         time.sleep(5)
                         total_es_elapsed+=5
                         if total_es_elapsed>600:
@@ -693,7 +614,7 @@ class RunCompletedChecker(threading.Thread):
                     check_es_complete=False
 
             #exit if both checks are complete
-            if check_boxes==False and check_es_complete==False:
+            if check_es_complete==False:
                 try:
                     if self.conf.close_es_index==True:
                         #wait a bit for queries to complete

@@ -33,10 +33,9 @@ from inotifywrapper import InotifyWrapper
 import _inotify as inotify
 
 from elasticbu import BoxInfoUpdater
-from elasticbu import RunCompletedChecker
-
 from aUtils import fileHandler
 
+thishost = os.uname()[1]
 nthreads = None
 nstreams = None
 expected_processes = None
@@ -539,8 +538,10 @@ class system_monitor(threading.Thread):
                     current_time = time.time()
                     for key in boxinfoFUMap:
                         if key==selfhost:continue
-                        edata,etime = boxinfoFUMap[key]
-                        if current_time - etime > 10:continue
+                        try:
+                            edata,etime,lastStatus = boxinfoFUMap[key]
+                        except:continue #deleted?
+                        if current_time - etime > 10 or edata == None: continue
                         try:
                             resource_count_idle+=edata['idles']
                             resource_count_used+=edata['used']
@@ -557,8 +558,10 @@ class system_monitor(threading.Thread):
                         #second pass
                         for key in boxinfoFUMap:
                             if key==selfhost:continue
-                            edata,etime = boxinfoFUMap[key]
-                            if current_time - etime > 10:continue
+                            try:
+                                edata,etime,lastStatus = boxinfoFUMap[key]
+                            except:continue #deleted?
+                            if current_time - etime > 10 or edata == None: continue
                             try:
                                 lastrun = edata['activeRuns'][-1]
                                 if lastrun==lastFUrun:
@@ -1139,7 +1142,6 @@ class Run:
         self.anelastic_monitor = None
         self.elastic_monitor = None
         self.elastic_test = None
-        self.endChecker = None
 
         self.arch = None
         self.version = None
@@ -1147,7 +1149,10 @@ class Run:
         self.waitForEndThread = None
         self.beginTime = datetime.datetime.now()
         self.anelasticWatchdog = None
+        self.elasticBuWatchdog = None
+        self.completedChecker = None
         self.threadEvent = threading.Event()
+        self.stopThreads = False
 
         #stats on usage of resources
         self.n_used = 0
@@ -1268,6 +1273,14 @@ class Run:
                 logger.exception(ex)
                 sys.exit(1)
 
+    def __del__(self):
+        self.stopThreads=True
+        self.threadEvent.set()
+        if self.completedChecker:
+            self.completedChecker.join()
+        if self.elasticBuWatchdog:
+            self.elasticBuWatchdog.join()
+        logger.info('Run '+ str(self.runnumber) +' object __del__ has completed')
 
     def AcquireResource(self,resourcenames,fromstate):
         idles = conf.resource_base+'/'+fromstate+'/'
@@ -1358,7 +1371,8 @@ class Run:
             self.changeMarkerMaybe(Run.ACTIVE)
             #start safeguard monitoring of anelastic.py
             self.startAnelasticWatchdog()
-        else:
+        elif conf.role == 'bu':
+            self.startElasticBUWatchdog()
             self.startCompletedChecker()
 
     def maybeNotifyNewRun(self,resourcename,resourceage):
@@ -1574,25 +1588,17 @@ class Run:
     def ShutdownBU(self):
 
         self.is_ongoing_run = False
-        if conf.role == 'bu':
-            for resource in self.online_resource_list:
-                if self.endChecker:
-                    try:
-                        self.endChecker.stop()
-                        seld.endChecker.join()
-                    except Exception,ex:
-                        pass
-
-        if conf.use_elasticsearch == True:
-            try:
-                if self.elastic_monitor:
+        try:
+            if self.elastic_monitor:
+                #first check if process is alive
+                if self.elastic_monitor.poll() is None:
                     self.elastic_monitor.terminate()
                     time.sleep(.1)
-                    self.elastic_monitor.wait()
-            except Exception as ex:
-                logger.info("exception encountered in shutting down elasticbu.py: " + str(ex))
-                #logger.exception(ex)
+        except Exception as ex:
+            logger.info("exception encountered in shutting down elasticbu.py: " + str(ex))
+            #logger.exception(ex)
 
+        #should also trigger destructor of the Run
         runList.remove(self)
 
         logger.info('Shutdown of run '+str(self.runnumber).zfill(conf.run_number_padding)+' on BU completed')
@@ -1701,6 +1707,18 @@ class Run:
                           +str(self.runnumber))
             return
 
+    def checkQuarantinedLimit(self):
+        allQuarantined=True
+        for r in self.online_resource_list:
+            try:
+                if r.watchdog.quarantined==False or r.processstate==100:allQuarantined=False
+            except:
+                allQuarantined=False
+        if allQuarantined==True:
+            return True
+        else:
+            return False
+
     def startAnelasticWatchdog(self):
         try:
             self.anelasticWatchdog = threading.Thread(target = self.runAnelasticWatchdog)
@@ -1719,35 +1737,59 @@ class Run:
                 self.Shutdown(killJobs=True,killScripts=True)
         except:
             pass
+        self.anelastic_monitor=None
 
-    def stopAnelasticWatchdog(self):
-        self.threadEvent.set()
-        if self.anelasticWatchdog:
-            self.anelasticWatchdog.join()
+    def startElasticBUWatchdog(self):
+        try:
+            self.enelasticBuWatchdog = threading.Thread(target = self.runElasticBUWatchdog)
+            self.elasticBuWatchdog.start()
+        except Exception as ex:
+            logger.info("exception encountered in starting elasticbu watchdog thread")
+            logger.info(ex)
+
+    def runElasticBUWatchdog(self):
+        try:
+            self.elastic_monitor.wait()
+        except:
+            pass
+        self.anelastic_monitor=None
 
     def startCompletedChecker(self):
-        if conf.role == 'bu': #and conf.use_elasticsearch == True:
-            try:
-                logger.info('start checking completition of run '+str(self.runnumber))
-                #mode 1: check for complete entries in ES
-                #mode 2: check for runs in 'boxes' files
-                self.endChecker = RunCompletedChecker(conf,runList,self)
-                self.endChecker.start()
-            except Exception,ex:
-                logger.error('failure to start run completition checker:')
-                logger.exception(ex)
 
-    def checkQuarantinedLimit(self):
-        allQuarantined=True
-        for r in self.online_resource_list:
-            try:
-                if r.watchdog.quarantined==False or r.processstate==100:allQuarantined=False
-            except:
-                allQuarantined=False
-        if allQuarantined==True:
-            return True
-        else:
-            return False
+        try:
+            logger.info('start checking completition of run '+str(self.runnumber))
+            self.completedChecker = threading.Thread(target = self.runCompletedChecker)
+            self.completedChecker.start()
+        except Exception,ex:
+            logger.error('failure to start run completition checker:')
+            logger.exception(ex)
+
+    def runCompletedChecker(self):
+
+        rundirstr = 'run'+ str(run.runnumber).zfill(conf.run_number_padding)
+        rundirCheckPath = os.path.join(conf.watch_directory, rundirstr)
+        eorCheckPath = os.path.join(rundirCheckPath,rundirstr + '_ls0000_EoR.jsn')
+ 
+        self.threadEvent.wait(10)
+        while self.stopThreads == False:
+            self.threadEvent.wait(5)
+            if os.path.exists(self.eorCheckPath) or os.path.exists(self.rundirCheckPath)==False:
+                logger.info("Completed checker: detected end of run "+str(self.runnumber))
+                break
+
+            check_boxes=True
+            while self.stopThreads==False:
+                if check_boxes:
+                    success, runFound = rr.checkNotifiedBoxes(self.runnumber)
+                if success and runFound==False:
+                    try:
+                        runList.remove(self.runnumber)
+                    except:
+                        pass
+                    logger.info("Completed checker: end of processing of run "+str(self.runnumber))
+                    break
+
+
 
 class RunList:
     def __init__(self):
@@ -1880,6 +1922,10 @@ class RunRanger:
                         else:
                             bu_dir = ''
 
+                        #check if this run is a duplicate
+                        if runList.getRun(self,nr)!=None:
+                            raise Exception("Attempting to create duplicate run "+str(nr))
+ 
                         # in case of a DQM machines create an EoR file
                         if conf.dqm_machine and conf.role == 'bu':
                             for run in runList.getOngoingRuns():
@@ -1887,6 +1933,7 @@ class RunRanger:
                                 if run.is_ongoing_run and not os.path.exists(EoR_file_name):
                                     # create an EoR file that will trigger all the running jobs to exit nicely
                                     open(EoR_file_name, 'w').close()
+
                         with Run(nr,event.fullpath,bu_dir,self.instance) as run:
                             if not run.inputdir_exists:
                                 logger.info('skipping '+event.fullpath + ' with raw input directory missing')
@@ -2229,9 +2276,11 @@ class ResourceRanger:
 
         self.managed_monitor = system_monitor()
         self.managed_monitor.start()
+        self.regpath = []
 
     def register_inotify_path(self,path,mask):
         self.inotifyWrapper.registerPath(path,mask)
+        self.regpath.append(path)
 
     def start_inotify(self):
         self.inotifyWrapper.start()
@@ -2356,6 +2405,7 @@ class ResourceRanger:
         basename = os.path.basename(event.fullpath)
         if basename.startswith('resource_summary'):return
         try:
+            #this should be error (i.e. bus.confg should not be modified during a run)
             bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
             if event.fullpath == bus_config:
                 if self.managed_monitor:
@@ -2374,6 +2424,7 @@ class ResourceRanger:
         logger.debug('ResourceRanger-CREATE: event '+event.fullpath)
         if conf.dqm_machine:return
         basename = os.path.basename(event.fullpath)
+        if basename.startswith('resource_summary'):return
         if conf.role!='bu' or basename.endswith(os.uname()[1]):
             return
         try:
@@ -2397,7 +2448,7 @@ class ResourceRanger:
         if conf.role=='fu':return
         if basename == os.uname()[1]:return
         if basename == 'blacklist':
-            with open(os.path.join(conf.watch_directory,'appliance','blacklist','r')) as fi:
+            with open(os.path.join(conf.watch_directory,'appliance','blacklist'),'r') as fi:
                 try:
                     machine_blacklist = json.load(fi)
                 except:
@@ -2408,14 +2459,76 @@ class ResourceRanger:
                 try:boxinfoFUMap.remove(basename)
                 except:pass
             else:
+                current_time = time.time()
                 try:
                     infile = fileHandler(event.fullpath)
-                    current_time = time.time()
-                    boxinfoFUMap[basename] = [infile.data,current_time]
+                    boxinfoFUMap[basename] = [infile.data,current_time,True]
                 except Exception as ex:
                     logger.error("Unable to read of parse boxinfo file "+basename)
                     logger.exception(ex)
- 
+                    try:
+                        boxinfoFUMap[basename][2]=False
+                    except:
+                        #boxinfo entry doesn't exist yet
+                        boxinfoFUMap[basename]=[None,current_time,False]
+
+    def checkNotifiedBoxes(self,runNumber):
+        keys = boxinfoFUMap.keys()
+        c_time = time.time()
+        for key in keys:
+            #if key==thishost:continue #checked in inotify thread
+            try:
+                edata,etime,lastStatus = boxinfoFUMap[key]
+            except:
+                #key deleted
+                return False,False
+            if c_time - etime > 20:continue
+            #parsing or file access, check failed
+            if lastStatus==False: return False,False
+            try:
+                #run is found in at least one box
+                if runNumber in edata['activeRuns']:return True,True
+            except:
+                #invalid boxinfo data
+                return False,False
+        #all box data are valid, run not found
+        return True,False
+
+
+    def checkBoxes(self,runNumber):
+        checkSuccessful=True
+        runFound=False
+        ioErrCount=0
+        valErrCount=0
+        files = os.listdir(self.regpath[-1])
+        c_time = time.time()
+        for file in files:
+            if file == thishost:continue
+            #ignore file if it is too old (FU with a problem)
+            filename = os.path.join(dir,file)
+            if c_time - os.path.getmtime(filename) > 20:continue
+            try:
+                with open(filename,'r') as fp:
+                    doc = json.load(fp)
+            except IOError as ex:
+                checkSuccessful=False
+                break
+            except ValueError as ex:
+                checkSuccessful=False
+                break
+            except Exception as ex:
+                logger.exception(ex)
+                checkSuccessful=False
+                break;
+            try:
+                if runNumber in doc['activeRuns']:
+                    runFound=True
+                    break;
+            except Exception as ex:
+                logger.exception(ex)
+                checkSuccessful=False
+                break
+        return checkSuccessful,runFound
 
 
 class hltd(Daemon2,object):
@@ -2541,9 +2654,7 @@ class hltd(Daemon2,object):
         rr = ResourceRanger()
         try:
             if conf.role == 'bu':
-                pass
-                #currently does nothing on bu
-                imask  = inotify.IN_MOVED_TO | inotify.IN_CLOSE_WRITE | inotify.IN_DELETE | inotify.IN_CREATE
+                imask  = inotify.IN_CLOSE_WRITE | inotify.IN_DELETE | inotify.IN_CREATE | inotify.IN_MOVED_TO
                 rr.register_inotify_path(resource_base, imask)
                 rr.register_inotify_path(resource_base+'/boxes', imask)
             else:

@@ -405,7 +405,7 @@ class LumiSectionHandler():
         self.logger.info(self.infile.basename)
 
         #fastHadd was not detected, delete files from histogram stream
-        if self.infile.stream=="streamDQMHistograms" and self.parent.dqmHandler is not None:
+        if self.infile.stream=="streamDQMHistograms" and self.parent.dqmHandler==None:
             try:
                 (filestem,ext)=os.path.splitext(self.infile.filepath)
                 os.remove(filestem + '.pb')

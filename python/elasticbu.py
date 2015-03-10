@@ -251,6 +251,7 @@ class elasticBandBU:
             else:
                 document['id']=basename
 
+            document['activeRuns'] = str(document['activeRuns']).strip('[]')
             #both here and in "boxinfo_appliance"
             document['appliance']=self.host
             document['instance']=self.conf.instance

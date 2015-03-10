@@ -626,6 +626,11 @@ class RunCompletedChecker(threading.Thread):
         if endAllowed==True and runFound==False: return False
         else:return True
 
+    def waitForAnelasticMon(self):
+        try:
+            self.run.elastic_process.wait()
+        except:pass
+        self.run.elastic_process = None
 
     def run(self):
 
@@ -633,11 +638,10 @@ class RunCompletedChecker(threading.Thread):
         while self.stop == False:
             self.threadEvent.wait(5)
             if self.stop:
-                try:
-                    self.elastic_process.wait()
-                except:pass
-                return#giving up
+                return
             if os.path.exists(self.eorCheckPath) or os.path.exists(self.rundirCheckPath)==False:
+                self.waitForAnelasticMon()
+                self.logger.info('finished waiting for elastic process')
                 break
 
         dir = self.conf.resource_base+'/boxes/'
@@ -703,10 +707,6 @@ class RunCompletedChecker(threading.Thread):
             #check every 10 seconds
             self.threadEvent.wait(10)
 
-        try:
-            self.elastic_process.wait()
-        except:pass
- 
     def stop(self):
         self.stop = True
         self.threadEvent.set() 

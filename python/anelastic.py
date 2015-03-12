@@ -46,6 +46,7 @@ class LumiSectionRanger():
         self.maxReceivedEoLS=0
         self.maxClosedLumi=0
         self.iniReceived=False
+        self.flush = None
 
     def join(self, stop=False, timeout=None):
         if stop: self.stop()
@@ -64,6 +65,8 @@ class LumiSectionRanger():
 
     def run(self):
         self.logger.info("Start main loop")
+        open(os.path.join(watchDir,'flush')).close()
+        self.flush = fileHandler(os.path.join(watchDir,'flush'))
         endTimeout=-1
         while not (self.stoprequest.isSet() and self.emptyQueue.isSet() and self.checkClosure()):
             if self.source:
@@ -552,6 +555,9 @@ class LumiSectionHandler():
             return False
         self.EOLS = self.infile
         #self.infile.deleteFile()   #cmsRUN create another EOLS if it will be delete too early
+        #copy 'flush' notifier to elastic script area
+        #self.logger.debug('FLUSH esCopy')
+        self.parent.flush.esCopy()
         return True 
 
     def checkClosure(self):
@@ -880,12 +886,13 @@ if __name__ == "__main__":
     logger.info("starting anelastic for "+dirname)
     mr = None
 
-
+    es_dir_name = os.path.join(watchDir,ES_DIR_NAME)
     #make temp dir if we are here before elastic.py
     try:
-        os.makedirs(os.path.join(watchDir,ES_DIR_NAME))
+        os.makedirs(es_dir_name)
     except OSError:
         pass
+
 
     try:
 

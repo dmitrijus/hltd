@@ -72,6 +72,9 @@ class elasticCollector():
                 elif filetype in [COMPLETE]:
                     self.elasticize()
                     self.stop()
+                elif filetype == FLUSH:
+                    self.logger.debug('FLUSH')
+                    es.flushAllLS()
             elif filetype in [MODULELEGEND] and self.movedModuleLegend == False:
                 try:
                     if not os.path.exists(self.inputMonDir+'/microstatelegend.leg') and os.path.exists(self.inputMonDir):

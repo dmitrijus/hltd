@@ -30,6 +30,7 @@ class LumiSectionRanger():
         self.emptyQueue = threading.Event()  
         self.errIniFile = threading.Event()  
         self.LSHandlerList = {}  # {(run,ls): LumiSectionHandler()}
+        self.ClosedEmptyLSList = set() #empty LS set with metadata fully copied to output
         self.activeStreams = [] # updated by the ini files
         self.streamCounters = {} # extended by ini files, updated by the lumi handlers
         self.source = None
@@ -65,7 +66,7 @@ class LumiSectionRanger():
 
     def run(self):
         self.logger.info("Start main loop")
-        open(os.path.join(watchDir,'flush')).close()
+        open(os.path.join(watchDir,'flush'),'w').close()
         self.flush = fileHandler(os.path.join(watchDir,'flush'))
         endTimeout=-1
         while not (self.stoprequest.isSet() and self.emptyQueue.isSet() and self.checkClosure()):
@@ -133,19 +134,26 @@ class LumiSectionRanger():
                 if self.maxReceivedEoLS<ls_num:
                     self.maxReceivedEoLS=ls_num
                 self.mr.notifyLumi(ls_num,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
-                for lskey in self.LSHandlerList:
-                    if  int(self.LSHandlerList[lskey].ls_num) < ls_num and not self.LSHandlerList[lskey].EOLS:
-                        self.createEOLSFile(self.LSHandlerList[lskey].ls)
-            if key not in self.LSHandlerList and not filetype == EOLS :
-                self.LSHandlerList[key] = LumiSectionHandler(self,run,ls,self.activeStreams,self.streamCounters,self.tempdir,self.outdir,self.jsdfile)
+            if key not in self.LSHandlerList:
+                if ls_num in self.ClosedEmptyLSList:
+                    if filetype in [STREAM]:
+                        self.cleanStreamFiles()
+                    return
+                isEmptyLS = True if filetype not in [INDEX] else False
+                self.LSHandlerList[key] = LumiSectionHandler(self,run,ls,self.activeStreams,self.streamCounters,self.tempdir,self.outdir,self.jsdfile,isEmptyLS)
+                if filetype not in [INDEX]:
+                    self.LSHandlerList[key].emptyLS=True
                 self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
-            if key in self.LSHandlerList:
-                self.LSHandlerList[key].processFile(self.infile)
-                if self.LSHandlerList[key].closed.isSet():
-                    if self.maxClosedLumi<ls_num:
-                        self.maxClosedLumi=ls_num
-                        self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
-                    self.LSHandlerList.pop(key,None)
+            lsHandler = self.LSHandlerList[key]
+            lsHandler.processFile(self.infile)
+            if lsHandler.closed.isSet():
+                if self.maxClosedLumi<ls_num:
+                    self.maxClosedLumi=ls_num
+                    self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
+                #keep history of closed empty lumisections
+                if lsHandler.emptyLS:
+                    self.ClosedEmptyLSList.add(ls_num)
+                self.LSHandlerList.pop(key,None)
         elif filetype == DEFINITION:
             self.processDefinitionFile()
         elif filetype == OUTPUTJSD:
@@ -251,15 +259,15 @@ class LumiSectionRanger():
           self.infile.moveFile(os.path.join(outputDir,run,self.infile.basename),copy = True,adler32=False,
                                silent=True,createDestinationDir=False,missingDirAlert=False)
           
-    def createEOLSFile(self,ls):
-        eolname = os.path.join(self.tempdir,'run'+self.run_number.zfill(conf.run_number_padding)+"_"+ls+"_EoLS.jsn")
-        try:
-            os.stat(eolname)
-        except OSError:
-            try:
-                with open(eolname,"w") as fi:
-                    self.logger.warning("EOLS file "+eolname+" was not present. Creating it by hltd.")
-            except:pass
+    #def createEOLSFile(self,ls):
+    #    eolname = os.path.join(self.tempdir,'run'+self.run_number.zfill(conf.run_number_padding)+"_"+ls+"_EoLS.jsn")
+    #    try:
+    #        os.stat(eolname)
+    #    except OSError:
+    #        try:
+    #            with open(eolname,"w") as fi:
+    #                self.logger.warning("EOLS file "+eolname+" was not present. Creating it by hltd.")
+    #        except:pass
             
 
     def processEORFile(self):
@@ -331,10 +339,23 @@ class LumiSectionRanger():
                self.logger.warning('unable to create BoLS file for ls ', ls)
         logger.info("bols file "+ str(bols_path) + " is created in the output")
 
+    def cleanStreamFiles(self):
+
+        if not self.infile.data:
+            return False
+        try:
+            files = self.infile.getFieldByName("Filelist").split(',')
+            if len(files):
+                os.unlink(os.path.join(self.dir,os.path.basename(files[0])))
+        except:
+            pass
+        os.remove(infile.filepath)
+        return True
+
 
 class LumiSectionHandler():
     host = os.uname()[1]
-    def __init__(self,parent,run,ls,activeStreams,streamCounters,tempdir,outdir,jsdfile):
+    def __init__(self,parent,run,ls,activeStreams,streamCounters,tempdir,outdir,jsdfile,isEmptyLS):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info(ls)
         self.parent=parent
@@ -356,8 +377,11 @@ class LumiSectionHandler():
         self.closed = threading.Event() #True if all files are closed/moved
         self.totalEvent = 0
         self.totalFiles = 0
-        
-        self.initOutFiles()
+        self.emptyLumiStreams = None
+        self.emptyLS = isEmptyLS
+       
+        if not self.emptyLS:
+            self.initOutFiles()
         self.initErrFiles()
 
     def initOutFiles(self):
@@ -397,8 +421,12 @@ class LumiSectionHandler():
         if filetype == STREAM: self.processStreamFile()
         elif filetype == INDEX: self.processIndexFile()
         elif filetype == EOLS: self.processEOLSFile()
-        elif filetype == DAT: self.processDATFile()
-        elif filetype == PB: self.processDATFile()
+        elif filetype == DAT:
+            self.processDATFile()
+            return
+        elif filetype == PB:
+            self.processDATFile()
+            return
         elif filetype == CRASH: self.processCRASHFile()
         elif filetype == STREAMDQMHISTOUTPUT: self.processStreamDQMHistoOutput()
 
@@ -407,35 +435,73 @@ class LumiSectionHandler():
     def processStreamFile(self):
         self.logger.info(self.infile.basename)
 
-        #fastHadd was not detected, delete files from histogram stream
-        if self.infile.stream=="streamDQMHistograms" and self.parent.dqmHandler==None:
-            try:
-                (filestem,ext)=os.path.splitext(self.infile.filepath)
-                os.remove(filestem + '.pb')
-                self.infile.deleteFile(silent=True)
-            except:pass
-            return
-        
-        if self.infile.pid not in self.pidList:
-            if self.infile.stream=="streamDQMHistograms":
-                self.logger.info("DQM histograms for empty lumisection. This is currently not handled. Files will be removed.")
-                try:
-                    (filestem,ext)=os.path.splitext(self.infile.filepath)
-                    os.remove(filestem + '.pb')
-                    self.infile.deleteFile(silent=True)
-                except:pass
-            else:
-                self.logger.critical("pid %r not in pidlist as expected for ls %r. Skip file. " %(self.infile.pid,self.ls))
-            return False
-        
-        if self.infile.pid not in self.pidList: 
-            self.logger.critical("pid %r not in pidlist as expected for ls %r. Skip file. " %(self.infile.pid,self.ls))
-            return False
-        
-        self.infile.checkSources()
         infile = self.infile
         ls,stream,pid = infile.ls,infile.stream,infile.pid
         outdir = self.outdir
+ 
+        #fastHadd was not detected, delete files from histogram stream
+        if stream=="streamDQMHistograms" and self.parent.dqmHandler==None:
+            try:
+                (filestem,ext)=os.path.splitext(infile.filepath)
+                os.remove(filestem + '.pb')
+                infile.deleteFile(silent=True)
+            except:pass
+            return
+        
+        if pid not in self.pidList:
+            processed = outfile.getFieldByName("Processed")
+            if processed != 0 :
+                self.logger.critical("Received stream output file with processed events and no seen indices by this process, pid "+str(self.infile.pid))
+                return False
+
+            if not self.emptyLumiStreams:
+                self.emptyLumiStreams = ['Error']
+                self.logger.info("pid %r not in pidlist as expected for ls %r. Empty lumisection. ")
+                self.outputErrorStream()
+
+            if not infile.data:
+                return False
+            files = infile.getFieldByName("Filelist").split(',')
+            localPidDataPath=None
+            if len(files):
+                pidDataName = os.path.basename(files[0])
+                localPidDataPath = os.path.join(self.dir,pidDataName)
+ 
+            if stream not in self.emptyLumiStreams:
+                #rename from pid to hostname convention
+                outfilename = "_".join([self.run,self.ls,stream,self.host])+'.jsn'
+                outfilepath = os.path.join(self.dir,outfilename)
+                outfile = fileHandler(outfilepath)
+                outfile.setJsdfile(self.jsdfile)
+                #copy entries from intput json file
+                outfile.data = self.infile.data 
+
+                if localPidDataPath:
+                    datastem,dataext = os.path.splitext(pidDataname)
+                    datafilename = "_".join([self.run,self.ls,stream,self.host])+'.'+dataext
+                    outfile.setFieldByName("Filelist",datafilename)
+                    localDataPath = os.path.join(self.dir,datafilename)
+                    os.rename(localPidDataPath,localDataPath)
+                    dataFile = fileHandler(localDataPath)
+                    remoteDataPath = os.path.join(outdir,datafilename)
+                    dataFile.moveFile(remoteDataPath, createDestinationDir=True, missingDirAlert=True)
+                else:
+                    outfile.setFieldByName("Filelist","")
+
+                remotePath = os.path.join(outdir,infile.basename)
+                outfile.writeout()
+                self.outputBoLSFile(stream)
+                outfile.moveFile(remotePath, createDestinationDir=True, missingDirAlert=True)
+                self.emptyLumiStreams.append(stream)
+                if len(self.emptyLumiStreams)==len(self.activeStreams):
+                  self.closed.set()
+            else:
+                if localPidDataPath:
+                    os.remove(localDataPath)
+                os.remove(infile.filepath)
+            return False
+        
+        self.infile.checkSources()
 
         #if self.closed.isSet(): self.closed.clear()
         if infile.data:
@@ -529,6 +595,7 @@ class LumiSectionHandler():
             self.streamErrorFile.merge(file2merge)
 
     def processStreamDQMHistoOutput(self):
+        if self.emptyLS:return
         self.logger.info(self.infile.basename)
         stream = self.infile.stream
         outfile = next((outfile for outfile in self.outfileList if outfile.stream == stream),False)
@@ -554,14 +621,13 @@ class LumiSectionHandler():
             self.logger.warning("LS %s already closed" %repr(ls))
             return False
         self.EOLS = self.infile
-        #self.infile.deleteFile()   #cmsRUN create another EOLS if it will be delete too early
         #copy 'flush' notifier to elastic script area
         #self.logger.debug('FLUSH esCopy')
         self.parent.flush.esCopy()
         return True 
 
     def checkClosure(self):
-        if not self.EOLS: return False
+        if not self.EOLS or self.emptyLS: return False
         outfilelist = self.outfileList[:]
         for outfile in outfilelist:
             stream = outfile.stream
@@ -583,17 +649,7 @@ class LumiSectionHandler():
                 self.logger.info("%r,%r complete" %(self.ls,outfile.stream))
 
                 #create BoLS file in output dir
-                bols_file = str(self.run)+"_"+self.ls+"_"+stream+"_BoLS.jsn"
-                bols_path =  os.path.join(self.outdir,self.run,bols_file)
-                try:
-                    open(bols_path,'a').close()
-                except:
-                    time.sleep(0.1)
-                    try:open(bols_path,'a').close()
-                    except:
-                        self.logger.warning('unable to create BoLS file for ls ', self.ls)
-                logger.info("bols file "+ str(bols_path) + " is created in the output")
-
+                self.outputBoLSFile(stream)
 
                 #move all dat files in rundir
                 datfilelist = self.datfileList[:]
@@ -669,12 +725,35 @@ class LumiSectionHandler():
             for item in self.indexfileList:
                 item.deleteFile(silent=True)
 
+            self.outputErrorStream()
 
+            #close lumisection if all streams are closed
+            self.logger.info("closing %r" %self.ls)
+            self.EOLS.esCopy()
+            #self.writeLumiInfo()
+            self.closed.set()
+            #update EOLS file with event processing statistics
+
+    def outputErrorStream(self):
             #moving streamError file
             self.logger.info("Writing streamError file ")
             errfile = self.streamErrorFile
             #create BoLS file in output dir
-            bols_file = str(self.run)+"_"+self.ls+"_"+errfile.stream+"_BoLS.jsn"
+            self.outputBoLSFile(errfile.stream)
+
+            numErr = errfile.getFieldByName("ErrorEvents") or 0
+            total = self.totalEvent
+            errfile.setFieldByName("Processed", str(total - numErr) )
+            errfile.setFieldByName("FileAdler32", "-1", warning=False)
+            errfile.setFieldByName("TransferDestination","ErrorArea",warning=False)
+            errfile.writeout()
+            newfilepath = os.path.join(self.outdir,errfile.run,errfile.basename)
+            errfile.moveFile(newfilepath,createDestinationDir=False)
+
+    def outputBoLSFile(self,stream):
+        
+            #create BoLS file in output dir
+            bols_file = str(self.run)+"_"+self.ls+"_"+stream+"_BoLS.jsn"#use join
             bols_path =  os.path.join(self.outdir,self.run,bols_file)
             try:
                 open(bols_path,'a').close()
@@ -686,22 +765,6 @@ class LumiSectionHandler():
             logger.info("bols file "+ str(bols_path) + " is created in the output")
 
 
-            numErr = errfile.getFieldByName("ErrorEvents") or 0
-            total = self.totalEvent
-            errfile.setFieldByName("Processed", str(total - numErr) )
-            errfile.setFieldByName("FileAdler32", "-1", warning=False)
-            errfile.setFieldByName("TransferDestination","ErrorArea",warning=False)
-            errfile.writeout()
-            newfilepath = os.path.join(self.outdir,errfile.run,errfile.basename)
-            errfile.moveFile(newfilepath,createDestinationDir=False)
-
-
-            #close lumisection if all streams are closed
-            self.logger.info("closing %r" %self.ls)
-            self.EOLS.esCopy()
-            #self.writeLumiInfo()
-            self.closed.set()
-            #update EOLS file with event processing statistics
 
     def writeLumiInfo(self):
         #populating EoL information back into empty EoLS file (disabled)

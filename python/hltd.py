@@ -1406,10 +1406,10 @@ class Run:
 
         for resource in self.online_resource_list:
             if resourcename in resource.cpu:
-                logger.error('Resource '+str(cpu)+' was already processing run ' + str(self.runnumber) + '. Will not participate in this run.')
+                logger.error('Resource '+str(resource.cpu)+' was already processing run ' + str(self.runnumber) + '. Will not participate in this run.')
                 return None
             if resourcename in machine_blacklist:
-                logger.info("skipping blacklisted resource "+str(cpu))
+                logger.info("skipping blacklisted resource "+str(resource.cpu))
                 return None
         current_time = time.time()
         age = current_time - resourceage

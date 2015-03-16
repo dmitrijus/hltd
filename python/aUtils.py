@@ -602,8 +602,8 @@ class fileHandler(object):
           try:
             outfile = os.path.join(self.dir,self.name+'.jsndata')
             command_args = ["jsonMerger",outfile]
-            for id in self.inputData:
-              command_args.append(id)
+            for fid in self.inputData:
+              command_args.append(fid)
             p = subprocess.Popen(command_args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
             p.wait()
             if p.returncode!=0:

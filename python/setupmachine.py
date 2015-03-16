@@ -31,6 +31,7 @@ hltdconf = '/etc/hltd.conf'
 busconfig = '/etc/appliance/bus.config'
 elasticsysconf = '/etc/sysconfig/elasticsearch'
 elasticconf = '/etc/elasticsearch/elasticsearch.yml'
+elasticlogconf = '/etc/elasticsearch/logging.yml'
 
 dbhost = 'empty'
 dbsid = 'empty'
@@ -352,8 +353,8 @@ class FileManager:
 
     def commit(self):
         out = []
-        if self.edited  == False:
-            out.append('#edited by fff meta rpm at '+getTimeString()+'\n')
+        #if self.edited  == False:
+        out.append('#edited by fff meta rpm at '+getTimeString()+'\n')
 
         #first removing elements
         for rm in self.remove:
@@ -440,6 +441,7 @@ if __name__ == "__main__":
         if 'elasticsearch' in selection:
             restoreFileMaybe(elasticsysconf)
             restoreFileMaybe(elasticconf)
+            restoreFileMaybe(elasticlogconf)
 
         sys.exit(0)
 
@@ -681,6 +683,11 @@ if __name__ == "__main__":
                 i=i+1
             escfg.commit()
 
+            #modify logging.yml
+            eslogcfg = FileManager(eslogcfg,':',esEdited,'',' ')
+            eslogcfg.reg('es.logger.level','ERROR')
+            eslogcfg.commit()
+ 
         if type == 'escdaq':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
             essyscfg.reg('ES_HEAP_SIZE','10G')

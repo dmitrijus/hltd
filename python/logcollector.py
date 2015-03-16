@@ -775,8 +775,8 @@ class HLTDLogIndex():
                 ip_url=getURLwithIP(self.es_server_url)
                 self.es = ElasticSearch(ip_url)
                 self.es.index(self.index_name,'hltdlog',document)
-            except:
-                logger.warning('failed connection attempts to ' + self.es_server_url)
+            except Exception as ex:
+                logger.warning('failed connection attempts to ' + self.es_server_url + ' : '+str(ex))
 
     def updateMappingMaybe(self,ip_url):
         for key in mappings.central_hltdlogs_mapping:
@@ -813,8 +813,8 @@ class HLTDLogParser(threading.Thread):
     def parseEntry(self,level,line,openNew=True):
         if self.logOpen:
             #ship previous
-            self.esHandler.elasticize_log(self.type,self.msglevel,self.timestamp,self.msg)
             self.logOpen=False
+            self.esHandler.elasticize_log(self.type,self.msglevel,self.timestamp,self.msg)
 
         if openNew:
             begin = line.find(':')+1
@@ -824,6 +824,10 @@ class HLTDLogParser(threading.Thread):
             self.timestamp = line[begin:end]
             self.msg = [line[msgbegin:]]
             self.logOpen=True
+            if len(self.timestamp)<=1:
+                self.logger.warning("Invalid timestamp "+str(self.timestamp))
+                #taking current time
+                self.timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     def stop(self):
         self.abort=True

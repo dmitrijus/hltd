@@ -644,9 +644,9 @@ class RunCompletedChecker(threading.Thread):
 
     def waitForAnelasticMon(self):
         try:
-            self.parent.elastic_process.wait()
+            self.parent.elastic_monitor.wait()
         except:pass
-        self.parent.elastic_process = None
+        self.parent.elastic_monitor = None
 
     def run(self):
 
@@ -799,8 +799,8 @@ if __name__ == "__main__":
 
     logging.info("Closing notifier")
     if mr is not None:
-      mr.stop_inotify()
+      mr.stop_inotifyTimeout(1)
 
     logging.info("Quit")
-    sys.exit(0)
+    os._exit(0)
 

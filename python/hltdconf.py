@@ -20,6 +20,7 @@ class hltdConf:
         self.watch_directory = None
         self.ramdisk_subdirectory = 'ramdisk'
         self.output_subdirectory = 'output'
+        self.mount_control_path = bool(self.mount_control_path=="True")
         self.fastmon_insert_modulo = 1
         self.elastic_cluster = None
  

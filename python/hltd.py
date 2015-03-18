@@ -46,6 +46,9 @@ bu_disk_list_ramdisk=[]
 bu_disk_list_output=[]
 bu_disk_list_ramdisk_instance=[]
 bu_disk_list_output_instance=[]
+bu_disk_ramdisk_CI = None
+bu_disk_ramdisk_CI_instance = None
+
 active_runs=[]
 active_runs_errors=[]
 resource_lock = threading.Lock()
@@ -151,11 +154,15 @@ def cleanup_mountpoints(remount=True):
     global bu_disk_list_ramdisk_instance
     global bu_disk_list_output
     global bu_disk_list_output_instance
-
+    global bu_disk_ramdisk_CI
+    global bu_disk_ramdisk_CI_instance
+ 
     bu_disk_list_ramdisk = []
     bu_disk_list_output = []
     bu_disk_list_ramdisk_instance = []
     bu_disk_list_output_instance = []
+    bu_disk_ramdisk_CI=None
+    bu_disk_ramdisk_CI_instance=None
  
     if conf.bu_base_dir[0] == '/':
         bu_disk_list_ramdisk = [os.path.join(conf.bu_base_dir,conf.ramdisk_subdirectory)]
@@ -189,10 +196,6 @@ def cleanup_mountpoints(remount=True):
         for point in mounts:
 
             try:
-                #try to unmount old style mountpoint(ok if fails)
-                subprocess.check_call(['umount','/'+point])
-            except:pass
-            try:
                 subprocess.check_call(['umount',os.path.join('/'+point,conf.ramdisk_subdirectory)])
             except subprocess.CalledProcessError, err1:
                 logger.info("trying to kill users of ramdisk")
@@ -212,7 +215,7 @@ def cleanup_mountpoints(remount=True):
                     umount_failure=True
             try:
                 #only attempt this if first umount was successful
-                if umount_failure==False:
+                if umount_failure==False and not point.rstrip('/').endswith("-CI"):
                     subprocess.check_call(['umount',os.path.join('/'+point,conf.output_subdirectory)])
             except subprocess.CalledProcessError, err1:
                 logger.info("trying to kill users of output")
@@ -245,11 +248,69 @@ def cleanup_mountpoints(remount=True):
         if remount==False:
             if umount_failure:return False
             return True
+
         i = 0
         bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
         if os.path.exists(bus_config):
+            lines = []
+            with open(bus_config) as fp:
+                lines = fp.readlines()
+
+            if conf.mount_control_path and len(lines):
+                try:
+                    mountaddr = lines[0].split('.')[0]+'.cms'
+                except Exception as ex:
+                    logger.fatal('Unable to parse bus.config file')
+                    logger.exception(ex)
+                    sys.exit(1)
+                attemptsLeft = 8
+                while attemptsLeft>0:
+                    #by default ping waits 10 seconds
+                    p_begin = datetime.datetime.now()
+                    if os.system("ping -c 1 "+mountaddr)==0:
+                        break
+                    else:
+                        p_end = datetime.datetime.now()
+                        logger.warn('unable to ping '+mountaddr)
+                        dt = p_end - p_begin
+                        if dt.seconds < 10:
+                            time.sleep(10-dt.seconds)
+                    attemptsLeft-=1
+                    if attemptsLeft==0:
+                        logger.fatal('hltd was unable to ping BU '+mountaddr)
+                        #check if bus.config has been updated
+                        if (os.path.getmtime(bus_config) - busconfig_age)>1:
+                            return cleanup_mountpoints(remount)
+                        attemptsLeft=8
+                        #sys.exit(1)
+                if True:
+                    logger.info("trying to mount (CI) "+mountaddr+':/fff/'+conf.ramdisk_subdirectory+' '+os.path.join('/'+conf.bu_base_dir+'-CI',conf.ramdisk_subdirectory))
+                    try:
+                        subprocess.check_call(
+                            [conf.mount_command,
+                             '-t',
+                             conf.mount_type,
+                             '-o',
+                             conf.mount_options_ramdisk,
+                             mountaddr+':/fff/'+conf.ramdisk_subdirectory,
+                             os.path.join('/'+conf.bu_base_dir+str(i),conf.ramdisk_subdirectory)]
+                            )
+                        toappend = os.path.join('/'+conf.bu_base_dir+str(i),conf.ramdisk_subdirectory)
+                        bu_disk_ramdisk_CI=toappend
+                        if conf.instance=="main":
+                            bu_disk_ramdisk_CI_instance = toappend
+                        else:
+                            bu_disk_ramdisk_CI_instance = os.path.join(toappend,conf.instance)
+                    except subprocess.CalledProcessError, err2:
+                        logger.exception(err2)
+                        logger.fatal("Unable to mount ramdisk - exiting.")
+                        sys.exit(1)
+
+
+
+
             busconfig_age = os.path.getmtime(bus_config)
-            for line in open(bus_config):
+            for line in lines:
                 logger.info("found BU to mount at "+line.strip())
                 try:
                     os.makedirs(os.path.join('/'+conf.bu_base_dir+str(i),conf.ramdisk_subdirectory))
@@ -428,11 +489,19 @@ class system_monitor(threading.Thread):
         self.file = []
         self.rehash()
         self.threadEvent = threading.Event()
+        self.threadEventStat = threading.Event()
+        self.statThread = None
+        self.stale_flag=False
 
     def rehash(self):
         if conf.role == 'fu':
-            self.directory = [os.path.join(bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
-            #self.directory = ['/'+x+'/appliance/boxes/' for x in bu_disk_list_ramdisk_instance]
+            self.check_directory = [os.path.join(c,'appliance','boxes') for x in bu_disk_list_ramdisk_instance]
+            if bu_disk_ramdisk_CI:
+                logger.info('Updating box info via control interface')
+                self.directory = [os.path.join(bu_disk_ramdisk_CI_instance[0],'appliance','boxes')]
+            else:
+                logger.info('Updating box info via data interface')
+                self.directory = [os.path.join(bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
             #write only in one location
         else:
             self.directory = [os.path.join(conf.watch_directory,'appliance/boxes/')]
@@ -444,10 +513,74 @@ class system_monitor(threading.Thread):
                 pass
 
         self.file = [os.path.join(x,self.hostname) for x in self.directory]
+        self.check_file = [os.path.join(x,self.hostname) for x in self.check_directory]
+
 
         logger.info("system_monitor: rehash found the following BU disk(s):"+str(self.file))
         for disk in self.file:
             logger.info(disk)
+
+    def startStatNFS(self):
+        if conf.role == "fu":
+            self.statThread = threading.Thread(target = self.runStatNFS)
+            self.statThread.start()
+
+    def runStatNFS(self):
+        fu_stale_counter=0
+        while self.running:
+            self.threadEventstat.wait(2)
+            time_start = time.time()
+            err_detected = False
+            try:
+                #check for NFS stale file handle
+                for disk in  bu_disk_list_ramdisk:
+                    mpstat = os.stat(disk)
+                for disk in  bu_disk_list_output:
+                    mpstat = os.stat(disk)
+                if bu_disk_ramdisk_CI:
+                    disk = bu_disk_ramdisk_CI
+                    mpstat = os.stat(disk)
+                #no issue if we reached this point
+                fu_stale_counter = 0
+            except (IOError,OSError) as ex:
+                err_detected=True
+                #TODO: find out which kind of error is thrown with unresponsive Force10 network
+                if ex.errno == 116:
+                    if fu_stale_counter==0 or fu_stale_counter%20==0:
+                        logger.fatal('detected stale file handle: '+str(disk))
+                else:
+                    logger.warning('stat mountpoint ' + str(disk) + ' caught Error: '+str(ex))
+                fu_stale_counter+=1
+                err_detected=True
+            except Exception as ex:
+                err_detected=True
+                logger.warning('stat mountpoint ' + str(disk) + ' caught exception: '+str(ex))
+
+            #if stale handle checks passed, check if access and time is normal
+            #for all data network ramdisk mountpoints
+            if not err_detected:
+                try:
+                    for mfile in self.check_file:
+                        os.stat(mfile)
+                except IOError:
+                    if (ex.errno==2):
+                        pass
+                    else:
+                        err_detected = True
+                        logger.warning('stat file ' + mfile + ' caught Error:'+str(ex))
+                except Exception as ex:
+                    err_detected = True
+                    logger.warning('stat file ' + mfile + ' caught exception:'+str(ex))
+
+            #measure time needed to do these actions. stale flag is set if it takes more than 10 seconds
+            stat_time_delta = time.time()-time_start
+            if stat_time_delta>5:
+                logger.warning("unusually long time ("+str(stat_time_delta)+"s) was needed to perform file handle and boxinfo stat check")
+            if stat_time_delta>5 or err_detected:
+                self.stale_flag=True
+            else:
+                #clear stale flag if successful
+                self.stale_flag=False
 
     def run(self):
         try:
@@ -457,7 +590,6 @@ class system_monitor(threading.Thread):
             res_path_temp = os.path.join(conf.watch_directory,'appliance','resource_summary_temp')
             res_path = os.path.join(conf.watch_directory,'appliance','resource_summary')
             selfhost = os.uname()[1]
-            fu_stale_counter = 0
             boxinfo_update_attempts=0
             counter=0
             while self.running:
@@ -494,6 +626,9 @@ class system_monitor(threading.Thread):
                         entry = boxinfoFUMap[key]
                         if current_time - entry[1] > 10:continue
                         try:
+                            if entry[0]['detectedStaleHandle']=='True':
+                                logger.warning("stale box resource "+str(key))
+                                continue
                             resource_count_idle+=int(entry[0]['idles'])
                             resource_count_used+=int(entry[0]['used'])
                             resource_count_broken+=int(entry[0]['broken'])
@@ -512,6 +647,9 @@ class system_monitor(threading.Thread):
                             entry = boxinfoFUMap[key]
                             if current_time - entry[1] > 10:continue
                             try:
+                                if entry[0]['detectedStaleHandle']=='True':
+                                    logger.info("stale resource "+str(key))
+                                    continue
                                 lastrun = int(entry[0]['activeRuns'].strip('[]').split(',')[-1])
                                 if lastrun==lastFURun:
                                     qlumis = int(entry[0]['activeRunNumQueuedLS'])
@@ -537,30 +675,6 @@ class system_monitor(threading.Thread):
 
                 for mfile in self.file:
                     if conf.role == 'fu':
-                        try:
-                            #check for NFS stale file handle
-                            for disk in  bu_disk_list_ramdisk:
-                                mpstat = os.stat(disk)
-                            for disk in  bu_disk_list_output:
-                                mpstat = os.stat(disk)
-                            #no issue if we reached this point
-                            fu_stale_counter = 0
-                        except (IOError,OSError) as ex:
-                            #TODO:which kind of error is thrown with unresponsive Force10 network
-                            if ex.errno == 116:
-                                if fu_stale_counter==0 or fu_stale_counter%20==0:
-                                  logger.fatal('detected stale file handle: '+str(disk))
-                                #if fu_stale_counter>=5:
-                                #    fu_stale_counter=0
-                                #    logger.fatal('initiating remount on stale file handle')
-                                #    try:os.unlink(os.path.join(conf.watch_directory,'suspend0'))
-                                #    except:pass
-                                #    with open(os.path.join(conf.watch_directory,'suspend0'),'w') as fi:
-                                #        pass
-                                #    time.sleep(1)
-                                #    continue
-                                fu_stale_counter+=1
-
                         dirstat = os.statvfs(conf.watch_directory)
                         try:
                             with open(mfile,'w+') as fp:
@@ -587,7 +701,7 @@ class system_monitor(threading.Thread):
                                 numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
                                 fp.write('activeRunNumQueuedLS='+numQueuedLumis+'\n')
                                 fp.write('activeRunCMSSWMaxLS='+maxCMSSWLumi+'\n')
-                                fp.write('detectedStaleHandle='+str(fu_stale_counter>0)+'\n')
+                                fp.write('detectedStaleHandle='+str(self.stale_flag)+'\n')
                                 fp.write('entriesComplete=True')
                             boxinfo_update_attempts=0
                         except (IOError,OSError) as ex:
@@ -665,6 +779,9 @@ class system_monitor(threading.Thread):
         logger.debug("system_monitor: request to stop")
         self.running = False
         self.threadEvent.set()
+        self.threadEventStat.set()
+        if self.statThread:
+            self.statThread.join()
 
 class BUEmu:
     def __init__(self):

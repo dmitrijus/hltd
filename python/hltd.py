@@ -1593,7 +1593,7 @@ class Run:
 
         resource_lock.acquire()
         try:
-            runList.remove(self)
+            runList.remove(self.runnumber)
         except Exception as ex:
             logger.exception(ex)
         resource_lock.release()
@@ -1624,7 +1624,7 @@ class Run:
 
         resource_lock.acquire()
         try:
-            runList.remove(self)
+            runList.remove(self.runnumber)
         except Exception as ex:
             logger.exception(ex)
         resource_lock.release()
@@ -1694,7 +1694,7 @@ class Run:
             resource_lock.acquire()
             logger.info("active runs.."+str(runList.getActiveRunNumbers()))
             try:
-                runList.remove(self)
+                runList.remove(self.runnumber)
             except Exception as ex:
                 logger.exception(ex)
             logger.info("new active runs.."+str(runList.getActiveRuns()))

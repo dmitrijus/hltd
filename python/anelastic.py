@@ -345,11 +345,11 @@ class LumiSectionRanger():
             return False
         try:
             files = self.infile.getFieldByName("Filelist").split(',')
-            if len(files):
-                os.unlink(os.path.join(self.dir,os.path.basename(files[0])))
+            if len(files) and len(files[0]):
+                os.unlink(os.path.join(self.tempdir,os.path.basename(files[0])))
         except:
             pass
-        os.remove(infile.filepath)
+        os.remove(self.infile.filepath)
         return True
 
 
@@ -418,7 +418,9 @@ class LumiSectionHandler():
         self.infile = infile
         filetype = self.infile.filetype
 
-        if filetype == STREAM: self.processStreamFile()
+        if filetype == STREAM:
+            proc_status = self.processStreamFile()
+            if proc_status==False: return
         elif filetype == INDEX: self.processIndexFile()
         elif filetype == EOLS: self.processEOLSFile()
         elif filetype == DAT:
@@ -446,12 +448,23 @@ class LumiSectionHandler():
                 os.remove(filestem + '.pb')
                 infile.deleteFile(silent=True)
             except:pass
-            return
+            return True
         
         if pid not in self.pidList:
-            processed = outfile.getFieldByName("Processed")
+            processed = infile.getFieldByName("Processed")
             if processed != 0 :
                 self.logger.critical("Received stream output file with processed events and no seen indices by this process, pid "+str(self.infile.pid))
+                return False
+            elif not self.emptyLS:
+                self.logger.info('Empty output in non-empty LS. Deleting output files for stream '+stream)
+                if not infile.data:
+                    return False
+                try:
+                   files = infile.getFieldByName("Filelist").split(',')
+                   if len(files) and len(files[0]):
+                       os.unlink(os.path.join(self.tempdir,os.path.basename(files[0])))
+                except:pass
+                os.remove(infile.filepath)
                 return False
 
             if not self.emptyLumiStreams:
@@ -463,24 +476,25 @@ class LumiSectionHandler():
                 return False
             files = infile.getFieldByName("Filelist").split(',')
             localPidDataPath=None
-            if len(files):
+            if len(files) and len(files[0]):
                 pidDataName = os.path.basename(files[0])
-                localPidDataPath = os.path.join(self.dir,pidDataName)
+                localPidDataPath = os.path.join(self.tempdir,pidDataName)
  
             if stream not in self.emptyLumiStreams:
                 #rename from pid to hostname convention
                 outfilename = "_".join([self.run,self.ls,stream,self.host])+'.jsn'
-                outfilepath = os.path.join(self.dir,outfilename)
+                outfilepath = os.path.join(self.tempdir,outfilename)
                 outfile = fileHandler(outfilepath)
                 outfile.setJsdfile(self.jsdfile)
                 #copy entries from intput json file
                 outfile.data = self.infile.data 
 
                 if localPidDataPath:
-                    datastem,dataext = os.path.splitext(pidDataname)
-                    datafilename = "_".join([self.run,self.ls,stream,self.host])+'.'+dataext
+                    datastem,dataext = os.path.splitext(pidDataName)
+                    datafilename = "_".join([self.run,self.ls,stream,self.host])+dataext
                     outfile.setFieldByName("Filelist",datafilename)
-                    localDataPath = os.path.join(self.dir,datafilename)
+                    localDataPath = os.path.join(self.tempdir,datafilename)
+                    self.logger.debug('renaming '+ str(localPidDataPath)+' --> ' + str(localDataPath))
                     os.rename(localPidDataPath,localDataPath)
                     dataFile = fileHandler(localDataPath)
                     remoteDataPath = os.path.join(outdir,datafilename)
@@ -490,14 +504,19 @@ class LumiSectionHandler():
 
                 remotePath = os.path.join(outdir,infile.basename)
                 outfile.writeout()
+                #remove intfile
+                os.remove(infile.filepath)
                 self.outputBoLSFile(stream)
+                #TODO:esCopy file after copy to output and before delete (do in moveFile)
+                outfile.esCopy()
                 outfile.moveFile(remotePath, createDestinationDir=True, missingDirAlert=True)
                 self.emptyLumiStreams.append(stream)
                 if len(self.emptyLumiStreams)==len(self.activeStreams):
                   self.closed.set()
+                  self.EOLS.esCopy()
             else:
                 if localPidDataPath:
-                    os.remove(localDataPath)
+                    os.remove(localPidDataPath)
                 os.remove(infile.filepath)
             return False
         
@@ -513,7 +532,7 @@ class LumiSectionHandler():
                 if STREAMDQMHISTNAME.upper() not in stream.upper():
                     self.logger.exception(ex)
                     raise(ex)
-                return False
+                return True
 
             #update output files
             outfile = next((outfile for outfile in self.outfileList if outfile.stream == stream),False)
@@ -523,8 +542,7 @@ class LumiSectionHandler():
                 self.logger.info("ls,stream: %r,%r - events %r / %r " %(ls,stream,processed,self.totalEvent))
                 infile.esCopy()
                 infile.deleteFile(silent=True)
-                return True
-        return False
+        return True
 
     def processIndexFile(self):
         self.logger.info(self.infile.basename)

@@ -218,6 +218,10 @@
             "fileAdler32": {
               "type": "long"
             },
+            "TransferDestination": {
+              "type": "string",
+              "index": "not_analyzed"
+            },
             "files": {
               "properties": {
                 "name": {

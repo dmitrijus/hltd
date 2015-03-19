@@ -574,7 +574,6 @@ class RunCompletedChecker(threading.Thread):
         self.stop = False
         self.threadEvent = threading.Event()
 
-
     def run(self):
 
         check_es_complete=True
@@ -698,8 +697,8 @@ if __name__ == "__main__":
 
     logging.info("Closing notifier")
     if mr is not None:
-      mr.stop_inotify()
+      mr.stop_inotifyTimeout(1)
 
     logging.info("Quit")
-    sys.exit(0)
+    os._exit(0)
 

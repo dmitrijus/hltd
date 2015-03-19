@@ -126,6 +126,18 @@ class LumiSectionRanger():
     def process(self):
         
         filetype = self.infile.filetype
+
+        if not self.firstStream.isSet():
+            if filetype == INDEX:
+                self.buffer.append(self.infile)
+                return
+            elif filetype == EOLS:
+                self.buffer.append(self.infile)
+                self.flushBuffer()
+                return
+            else:
+                pass
+ 
         if filetype in [STREAM,STREAMDQMHISTOUTPUT,INDEX,EOLS,DAT,PB]:
             run,ls = (self.infile.run,self.infile.ls)
             key = (run,ls)

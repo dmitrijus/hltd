@@ -492,11 +492,13 @@ class system_monitor(threading.Thread):
         self.threadEventStat = threading.Event()
         self.statThread = None
         self.stale_flag=False
+        if conf.mount_control_path:
+            self.startStatNFS()
 
     def rehash(self):
         if conf.role == 'fu':
             self.check_directory = [os.path.join(c,'appliance','boxes') for x in bu_disk_list_ramdisk_instance]
-            if bu_disk_ramdisk_CI:
+            if conf.mount_control_path:
                 logger.info('Updating box info via control interface')
                 self.directory = [os.path.join(bu_disk_ramdisk_CI_instance[0],'appliance','boxes')]
             else:

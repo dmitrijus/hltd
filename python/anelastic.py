@@ -521,6 +521,7 @@ class LumiSectionHandler():
                 #copy entries from intput json file
                 outfile.data = self.infile.data 
 
+                self.outputBoLSFile(stream)
                 if localPidDataPath:
                     datastem,dataext = os.path.splitext(pidDataName)
                     datafilename = "_".join([self.run,self.ls,stream,self.host])+dataext
@@ -530,18 +531,20 @@ class LumiSectionHandler():
                     os.rename(localPidDataPath,localDataPath)
                     dataFile = fileHandler(localDataPath)
                     remoteDataPath = os.path.join(outdir,outfile.run,datafilename)
-                    dataFile.moveFile(remoteDataPath, createDestinationDir=True, missingDirAlert=True)
+                    if self.EOLS:
+                        dataFile.moveFile(remoteDataPath, createDestinationDir=True, missingDirAlert=True)
                 else:
                     outfile.setFieldByName("Filelist","")
-
                 remotePath = os.path.join(outdir,outfile.run,outfilename)
                 outfile.writeout()
-                #remove intfile
+                #remove input file
                 os.remove(infile.filepath)
-                self.outputBoLSFile(stream)
-                #TODO:esCopy file after copy to output and before delete (do in moveFile)
-                outfile.esCopy()
-                outfile.moveFile(remotePath, createDestinationDir=True, missingDirAlert=True)
+                #only copy data and json file in case EOLS file has been produced for this LS
+                #(otherwise this EoR of LS that doesn't exist on BU)
+                if self.EOLS:
+                    #TODO:esCopy file after copy to output and before delete (do in moveFile)
+                    outfile.esCopy()
+                    outfile.moveFile(remotePath, createDestinationDir=True, missingDirAlert=True)
                 self.emptyLumiStreams.append(stream)
                 if len(self.emptyLumiStreams)==len(self.activeStreams):
                   self.closed.set()

@@ -543,7 +543,7 @@ class system_monitor(threading.Thread):
 
     def rehash(self):
         if conf.role == 'fu':
-            self.check_directory = [os.path.join(x,'appliance','boxes') for x in bu_disk_list_ramdisk_instance]
+            self.check_directory = [os.path.join(x,'appliance','dn') for x in bu_disk_list_ramdisk_instance]
             #write only in one location
             if conf.mount_control_path:
                 logger.info('Updating box info via control interface')
@@ -603,12 +603,14 @@ class system_monitor(threading.Thread):
                 err_detected=True
                 logger.warning('stat mountpoint ' + str(disk) + ' caught exception: '+str(ex))
 
-            #if stale handle checks passed, check if access and time is normal
+            #if stale handle checks passed, check if write access and timing are normal
             #for all data network ramdisk mountpoints
             if not err_detected:
                 try:
                     for mfile in self.check_file:
-                        os.stat(mfile)
+                        with open(mfile,'w') as fp:
+                            fp.write('{}')
+                        #os.stat(mfile)
                 except IOError:
                     if (ex.errno==2):
                         pass
@@ -2607,6 +2609,7 @@ class ResourceRanger:
         basename = os.path.basename(event.fullpath)
         if basename.startswith('resource_summary'):return
         if basename=='blacklist':return
+        if basename.startswith('test'):return
         if conf.role!='bu' or basename.endswith(os.uname()[1]):
             return
         try:
@@ -2637,6 +2640,7 @@ class ResourceRanger:
         if basename.startswith('resource_summary'):return
         if conf.role=='fu':return
         if basename == os.uname()[1]:return
+        if basename.startswith('test'):return
         if basename == 'blacklist':
             with open(os.path.join(conf.watch_directory,'appliance','blacklist'),'r') as fi:
                 try:
@@ -2829,9 +2833,14 @@ class hltd(Daemon2,object):
         #start boxinfo elasticsearch updater
         global nsslock
         boxInfo = None
-        if conf.role == 'bu' and conf.use_elasticsearch == True:
-            boxInfo = BoxInfoUpdater(watch_directory,conf,nsslock)
-            boxInfo.start()
+        if conf.role == 'bu':
+            try:os.makedirs(os.path.join(watch_directory,'appliance/dn'))
+            except:pass
+            try:os.makedirs(os.path.join(watch_directory,'appliance/boxes'))
+            except:pass
+            if conf.use_elasticsearch == True:
+                boxInfo = BoxInfoUpdater(watch_directory,conf,nsslock)
+                boxInfo.start()
 
         runRanger = RunRanger(self.instance)
         runRanger.register_inotify_path(watch_directory,inotify.IN_CREATE)

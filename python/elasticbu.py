@@ -514,11 +514,6 @@ class BoxInfoUpdater(threading.Thread):
             boxesMask = inotify.IN_CLOSE_WRITE 
             self.logger.info("starting elastic for "+boxesDir)
 
-            try:
-                os.makedirs(boxesDir)
-            except:
-                pass
-    
             self.eventQueue = Queue.Queue()
             self.mr = MonitorRanger()
             self.mr.setEventQueue(self.eventQueue)

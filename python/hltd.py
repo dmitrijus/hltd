@@ -233,13 +233,14 @@ def cleanup_mountpoints(remount=True):
     try:
         process = subprocess.Popen(['mount'],stdout=subprocess.PIPE)
         out = process.communicate()[0]
-        mounts = re.findall('/'+conf.bu_base_dir+'[0-9]+',out)
+        mounts = re.findall('/'+conf.bu_base_dir+'[0-9]+',out) + re.findall('/'+conf.bu_base_dir+'-CI/',out)
+
         mounts = sorted(list(set(mounts)))
         logger.info("cleanup_mountpoints: found following mount points: ")
         logger.info(mounts)
         umount_failure=False
-        for point in mounts:
-
+        for mpoint in mounts:
+            point = mpoint.rstrip('/')
             try:
                 subprocess.check_call(['umount',os.path.join('/'+point,conf.ramdisk_subdirectory)])
             except subprocess.CalledProcessError, err1:
@@ -287,7 +288,8 @@ def cleanup_mountpoints(remount=True):
                 logger.exception(ex)
             try:
                 if os.path.join('/'+point,conf.output_subdirectory)!='/':
-                    os.rmdir(os.path.join('/'+point,conf.output_subdirectory))
+                    if not point.rstrip('/').endswith("-CI"):
+                        os.rmdir(os.path.join('/'+point,conf.output_subdirectory))
             except Exception as ex:
                 logger.exception(ex)
         if remount==False:
@@ -302,8 +304,16 @@ def cleanup_mountpoints(remount=True):
                 lines = fp.readlines()
 
             if conf.mount_control_path and len(lines):
+
+                try:
+                    os.makedirs(os.path.join('/'+conf.bu_base_dir+'-CI',conf.ramdisk_subdirectory))
+                except OSError:
+                    pass
                 try:
                     mountaddr = lines[0].split('.')[0]+'.cms'
+                    #VM fallback
+                    if lines[0].endswith('.cern.ch'): mountaddr = lines[0]
+                    logger.info("found BU to mount (CI) at " + mountaddr)
                 except Exception as ex:
                     logger.fatal('Unable to parse bus.config file')
                     logger.exception(ex)
@@ -338,9 +348,9 @@ def cleanup_mountpoints(remount=True):
                              '-o',
                              conf.mount_options_ramdisk,
                              mountaddr+':/fff/'+conf.ramdisk_subdirectory,
-                             os.path.join('/'+conf.bu_base_dir+str(i),conf.ramdisk_subdirectory)]
+                             os.path.join('/'+conf.bu_base_dir+'-CI',conf.ramdisk_subdirectory)]
                             )
-                        toappend = os.path.join('/'+conf.bu_base_dir+str(i),conf.ramdisk_subdirectory)
+                        toappend = os.path.join('/'+conf.bu_base_dir+'-CI',conf.ramdisk_subdirectory)
                         bu_disk_ramdisk_CI=toappend
                         if conf.instance=="main":
                             bu_disk_ramdisk_CI_instance = toappend
@@ -538,8 +548,8 @@ class system_monitor(threading.Thread):
         self.threadEventStat = threading.Event()
         self.statThread = None
         self.stale_flag=False
-        if conf.mount_control_path:
-            self.startStatNFS()
+        self.boxdoc_version = 1
+        self.startStatNFS()
 
     def rehash(self):
         if conf.role == 'fu':
@@ -547,7 +557,7 @@ class system_monitor(threading.Thread):
             #write only in one location
             if conf.mount_control_path:
                 logger.info('Updating box info via control interface')
-                self.directory = [os.path.join(bu_disk_ramdisk_CI_instance[0],'appliance','boxes')]
+                self.directory = [os.path.join(bu_disk_ramdisk_CI_instance,'appliance','boxes')]
             else:
                 logger.info('Updating box info via data interface')
                 self.directory = [os.path.join(bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
@@ -574,8 +584,9 @@ class system_monitor(threading.Thread):
 
     def runStatNFS(self):
         fu_stale_counter=0
+        fu_stale_counter2=0
         while self.running:
-            self.threadEventstat.wait(2)
+            self.threadEventStat.wait(2)
             time_start = time.time()
             err_detected = False
             try:
@@ -610,16 +621,20 @@ class system_monitor(threading.Thread):
                     for mfile in self.check_file:
                         with open(mfile,'w') as fp:
                             fp.write('{}')
+                        fu_stale_counter2 = 0
                         #os.stat(mfile)
-                except IOError:
-                    if (ex.errno==2):
-                        pass
+                except IOError as ex:
+                    err_detected = True
+                    fu_stale_counter2+=1
+                    if ex.errno==2:
+                        #still an error if htld on BU did not create 'appliance/dn' dir
+                        if fu_stale_counter2==0 or fu_stale_counter2%20==0:
+                            logger.warning('unable to update '+mfile+ ' : '+str(ex))
                     else:
-                        err_detected = True
-                        logger.warning('stat file ' + mfile + ' caught Error:'+str(ex))
+                        logger.error('update file ' + mfile + ' caught Error:'+str(ex))
                 except Exception as ex:
                     err_detected = True
-                    logger.warning('stat file ' + mfile + ' caught exception:'+str(ex))
+                    logger.error('update file ' + mfile + ' caught exception:'+str(ex))
 
             #measure time needed to do these actions. stale flag is set if it takes more than 10 seconds
             stat_time_delta = time.time()-time_start
@@ -665,6 +680,7 @@ class system_monitor(threading.Thread):
                     resource_count_idle = 0
                     resource_count_used = 0
                     resource_count_broken = 0
+                    resource_count_stale = 0
                     cloud_count = 0
                     lastFURuns = []
                     lastFUrun=-1
@@ -672,6 +688,7 @@ class system_monitor(threading.Thread):
                     activeRunCMSSWMaxLumi = -1
 
                     current_time = time.time()
+                    stale_machines = []
                     for key in boxinfoFUMap:
                         if key==selfhost:continue
                         try:
@@ -679,18 +696,26 @@ class system_monitor(threading.Thread):
                         except:continue #deleted?
                         if current_time - etime > 10 or edata == None: continue
                         try:
+                            try:
+                                if edata['version']!=self.boxdoc_version:
+                                    logger.warning('box file version mismatch from '+str(key)+' got:'+str(edata['version'])+' required:'+str(self.boxdoc_version))
+                                    continue
+                            except:continue
                             if edata['detectedStaleHandle']:
-                                logger.warning("stale box resource "+str(key))
-                                continue
-                            resource_count_idle+=edata['idles']
-                            resource_count_used+=edata['used']
-                            resource_count_broken+=edata['broken']
+                                stale_machines.append(str(key))
+                                resource_count_stale+=edata['idles']+edata['used']+edata['broken']
+                            else:
+                                resource_count_idle+=edata['idles']
+                                resource_count_used+=edata['used']
+                                resource_count_broken+=edata['broken']
                             cloud_count+=edata['cloud']
                         except Exception as ex:
                             logger.warning('problem updating boxinfo summary: '+str(ex))
                         try:
                             lastFURuns.append(edata['activeRuns'][-1])
                         except:pass
+                    if len(stale_machines):
+                        logger.warning("detected stale box resources: "+str(stale_machines))
                     fuRuns = sorted(list(set(lastFURuns)))
                     if len(fuRuns)>0:
                         lastFUrun = fuRuns[-1]
@@ -702,22 +727,22 @@ class system_monitor(threading.Thread):
                             except:continue #deleted?
                             if current_time - etime > 10 or edata == None: continue
                             try:
-                                if edata['detectedStaleHandle']:
-                                    logger.warning("stale resource "+str(key))
-                                    continue
+                                try:
+                                    if edata['version']!=self.boxdoc_version: continue
+                                except: continue
                                 lastrun = edata['activeRuns'][-1]
                                 if lastrun==lastFUrun:
                                     qlumis = int(edata['activeRunNumQueuedLS'])
                                     if qlumis>activeRunQueuedLumisNum:activeRunQueuedLumisNum=qlumis
                                     maxcmsswls = int(edata['activeRunCMSSWMaxLS'])
                                     if maxcmsswls>activeRunCMSSWMaxLumi:activeRunCMSSWMaxLumi=maxcmsswls
-
                             except:pass
                     res_doc = {
                                 "active_resources":resource_count_idle+resource_count_used,
                                 "idle":resource_count_idle,
                                 "used":resource_count_used,
                                 "broken":resource_count_broken,
+                                "stale_resources":resource_count_stale,
                                 "cloud":cloud_count,
                                 "activeFURun":lastFUrun,
                                 "activeRunNumQueuedLS":activeRunQueuedLumisNum,
@@ -767,7 +792,8 @@ class system_monitor(threading.Thread):
                                 'activeRunCMSSWMaxLS':maxCMSSWLumi,
                                 'activeRunStats':runList.getStateDoc(),
                                 'cloudState':cloud_state,
-                                'detectedStaleHandle':self.stale_flag
+                                'detectedStaleHandle':self.stale_flag,
+                                "version":self.boxdoc_version
                             }
                             with open(mfile,'w+') as fp:
                                 json.dump(boxdoc,fp)
@@ -795,7 +821,8 @@ class system_monitor(threading.Thread):
                             'totalRamdisk':(ramdisk.f_blocks*ramdisk.f_bsize - ramdisk_submount_size)>>20,
                             'usedOutput':((outdir.f_blocks - outdir.f_bavail)*outdir.f_bsize)>>20,
                             'totalOutput':(outdir.f_blocks*outdir.f_bsize)>>20,
-                            'activeRuns':runList.getActiveRunNumbers()
+                            'activeRuns':runList.getActiveRunNumbers(),
+                            "version":self.boxdoc_version
                         }
                         with open(mfile,'w+') as fp:
                                 json.dump(boxdoc,fp)
@@ -813,7 +840,7 @@ class system_monitor(threading.Thread):
 
     def getLumiQueueStat(self):
         try:
-            with open(os.path.join(conf.watch_directory,'run'+str(runList.getLastRun()).zfill(conf.run_number_padding),
+            with open(os.path.join(conf.watch_directory,'run'+str(runList.getLastRun().runnumber).zfill(conf.run_number_padding),
                       'open','queue_status.jsn'),'r') as fp:
                 #fcntl.flock(fp, fcntl.LOCK_EX)
                 statusDoc = json.load(fp)

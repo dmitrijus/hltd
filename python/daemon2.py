@@ -275,17 +275,11 @@ class Daemon2:
 
         process = subprocess.Popen(['mount'],stdout=subprocess.PIPE)
         out = process.communicate()[0]
-        mounts = re.findall('/'+bu_base_dir+'[0-9]+',out)
+        mounts = re.findall('/'+bu_base_dir+'[0-9]+',out) + re.findall('/'+bu_base_dir+'-CI/',out)
         mounts = sorted(list(set(mounts)))
-        for point in mounts:
+        for mpoint in mounts:
+            point = mpoint.rstrip('/')
             sys.stdout.write("trying emergency umount of "+point+"\n")
-            try:
-                subprocess.check_call(['umount','/'+point])
-            except subprocess.CalledProcessError, err1:
-                pass
-            except Exception as ex:
-                #ok(legacy mountpoint)
-                pass
             try:
                 subprocess.check_call(['umount',os.path.join('/'+point,ramdisk_subdirectory)])
             except subprocess.CalledProcessError, err1:
@@ -294,7 +288,8 @@ class Daemon2:
             except Exception as ex:
                 sys.stdout.write(ex.args[0]+"\n")
             try:
-                subprocess.check_call(['umount',os.path.join('/'+point,output_subdirectory)])
+                if not point.rstrip('/').endswith("-CI"):
+                    subprocess.check_call(['umount',os.path.join('/'+point,output_subdirectory)])
             except subprocess.CalledProcessError, err1:
                 sys.stdout.write("Error calling umount in cleanup_mountpoints\n")
                 sys.stdout.write(str(err1.returncode)+"\n")

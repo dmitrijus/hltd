@@ -140,12 +140,15 @@ class LumiSectionRanger():
                 #TODO: this relies on a file flag that signals at least one cmsRun job has reached event processing stage
                 self.logger.fatal("Detected cmsRun job crash before event processing was started!")
             if filetype == INDEX:
+                self.logger.info('buffering index file '+self.infile.filepath)
                 self.initBuffer.append(self.infile)
                 return
             elif filetype in [EOLS,EOR,COMPLETE,PROCESSING]:
                 self.logger.info("PROCESSING")
+                self.initBuffer.append(self.infile)
                 #flush and when first EoL or EoR/completition arrive
                 self.flushBuffer()
+                return
 
         #problem: crash file can be received before buffers flushed if processes crash on early events
         if not self.receivedEoLS.isSet() and filetype in [STREAM,STREAMDQMHISTOUTPUT,DAT,PB]:

@@ -543,7 +543,7 @@ class system_monitor(threading.Thread):
 
     def rehash(self):
         if conf.role == 'fu':
-            self.check_directory = [os.path.join(c,'appliance','boxes') for x in bu_disk_list_ramdisk_instance]
+            self.check_directory = [os.path.join(x,'appliance','boxes') for x in bu_disk_list_ramdisk_instance]
             #write only in one location
             if conf.mount_control_path:
                 logger.info('Updating box info via control interface')
@@ -551,6 +551,7 @@ class system_monitor(threading.Thread):
             else:
                 logger.info('Updating box info via data interface')
                 self.directory = [os.path.join(bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
+            self.check_file = [os.path.join(x,self.hostname) for x in self.check_directory]
         else:
             self.directory = [os.path.join(conf.watch_directory,'appliance/boxes/')]
             try:
@@ -561,8 +562,6 @@ class system_monitor(threading.Thread):
                 pass
 
         self.file = [os.path.join(x,self.hostname) for x in self.directory]
-        self.check_file = [os.path.join(x,self.hostname) for x in self.check_directory]
-
 
         logger.info("system_monitor: rehash found the following BU disk(s):"+str(self.file))
         for disk in self.file:
@@ -766,7 +765,7 @@ class system_monitor(threading.Thread):
                                 'activeRunCMSSWMaxLS':maxCMSSWLumi,
                                 'activeRunStats':runList.getStateDoc(),
                                 'cloudState':cloud_state,
-                                'detectedStaleHandle':fu_stale_counter>0
+                                'detectedStaleHandle':self.stale_flag
                             }
                             with open(mfile,'w+') as fp:
                                 json.dump(boxdoc,fp)
@@ -2607,6 +2606,7 @@ class ResourceRanger:
         if conf.dqm_machine:return
         basename = os.path.basename(event.fullpath)
         if basename.startswith('resource_summary'):return
+        if basename=='blacklist':return
         if conf.role!='bu' or basename.endswith(os.uname()[1]):
             return
         try:

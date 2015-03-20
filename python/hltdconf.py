@@ -20,7 +20,6 @@ class hltdConf:
         self.watch_directory = None
         self.ramdisk_subdirectory = 'ramdisk'
         self.output_subdirectory = 'output'
-        self.mount_control_path = bool(self.mount_control_path=="True")
         self.fastmon_insert_modulo = 1
         self.elastic_cluster = None
  
@@ -29,6 +28,7 @@ class hltdConf:
                 self.__dict__[item] = value
 
         self.enabled = bool(self.enabled=="True")
+        self.mount_control_path = bool(self.mount_control_path=="True")
         self.run_number_padding = int(self.run_number_padding)
         self.delete_run_dir = bool(self.delete_run_dir=="True")
         self.use_elasticsearch = bool(self.use_elasticsearch=="True")

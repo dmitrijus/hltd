@@ -29,6 +29,8 @@ class LumiSectionRanger():
         self.stoprequest = threading.Event()
         self.emptyQueue = threading.Event()  
         self.errIniFile = threading.Event()  
+        self.receivedEoLS = threading.Event()
+        self.initBuffer = []
         self.LSHandlerList = {}  # {(run,ls): LumiSectionHandler()}
         self.ClosedEmptyLSList = set() #empty LS set with metadata fully copied to output
         self.activeStreams = [] # updated by the ini files
@@ -122,22 +124,34 @@ class LumiSectionRanger():
         self.logger.info("Stop main loop")
 
         #send the fileEvent to the proper LShandlerand remove closed LSs, or process INI and EOR files
-    
+
+    def flushBuffer(self):
+        self.receivedEoLS.set()
+        for self.infile in self.initBuffer:
+            self.process()
+        self.initBuffer=[]
+
     def process(self):
         
         filetype = self.infile.filetype
 
-        if not self.firstStream.isSet():
+        if not self.receivedEoLS.isSet():
+            if filetype == CRASH:
+                #TODO: this relies on a file flag that signals at least one cmsRun job has reached event processing stage
+                self.logger.fatal("Detected cmsRun job crash before event processing was started!")
             if filetype == INDEX:
-                self.buffer.append(self.infile)
+                self.initBuffer.append(self.infile)
                 return
-            elif filetype == EOLS:
-                self.buffer.append(self.infile)
+            elif filetype in [EOLS,EOR,COMPLETE,PROCESSING]:
+                self.logger.info("PROCESSING")
+                #flush and when first EoL or EoR/completition arrive
                 self.flushBuffer()
-                return
-            else:
-                pass
- 
+
+        #problem: crash file can be received before buffers flushed if processes crash on early events
+        if not self.receivedEoLS.isSet() and filetype in [STREAM,STREAMDQMHISTOUTPUT,DAT,PB]:
+            self.logger.fatal("received output file earlier than expected. This should never happen!")
+            return
+
         if filetype in [STREAM,STREAMDQMHISTOUTPUT,INDEX,EOLS,DAT,PB]:
             run,ls = (self.infile.run,self.infile.ls)
             key = (run,ls)
@@ -179,6 +193,8 @@ class LumiSectionRanger():
             self.processCRASHfile()
         elif filetype == EOR:
             self.processEORFile()
+        #elif filetype == PROCESSING:
+        #    self.processProcessingFile()
 
     def processCRASHfile(self):
 
@@ -294,6 +310,10 @@ class LumiSectionRanger():
             self.stop(timeout=60)
         else:
             self.stop(timeout=5)
+
+    #def processProcessingFile(self):
+         #TODO:insert this information into elasticsearch
+         #os.getmtime(self.infile.filepath)
 
     def checkClosure(self):
         for key in self.LSHandlerList.keys():
@@ -509,12 +529,12 @@ class LumiSectionHandler():
                     self.logger.debug('renaming '+ str(localPidDataPath)+' --> ' + str(localDataPath))
                     os.rename(localPidDataPath,localDataPath)
                     dataFile = fileHandler(localDataPath)
-                    remoteDataPath = os.path.join(outdir,datafilename)
+                    remoteDataPath = os.path.join(outdir,outfile.run,datafilename)
                     dataFile.moveFile(remoteDataPath, createDestinationDir=True, missingDirAlert=True)
                 else:
                     outfile.setFieldByName("Filelist","")
 
-                remotePath = os.path.join(outdir,infile.basename)
+                remotePath = os.path.join(outdir,outfile.run,outfilename)
                 outfile.writeout()
                 #remove intfile
                 os.remove(infile.filepath)
@@ -525,7 +545,8 @@ class LumiSectionHandler():
                 self.emptyLumiStreams.append(stream)
                 if len(self.emptyLumiStreams)==len(self.activeStreams):
                   self.closed.set()
-                  self.EOLS.esCopy()
+                  if self.EOLS:
+                      self.EOLS.esCopy()
             else:
                 if localPidDataPath:
                     os.remove(localPidDataPath)
@@ -759,7 +780,10 @@ class LumiSectionHandler():
 
             #close lumisection if all streams are closed
             self.logger.info("closing %r" %self.ls)
-            self.EOLS.esCopy()
+            if self.EOLS:
+                self.EOLS.esCopy()
+            else:
+                self.logger.error("EOLS file missing for lumisection "+str(self.ls))
             #self.writeLumiInfo()
             self.closed.set()
             #update EOLS file with event processing statistics

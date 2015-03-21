@@ -108,7 +108,7 @@ class LumiSectionRanger():
                 except:
                     pass
 
-        if self.checkClosure()==False:
+        if self.checkClosure(checkEmpty=False)==False:
             self.logger.error('not all lumisections were closed on exit!')
             try:
                 self.logger.error('open lumisections are: '+str(self.getOpenLumis()))
@@ -318,9 +318,10 @@ class LumiSectionRanger():
          #TODO:insert this information into elasticsearch
          #os.getmtime(self.infile.filepath)
 
-    def checkClosure(self):
+    def checkClosure(self,checkEmpty=True):
         for key in self.LSHandlerList.keys():
             if not self.LSHandlerList[key].closed.isSet():
+                if not checkEmpty and self.LSHandlerList[key].emptyLS:continue
                 return False
         return True
 
@@ -447,8 +448,6 @@ class LumiSectionHandler():
         errfile.setJsdfile(self.jsdfile)
         self.streamErrorFile = errfile
 
-
-
     def processFile(self,infile):
         self.infile = infile
         filetype = self.infile.filetype
@@ -470,7 +469,6 @@ class LumiSectionHandler():
         self.checkClosure()
 
     def processStreamFile(self):
-        self.logger.info(self.infile.basename)
 
         infile = self.infile
         ls,stream,pid = infile.ls,infile.stream,infile.pid
@@ -478,6 +476,8 @@ class LumiSectionHandler():
  
         #fastHadd was not detected, delete files from histogram stream
         if stream=="streamDQMHistograms" and self.parent.dqmHandler==None:
+            self.logger.info(self.infile.basename)
+            self.logger.warning("streamDQMHistograms merging not available")
             try:
                 (filestem,ext)=os.path.splitext(infile.filepath)
                 os.remove(filestem + '.pb')
@@ -488,10 +488,10 @@ class LumiSectionHandler():
         if pid not in self.pidList:
             processed = infile.getFieldByName("Processed")
             if processed != 0 :
-                self.logger.critical("Received stream output file with processed events and no seen indices by this process, pid "+str(self.infile.pid))
+                self.logger.critical("Received stream output file with processed events and no seen indices by this process, pid "+str(pid))
                 return False
             elif not self.emptyLS:
-                self.logger.info('Empty output in non-empty LS. Deleting output files for stream '+stream)
+                #self.logger.info('Empty output in non-empty LS. Deleting output files for stream '+stream)
                 if not infile.data:
                     return False
                 try:
@@ -504,7 +504,7 @@ class LumiSectionHandler():
 
             if not self.emptyLumiStreams:
                 self.emptyLumiStreams = ['Error']
-                self.logger.info("pid %r not in pidlist as expected for ls %r. Empty lumisection. ")
+                #self.logger.info('empty lumisection detected for pid '+str(pid))
                 self.outputErrorStream()
 
             if not infile.data:
@@ -516,6 +516,7 @@ class LumiSectionHandler():
                 localPidDataPath = os.path.join(self.tempdir,pidDataName)
  
             if stream not in self.emptyLumiStreams:
+                self.logger.info("forwarding empty LS and stream:" + self.infile.basename)
                 #rename from pid to hostname convention
                 outfilename = "_".join([self.run,self.ls,stream,self.host])+'.jsn'
                 outfilepath = os.path.join(self.tempdir,outfilename)
@@ -559,6 +560,7 @@ class LumiSectionHandler():
                 os.remove(infile.filepath)
             return False
         
+        self.logger.info(self.infile.basename)
         self.infile.checkSources()
 
         #if self.closed.isSet(): self.closed.clear()

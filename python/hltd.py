@@ -5,6 +5,7 @@ sys.path.append('/opt/hltd/lib')
 
 import time
 import datetime
+import dateutil.parser
 import logging
 import subprocess
 from signal import SIGKILL
@@ -549,7 +550,8 @@ class system_monitor(threading.Thread):
         self.statThread = None
         self.stale_flag=False
         self.boxdoc_version = 1
-        self.startStatNFS()
+        if conf.mount_control_path:
+            self.startStatNFS()
 
     def rehash(self):
         if conf.role == 'fu':
@@ -586,7 +588,8 @@ class system_monitor(threading.Thread):
         fu_stale_counter=0
         fu_stale_counter2=0
         while self.running:
-            self.threadEventStat.wait(2)
+            if not conf.mount_control_path:
+                self.threadEventStat.wait(2)
             time_start = time.time()
             err_detected = False
             try:
@@ -616,7 +619,7 @@ class system_monitor(threading.Thread):
 
             #if stale handle checks passed, check if write access and timing are normal
             #for all data network ramdisk mountpoints
-            if not err_detected:
+            if conf.mount_control_path and not err_detected:
                 try:
                     for mfile in self.check_file:
                         with open(mfile,'w') as fp:
@@ -639,12 +642,19 @@ class system_monitor(threading.Thread):
             #measure time needed to do these actions. stale flag is set if it takes more than 10 seconds
             stat_time_delta = time.time()-time_start
             if stat_time_delta>5:
-                logger.warning("unusually long time ("+str(stat_time_delta)+"s) was needed to perform file handle and boxinfo stat check")
+                if conf.mount_control_path:
+                    logger.warning("unusually long time ("+str(stat_time_delta)+"s) was needed to perform file handle and boxinfo stat check")
+                else:
+                    logger.warning("unusually long time ("+str(stat_time_delta)+"s) was needed to perform stale file handle check")
             if stat_time_delta>5 or err_detected:
                 self.stale_flag=True
             else:
                 #clear stale flag if successful
                 self.stale_flag=False
+
+            #no loop if called inside main loop
+            if not conf.mount_control_path:
+                return
 
     def run(self):
         try:
@@ -681,6 +691,7 @@ class system_monitor(threading.Thread):
                     resource_count_used = 0
                     resource_count_broken = 0
                     resource_count_stale = 0
+                    resource_count_activeRun = 0
                     cloud_count = 0
                     lastFURuns = []
                     lastFUrun=-1
@@ -689,6 +700,10 @@ class system_monitor(threading.Thread):
 
                     current_time = time.time()
                     stale_machines = []
+                    try:
+                        current_runnumber = runList.getLastRun().runnumber
+                    except:
+                        current_runnumber=0
                     for key in boxinfoFUMap:
                         if key==selfhost:continue
                         try:
@@ -705,6 +720,9 @@ class system_monitor(threading.Thread):
                                 stale_machines.append(str(key))
                                 resource_count_stale+=edata['idles']+edata['used']+edata['broken']
                             else:
+                                if current_runnumber in  edata['activeRuns']:
+                                    resource_count_activeRun += edata['used_activeRun']+edata['broken_activeRun']
+
                                 resource_count_idle+=edata['idles']
                                 resource_count_used+=edata['used']
                                 resource_count_broken+=edata['broken']
@@ -738,7 +756,9 @@ class system_monitor(threading.Thread):
                                     if maxcmsswls>activeRunCMSSWMaxLumi:activeRunCMSSWMaxLumi=maxcmsswls
                             except:pass
                     res_doc = {
-                                "active_resources":resource_count_idle+resource_count_used,
+                                #"active_resources":resource_count_idle+resource_count_used,
+                                #"active_resources_activeRun":resource_count_activeRun,
+                                "active_resources":resource_count_activeRun,
                                 "idle":resource_count_idle,
                                 "used":resource_count_used,
                                 "broken":resource_count_broken,
@@ -755,7 +775,17 @@ class system_monitor(threading.Thread):
 
                 for mfile in self.file:
                     if conf.role == 'fu':
+
+                        #check if stale file handle (or slow access)
+                        if not conf.mount_control_path:
+                            runStatNFS()
+
                         dirstat = os.statvfs(conf.watch_directory)
+
+                        lRun = runList.getLastRun()
+                        n_used_activeRun=0
+                        n_broken_activeRun=0
+
                         try:
                             if cloud_mode==True and entering_cloud_mode==True:
                               n_idles = 0
@@ -763,9 +793,16 @@ class system_monitor(threading.Thread):
                               n_broken = 0
                               n_cloud = len(os.listdir(cloud))+len(os.listdir(idles))+len(os.listdir(used))+len(os.listdir(broken))
                             else:
+                              usedlist = os.listdir(used)
+                              brokenlist = os.listdir(broken)
+                              if lRun:
+                                  try:
+                                      n_used_activeRun = lRun.countOwnedResourcesFrom(usedlist)
+                                      n_broken_activeRun = lRun.countOwnedResourcesFrom(brokenlist)
+                                  except:pass
                               n_idles = len(os.listdir(idles))
-                              n_used = len(os.listdir(used))
-                              n_broken = len(os.listdir(broken))
+                              n_used = len(usedlist)
+                              n_broken = len(brokenlist)
                               n_cloud = len(os.listdir(cloud))
                             n_quarantined = len(os.listdir(quarantined))
                             numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
@@ -778,11 +815,14 @@ class system_monitor(threading.Thread):
                             else:
                               cloud_state = "off"
 
+
                             boxdoc = {
                                 'fm_date':tstring,
                                 'idles' : n_idles,
                                 'used' : n_used,
                                 'broken' : n_broken,
+                                'used_activeRun' : n_used_activeRun,
+                                'broken_activeRun' : n_broken_activeRun,
                                 'cloud' : n_cloud,
                                 'quarantined' : n_quarantined,
                                 'usedDataDir' : ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20,
@@ -1438,6 +1478,15 @@ class Run:
             except RuntimeError:
                 pass
         logger.info('Run '+ str(self.runnumber) +' object __del__ has completed')
+
+    def countOwnedResourcesFrom(self,resourcelist):
+        ret = 0
+        for resourcename in resourcelist:
+            try:
+                if resourcename in resourcenames:
+                    ret+=1
+            except:pass
+        return ret
 
     def AcquireResource(self,resourcenames,fromstate):
         idles = conf.resource_base+'/'+fromstate+'/'
@@ -2681,8 +2730,15 @@ class ResourceRanger:
                 except:pass
             else:
                 current_time = time.time()
+                current_datetime = datetime.datetime.utcfromtimestamp(current_time)
                 try:
                     infile = fileHandler(event.fullpath)
+                    
+                    if (current_datetime - dateutil.parser.parse(infile.data['fm_date'])).seconds > 5:
+                        logger.warning('setting stale flag for resource '+basename)
+                        #should be << 1s if NFS is responsive, set stale handle flag
+                        infile.data['detectedStaleHandle']=True
+
                     boxinfoFUMap[basename] = [infile.data,current_time,True]
                 except Exception as ex:
                     logger.error("Unable to read of parse boxinfo file "+basename)

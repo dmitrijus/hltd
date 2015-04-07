@@ -50,6 +50,7 @@ class LumiSectionRanger():
         self.maxClosedLumi=0
         self.iniReceived=False
         self.flush = None
+        self.allowEmptyLs=False
 
     def join(self, stop=False, timeout=None):
         if stop: self.stop()
@@ -135,6 +136,10 @@ class LumiSectionRanger():
         
         filetype = self.infile.filetype
 
+        #temporary way to detect that CMSSW will output empty LS json files
+        if filetype == PROCESSING:
+            self.allowEmptyLs=True
+
         if not self.receivedEoLS.isSet():
             if filetype == CRASH:
                 #TODO: this relies on a file flag that signals at least one cmsRun job has reached event processing stage
@@ -169,6 +174,9 @@ class LumiSectionRanger():
                         self.cleanStreamFiles()
                     return
                 isEmptyLS = True if filetype not in [INDEX] else False
+                if isEmptyLs and not self.allowEmptyLs:
+                    #detected CMSSW version which writes out empty lumisections
+                    return
                 self.LSHandlerList[key] = LumiSectionHandler(self,run,ls,self.activeStreams,self.streamCounters,self.tempdir,self.outdir,self.jsdfile,isEmptyLS)
                 if filetype not in [INDEX]:
                     self.LSHandlerList[key].emptyLS=True

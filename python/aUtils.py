@@ -60,6 +60,18 @@ class MonitorRanger:
     def start_inotify(self):
         self.inotifyWrapper.start()
 
+    def stop_inotifyTimeout(self,timeout):
+        self.logger.info("MonitorRanger: Stop inotify wrapper")
+        self.inotifyWrapper.stop()
+        self.logger.info("MonitorRanger: Join inotify wrapper")
+        self.inotifyWrapper.join(timeout)
+        if self.inotifyWrapper.isAlive():
+            self.logger.info("MonitorRanger: Inotify wrapper join timeout ("+str(timeout)+")")
+            return False
+        else:
+            self.logger.info("MonitorRanger: Inotify wrapper returned")
+            return True
+ 
     def stop_inotify(self):
         self.logger.info("MonitorRanger: Stop inotify wrapper")
         self.inotifyWrapper.stop()

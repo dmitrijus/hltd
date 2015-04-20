@@ -1034,17 +1034,17 @@ class OnlineResource:
                             str(num_streams)]
         else: # a dqm machine
             dqm_globalrun_file = input_disk + '/' + dqm_globalrun_filepattern.format(str(runnumber).zfill(conf.run_number_padding))
-            run_type = ''
+            runkey = ''
             try:
                 with open(dqm_globalrun_file, 'r') as f:
                     for line in f:
-                        run_type = re.search(r'run[_]?type\s*=\s*(\bcollision_run\b|\bcosmic_run\b|\bcommissioning_run\b)', line, re.I)
-                        if run_type:
-                            run_type = run_type.group(1).lower()
+                        runkey = re.search(r'\s*run_key\s*=\s*([0-9A-Za-z_]*)', line, re.I)
+                        if runkey:
+                            runkey = runkey.group(1).lower()
                             break
             except IOError,ex:
                 logging.exception(ex)
-                logging.info("the default run type will be used for the dqm jobs")
+                logging.info("the default run key will be used for the dqm jobs")
             new_run_args = [conf.cmssw_script_location+'/startDqmRun.sh',
                             conf.cmssw_base,
                             arch,
@@ -1054,10 +1054,10 @@ class OnlineResource:
                             used+self.cpu[0]]
             if self.watchdog:
                 new_run_args.append('skipFirstLumis=True')
-            if run_type:
-                new_run_args.append('runtype={0}'.format(run_type))
+            if runkey:
+                new_run_args.append('runkey={0}'.format(runkey))
             else:
-                logging.info('Not able to determine the DQM run type from the "global" file. Default value from the input source will be used.')
+                logging.info('Not able to determine the DQM run key from the "global" file. Default value from the input source will be used.')
 
         logger.info("arg array "+str(new_run_args).translate(None, "'"))
         try:

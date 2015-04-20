@@ -18,16 +18,20 @@ def startService(daemon,srvInstance):
    daemon.touchLockFile()
    proc = Popen(["/opt/hltd/python/hltd.py",srvInstance], stdout=PIPE)
    output = proc.communicate()[0]
-   time.sleep(.1)
-   if daemon.silentStatus() and proc.returncode==0:
-       print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
-
-       daemon.touchLockFile()
-   else:
-       if proc.returncode==3:sys.exit(0)
-       print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;31mFAILED\033[0;39m  ]'
-       print output
-       sys.exit(1)
+   tries=3
+   while True:
+       time.sleep(.1)
+       if daemon.silentStatus() and proc.returncode==0:
+           print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
+           daemon.touchLockFile()
+           return
+       else:
+           if proc.returncode==3:sys.exit(0)
+           tries-=1
+           if tries>0:continue
+           print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;31mFAILED\033[0;39m  ]'
+           print output
+           sys.exit(1)
 
 if __name__ == "__main__":
 

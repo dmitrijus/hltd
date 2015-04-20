@@ -151,7 +151,7 @@ class LumiSectionRanger():
             elif filetype in [EOLS,EOR,COMPLETE,PROCESSING]:
                 self.logger.info("PROCESSING")
                 self.initBuffer.append(self.infile)
-                #flush and when first EoL or EoR/completition arrive
+                #flush and when first processing file flag, EoL, EoR or completion arrive
                 self.flushBuffer()
                 return
 

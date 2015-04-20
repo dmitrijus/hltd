@@ -60,7 +60,7 @@ def getURLwithIP(url,nsslock=None):
 
 class elasticBandBU:
 
-    def __init__(self,conf,runnumber,startTime,runMode=True,nsslock=None):
+    def __init__(self,conf,runnumber,startTime,runMode=True,nsslock=None,box_version=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.conf=conf
         self.es_server_url=conf.elastic_runindex_url
@@ -70,6 +70,7 @@ class elasticBandBU:
         self.boxinfo_write="boxinfo_"+conf.elastic_runindex_name+"_write"
         self.boxinfo_read="boxinfo_"+conf.elastic_runindex_name+"_read"
         self.boxinfo_name="boxinfo_"+conf.elastic_runindex_name
+        self.boxdoc_version=box_version
         self.runnumber = str(runnumber)
         self.startTime = startTime
         self.host = os.uname()[1]
@@ -238,6 +239,13 @@ class elasticBandBU:
         if basename in self.black_list:return
 
         if bu_doc==False:
+            try:
+                if self.boxdoc_version<infile.data['version']:
+                    self.logger.info('skipping '+basename+' box file version '+str(infile.data['version'])+' which is newer than '+str(self.boxdoc_version))
+                    return;
+            except:
+                self.logger.warning("didn't find version field in box file "+basename)
+                return
             try:
                 self.boxinfoFUMap[basename] = [infile.data,current_time]
             except Exception as ex:
@@ -501,12 +509,13 @@ class elasticBoxCollectorBU():
 
 class BoxInfoUpdater(threading.Thread):
 
-    def __init__(self,ramdisk,conf,nsslock):
+    def __init__(self,ramdisk,conf,nsslock,box_version):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.stopping = False
         self.es=None
         self.conf=conf
         self.nsslock=nsslock
+        self.boxdoc_version = box_version
 
         try:
             threading.Thread.__init__(self)
@@ -526,7 +535,7 @@ class BoxInfoUpdater(threading.Thread):
 
     def run(self):
         try:
-            self.es = elasticBandBU(self.conf,0,'',False,self.nsslock)
+            self.es = elasticBandBU(self.conf,0,'',False,self.nsslock,self.boxdoc_version)
             if self.stopping:return
 
             self.ec = elasticBoxCollectorBU(self.es)

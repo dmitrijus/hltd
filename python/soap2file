@@ -18,14 +18,19 @@ from soap2file import Soap2file
 def startService(daemon):
    proc = Popen(["/opt/hltd/python/soap2file.py"], stdout=PIPE)
    output = proc.communicate()[0]
-   time.sleep(.1)
-   if daemon.silentStatus() and proc.returncode==0:
-       print 'Starting soap2file:\t\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
-   else:
-       if proc.returncode==3:sys.exit(0)
-       print 'Starting soap2file instance: [  \032[1;32mFAILED\033[0;39m  ]'
-       print output
-       sys.exit(1)
+   tries=3
+   while True:
+       time.sleep(.1)
+       if daemon.silentStatus() and proc.returncode==0:
+           print 'Starting soap2file:\t\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
+           return
+       else:
+           if proc.returncode==3:sys.exit(0)
+           tries-=1
+           if tries>0:continue
+           print 'Starting soap2file instance: [  \033[1;31mFAILED\033[0;39m  ]'
+           print output
+           sys.exit(1)
 
 
 

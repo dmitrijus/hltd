@@ -63,6 +63,7 @@ cached_pending_run = None
 ramdisk_submount_size=0
 machine_blacklist=[]
 boxinfoFUMap = {}
+boxdoc_version = 1
 
 logCollector = None
 
@@ -549,7 +550,7 @@ class system_monitor(threading.Thread):
         self.threadEventStat = threading.Event()
         self.statThread = None
         self.stale_flag=False
-        self.boxdoc_version = 1
+        self.boxdoc_version = boxdoc_version
         if conf.mount_control_path:
             self.startStatNFS()
 
@@ -588,7 +589,7 @@ class system_monitor(threading.Thread):
         fu_stale_counter=0
         fu_stale_counter2=0
         while self.running:
-            if not conf.mount_control_path:
+            if conf.mount_control_path:
                 self.threadEventStat.wait(2)
             time_start = time.time()
             err_detected = False
@@ -715,7 +716,9 @@ class system_monitor(threading.Thread):
                                 if edata['version']!=self.boxdoc_version:
                                     logger.warning('box file version mismatch from '+str(key)+' got:'+str(edata['version'])+' required:'+str(self.boxdoc_version))
                                     continue
-                            except:continue
+                            except:
+                                logger.warning('box file version for '+str(key)+' not found')
+                                continue
                             if edata['detectedStaleHandle']:
                                 stale_machines.append(str(key))
                                 resource_count_stale+=edata['idles']+edata['used']+edata['broken']
@@ -778,7 +781,7 @@ class system_monitor(threading.Thread):
 
                         #check if stale file handle (or slow access)
                         if not conf.mount_control_path:
-                            runStatNFS()
+                            self.runStatNFS()
 
                         dirstat = os.statvfs(conf.watch_directory)
 
@@ -1399,6 +1402,14 @@ class Run:
         #give this command line parameter quoted in case it is empty
         if len(self.transfermode)==0:
             self.transfermode='null'
+
+        #backup HLT menu and parameters
+        if conf.role=='fu':
+            try:
+                hltTargetName = 'HltConfig.py_run'+str(self.runnumber)+'_'+self.arch+'_'+self.version+'_'+self.transfermode
+                shutil.copyfileobj(self.menu_path,os.path.join(conf.log_dir,'pid',hltTargetName))
+            except:
+                logger.warn('Unable to backup HLT menu')
 
         self.rawinputdir = None
         #
@@ -2733,10 +2744,18 @@ class ResourceRanger:
                 current_datetime = datetime.datetime.utcfromtimestamp(current_time)
                 try:
                     infile = fileHandler(event.fullpath)
-                    
-                    if (current_datetime - dateutil.parser.parse(infile.data['fm_date'])).seconds > 5:
-                        logger.warning('setting stale flag for resource '+basename)
+                    #check which time is later (in case of small clock skew and small difference)
+                    if current_datetime >  dateutil.parser.parse(infile.data['fm_date']):
+                        dt = (current_datetime - dateutil.parser.parse(infile.data['fm_date'])).seconds 
+                    else:
+                        dt = -(dateutil.parser.parse(infile.data['fm_date'])-current_datetime).seconds 
+
+                    if dt > 5:
+                        logger.warning('setting stale flag for resource '+basename + ' which is '+str(dt)+' seconds behind')
                         #should be << 1s if NFS is responsive, set stale handle flag
+                        infile.data['detectedStaleHandle']=True
+                    elif dt < -5:
+                        logger.error('setting stale flag for resource '+basename + ' which is '+str(dt)+' seconds ahead (clock skew)')
                         infile.data['detectedStaleHandle']=True
 
                     boxinfoFUMap[basename] = [infile.data,current_time,True]
@@ -2922,7 +2941,7 @@ class hltd(Daemon2,object):
             try:os.makedirs(os.path.join(watch_directory,'appliance/boxes'))
             except:pass
             if conf.use_elasticsearch == True:
-                boxInfo = BoxInfoUpdater(watch_directory,conf,nsslock)
+                boxInfo = BoxInfoUpdater(watch_directory,conf,nsslock,boxdoc_version)
                 boxInfo.start()
 
         runRanger = RunRanger(self.instance)

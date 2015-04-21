@@ -759,9 +759,9 @@ class system_monitor(threading.Thread):
                                     if maxcmsswls>activeRunCMSSWMaxLumi:activeRunCMSSWMaxLumi=maxcmsswls
                             except:pass
                     res_doc = {
-                                #"active_resources":resource_count_idle+resource_count_used,
-                                #"active_resources_activeRun":resource_count_activeRun,
-                                "active_resources":resource_count_activeRun,
+                                "active_resources":resource_count_idle+resource_count_used,
+                                "active_resources_activeRun":resource_count_activeRun,
+                                #"active_resources":resource_count_activeRun,
                                 "idle":resource_count_idle,
                                 "used":resource_count_used,
                                 "broken":resource_count_broken,

@@ -180,6 +180,9 @@ class LumiSectionRanger():
                 self.LSHandlerList[key] = LumiSectionHandler(self,run,ls,self.activeStreams,self.streamCounters,self.tempdir,self.outdir,self.jsdfile,isEmptyLS)
                 if filetype not in [INDEX]:
                     self.LSHandlerList[key].emptyLS=True
+                else:
+                    self.checkDestinationDir()
+
                 self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
             lsHandler = self.LSHandlerList[key]
             lsHandler.processFile(self.infile)
@@ -346,6 +349,11 @@ class LumiSectionRanger():
             if not self.LSHandlerList[key].closed.isSet():
                 openLumis+=1
         return openLumis
+
+    def checkDestinationDir(self):
+        if not os.path.exists(os.path.join(outputDir,'run'+self.run_number.zfill(conf.run_number_padding))):
+            self.logger.fatal("Can not find output (destination) directory. Anelastic script will die.")
+            os.__exit(1)
 
     def createOutputEoR(self):
 
@@ -831,7 +839,7 @@ class LumiSectionHandler():
                 time.sleep(0.1)
                 try:open(bols_path,'a').close()
                 except:
-                    self.logger.warning('unable to create BoLS file for ls ', self.ls)
+                    self.logger.warning('unable to create BoLS file for '+ self.ls)
             logger.info("bols file "+ str(bols_path) + " is created in the output")
 
 

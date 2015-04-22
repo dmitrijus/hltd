@@ -380,7 +380,7 @@ class LumiSectionRanger():
            time.sleep(0.1)
            try:open(bols_path,'a').close()
            except:
-               self.logger.warning('unable to create BoLS file for ls ', ls)
+               self.logger.warning('unable to create BoLS file for '+ str(ls))
         logger.info("bols file "+ str(bols_path) + " is created in the output")
 
     def cleanStreamFiles(self):

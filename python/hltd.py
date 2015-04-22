@@ -153,8 +153,8 @@ def move_resources_to_cloud():
 #interfaces to the cloud igniter script
 def ignite_cloud():
     try:
-        proc = subprocess.Popen([conf.cloud_igniter,'start'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-        out = process.communicate()[0]
+        proc = subprocess.Popen([conf.cloud_igniter_path,'start'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        out = proc.communicate()[0]
         if proc.returncode==0:
             return True
         else:
@@ -163,14 +163,17 @@ def ignite_cloud():
              logger.error(out)
 
     except OSError as ex:
-        logger.error("Failed to run cloud igniter start")
-        logger.exception(ex)
+        if ex.errno==2:
+            logger.warning(conf.cloud_igniter_path + ' is missing')
+        else:
+            logger.error("Failed to run cloud igniter start")
+            logger.exception(ex)
     return False
 
 def extinguish_cloud():
     try:
-        proc = subprocess.Popen([conf.cloud_igniter,'stop'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-        out = process.communicate()[0]
+        proc = subprocess.Popen([conf.cloud_igniter_path,'stop'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        out = proc.communicate()[0]
         if proc.returncode in [0,1]:
             return True
         else:
@@ -178,20 +181,26 @@ def extinguish_cloud():
             logger.error(out)
 
     except OSError as ex:
-        logger.error("Failed to run cloud igniter stop")
-        logger.exception(ex)
+        if ex.errno==2:
+            logger.warning(conf.cloud_igniter_path + ' is missing')
+        else:
+            logger.error("Failed to run cloud igniter start")
+            logger.exception(ex)
     return False
 
 def is_cloud_inactive():
     try:
-        proc = subprocess.Popen([conf.cloud_igniter,'status'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-        out = process.communicate()[0]
+        proc = subprocess.Popen([conf.cloud_igniter_path,'status'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        out = proc.communicate()[0]
         if proc.returncode >1:
             logger.error("cloud igniter status returned error code "+str(proc.returncode))
             logger.error(out)
     except OSError as ex:
-        logger.error("Failed to run cloud igniter status")
-        logger.exception(ex)
+        if ex.errno==2:
+            logger.warning(conf.cloud_igniter_path + ' is missing')
+        else:
+            logger.error("Failed to run cloud igniter start")
+            logger.exception(ex)
         return 100
     return proc.returncode
 
@@ -773,7 +782,7 @@ class system_monitor(threading.Thread):
                                 "ramdisk_occupancy":ramdisk_occ
                               }
                     with open(res_path_temp,'w') as fp:
-                        json.dump(res_doc,fp)
+                        json.dump(res_doc,fp,indent=True)
                     os.rename(res_path_temp,res_path)
 
                 for mfile in self.file:
@@ -839,7 +848,7 @@ class system_monitor(threading.Thread):
                                 "version":self.boxdoc_version
                             }
                             with open(mfile,'w+') as fp:
-                                json.dump(boxdoc,fp)
+                                json.dump(boxdoc,fp,indent=True)
                             boxinfo_update_attempts=0
 
                         except (IOError,OSError) as ex:
@@ -868,7 +877,7 @@ class system_monitor(threading.Thread):
                             "version":self.boxdoc_version
                         }
                         with open(mfile,'w+') as fp:
-                                json.dump(boxdoc,fp)
+                                json.dump(boxdoc,fp,indent=True)
 
         except Exception as ex:
             logger.exception(ex)
@@ -1917,6 +1926,7 @@ class Run:
                     move_resources_to_cloud()
                     resource_lock.release()
                     ignite_cloud()
+                    logger.info("cloud is on? : "+str(is_cloud_inactive()==False))
             try:resource_lock.release()
             except:pass
 
@@ -2448,9 +2458,15 @@ class RunRanger:
             #service on this machine is asked to be excluded for cloud use
             if cloud_mode:
                 logger.info('already in cloud mode')
+                os.remove(fullpath)
                 return
             else:
                 logger.info('machine exclude initiated')
+
+            if is_cloud_inactive()>=100:
+                logger.error("Unable to switch to cloud mode (igniter script error)")
+                os.remove(fullpath)
+                return
 
             try:
                 #TODO:avoid keeping the run for long..
@@ -2459,6 +2475,7 @@ class RunRanger:
             except Exception as ex:
                 logger.fatal("Unable to clear quarantined runs. Will not enter VM mode.")
                 logger.exception(ex)
+                os.remove(fullpath)
                 return #
  
             resource_lock.acquire()
@@ -2480,6 +2497,7 @@ class RunRanger:
                     move_resources_to_cloud()
                     resource_lock.release()
                     ignite_cloud()
+                    logger.info("cloud is on? : "+str(is_cloud_inactive()==False))
             except Exception as ex:
                 logger.fatal("Unable to clear runs. Will not enter VM mode.")
                 logger.exception(ex)
@@ -2494,6 +2512,9 @@ class RunRanger:
             if cloud_mode==False:
                 logger.error('received notification to exit from cloud but machine is not in cloud mode!')
                 os.remove(fullpath)
+                if not is_cloud_inactive():
+                    logger.info('cloud scripts are running, trying to stop')
+                    extinguish_cloud()
                 return
 
             resource_lock.acquire()
@@ -2506,27 +2527,32 @@ class RunRanger:
 
             #run stop cloud notification
             exiting_cloud_mode=True
+            if is_cloud_inactive():
+                logger.warning('received command to deactivate cloud, but cloud scripts are not running!')
             extinguish_cloud()
 
             while True:
                 last_status = is_cloud_inactive()
-                logger.info('cloud last status, deactivated:'+str(last_status))
                 if last_status==0: #state: running
+                    logger.info('cloud scripts are still active')
                     time.sleep(1)
                     continue
                 else:
+                    logger.info('cloud scripts have been deactivated')
                     if last_status>1:
                         logger.warning('Received error code from cloud igniter script. Switching off cloud mode')
                     resource_lock.acquire()
                     cloud_mode=False
                     cleanup_resources()
                     resource_lock.release()
+                    break
             exiting_cloud_mode=False
             os.remove(fullpath)
             if cached_pending_run != None:
                 #create last pending run received during the cloud mode
                 os.mkdir(cached_pending_run)
                 cached_pending_run = None
+            logger.info('cloud mode in hltd has been switched off')
 
         elif dirname.startswith('logrestart'):
             #hook to restart logcollector process manually
@@ -2907,6 +2933,14 @@ class hltd(Daemon2,object):
             except:
                 pass
 
+            #switch to cloud mode if it is activated on hltd startup time
+            cloud_active = is_cloud_inactive()==False
+            if cloud_active:
+                logger.warning("cloud is on at hltd startup, run use include API to switch HLT mode")
+                move_resources_to_cloud()
+                global cloud_mode
+                cloud_mode=True
+ 
         if conf.role == 'bu':
             global machine_blacklist
             update_success,machine_blacklist=updateBlacklist()

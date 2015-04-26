@@ -204,6 +204,41 @@ def is_cloud_inactive():
         return 100
     return proc.returncode
 
+def umount_helper(point,attemptsLeft=3,initial=True):
+
+    if initial:
+        try:
+            logger.info('calling umount of '+point)
+            subprocess.check_call(['umount',point])
+        except subprocess.CalledProcessError, err1:
+            if err2.returncode<2:return True
+            if attemptsLeft<=0:
+                logger.error('Failed to perform umount of '+point+'. returncode:'+str(err2.returncode))
+                return False
+            logger.warning("umount failed, trying to kill users of mountpoint "+point)
+            try:
+                nsslock.acquire()
+                f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
+                nsslock.release()
+                f_user.wait()
+            except:
+                try:nsslock.release()
+                except:pass
+            return umount_helper(point,attemptsLeft-1,initial=False)
+    else:
+        attemptsLeft-=1
+        time.sleep(.5)
+        try:
+            logger.info("trying umount -f of "+point)
+            subprocess.check_call(['umount','-f',point])
+        except subprocess.CalledProcessError, err2:
+            if err2.returncode<2:return True
+            if attemptsLeft<=0:
+                logger.error('Failed to perform umount -f of '+point+'. returncode:'+str(err2.returncode))
+                return False
+            return umount_helper(point,attemptsLeft,initial=False)
+    return True
+ 
 def cleanup_mountpoints(remount=True):
 
     global bu_disk_list_ramdisk
@@ -252,44 +287,11 @@ def cleanup_mountpoints(remount=True):
         umount_failure=False
         for mpoint in mounts:
             point = mpoint.rstrip('/')
-            try:
-                subprocess.check_call(['umount',os.path.join('/'+point,conf.ramdisk_subdirectory)])
-            except subprocess.CalledProcessError, err1:
-                logger.info("trying to kill users of ramdisk")
-                try:
-                    nsslock.acquire()
-                    f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
-                    nsslock.release()
-                    f_user.wait()
-                except:
-                    try:nsslock.release()
-                    except:pass
-                try:
-                    time.sleep(.5)
-                    subprocess.check_call(['umount',os.path.join('/'+point,conf.ramdisk_subdirectory)])
-                except subprocess.CalledProcessError, err2:
-                    logger.error("Error calling umount in cleanup_mountpoints (ramdisk), return code:"+str(err2.returncode))
-                    umount_failure=True
-            try:
-                #only attempt this if first umount was successful
-                if umount_failure==False and not point.rstrip('/').endswith("-CI"):
-                    subprocess.check_call(['umount',os.path.join('/'+point,conf.output_subdirectory)])
-            except subprocess.CalledProcessError, err1:
-                logger.info("trying to kill users of output")
-                try:
-                    nsslock.acquire()
-                    f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
-                    nsslock.release()
-                    f_user.wait()
-                except:
-                    try:nsslock.release()
-                    except:pass
-                try:
-                    time.sleep(.5)
-                    subprocess.check_call(['umount',os.path.join('/'+point,conf.output_subdirectory)])
-                except subprocess.CalledProcessError, err2:
-                    logger.error("Error calling umount in cleanup_mountpoints (output), return code:"+str(err2.returncode))
-                    umount_failure=True
+            umount_failure = umount_helper(os.path.join('/'+point,conf.ramdisk_subdirectory))==False
+
+            #only attempt this if first umount was successful
+            if umount_failure==False and not point.rstrip('/').endswith("-CI"):
+                    umount_failure = umount_helper(os.path.join('/'+point,conf.output_subdirectory))==False
  
             #this will remove directories only if they are empty (as unmounted mount point should be)
             try:
@@ -2900,7 +2902,7 @@ class hltd(Daemon2,object):
         setFromConf(self.instance)
         logger.info(" ")
         logger.info(" ")
-        logger.info("<<<< ---- hltd start : instance " + self.instance + " ---- >>>>")
+        logger.info("[[[[ ---- hltd start : instance " + self.instance + " ---- ]]]]")
         logger.info(" ")
 
         if conf.enabled==False:
@@ -3027,7 +3029,7 @@ class hltd(Daemon2,object):
 
             logger.info("hltd serving at port "+str(conf.cgi_port)+" with role "+conf.role)
             os.chdir(watch_directory)
-            logger.info("<<<< ---- hltd instance " + self.instance + ": init complete, starting httpd ---- >>>>")
+            logger.info("[[[[ ---- hltd instance " + self.instance + ": init complete, starting httpd ---- ]]]]")
             logger.info("")
             httpd.serve_forever()
         except KeyboardInterrupt:

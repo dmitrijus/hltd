@@ -221,6 +221,8 @@ class Daemon2:
             time.sleep(.1)
             err = str(err)
             if err.find("No such process") > 0:
+                #check that there are no leftover mountpoints
+                self.emergencyUmount()
                 #this handles the successful stopping of the daemon...
                 if os.path.exists(self.pidfile):
                     if processPresent==False:
@@ -256,6 +258,28 @@ class Daemon2:
         daemonized by start() or restart().
         """
 
+    def do_umount(mpoint):
+        try:
+            subprocess.check_call(['umount',mpoint])
+        except subprocess.CalledProcessError, err1:
+            if err1.returncode>1:
+                try:
+                    time.sleep(0.5)
+                    subprocess.check_call(['umount','-f',mpoint])
+                except subprocess.CalledProcessError, err2:
+                if err2.returncode>1:
+                    try:
+                        time.sleep(1)
+                        subprocess.check_call(['umount','-f',mpoint])
+                    except subprocess.CalledProcessError, err3:
+                        if err3.returncode>1:
+                            sys.stdout.write("Error calling umount (-f) in cleanup_mountpoints\n")
+                            sys.stdout.write(str(err3.returncode)+"\n")
+                            return False
+        except Exception as ex:
+            sys.stdout.write(ex.args[0]+"\n")
+        return True
+
     def emergencyUmount(self):
 
         cfg = ConfigParser.SafeConfigParser()
@@ -272,7 +296,6 @@ class Daemon2:
                 if item=='bu_base_dir':bu_base_dir=value
 
 
-
         process = subprocess.Popen(['mount'],stdout=subprocess.PIPE)
         out = process.communicate()[0]
         mounts = re.findall('/'+bu_base_dir+'[0-9]+',out) + re.findall('/'+bu_base_dir+'-CI/',out)
@@ -280,22 +303,9 @@ class Daemon2:
         for mpoint in mounts:
             point = mpoint.rstrip('/')
             sys.stdout.write("trying emergency umount of "+point+"\n")
-            try:
-                subprocess.check_call(['umount',os.path.join('/'+point,ramdisk_subdirectory)])
-            except subprocess.CalledProcessError, err1:
-                sys.stdout.write("Error calling umount in cleanup_mountpoints\n")
-                sys.stdout.write(str(err1.returncode)+"\n")
-            except Exception as ex:
-                sys.stdout.write(ex.args[0]+"\n")
-            try:
-                if not point.rstrip('/').endswith("-CI"):
-                    subprocess.check_call(['umount',os.path.join('/'+point,output_subdirectory)])
-            except subprocess.CalledProcessError, err1:
-                sys.stdout.write("Error calling umount in cleanup_mountpoints\n")
-                sys.stdout.write(str(err1.returncode)+"\n")
-            except Exception as ex:
-                sys.stdout.write(ex.args[0]+"\n")
-
+            if do_umount(os.path.join('/'+point,ramdisk_subdirectory))==False:return False
+            if not point.rstrip('/').endswith("-CI"):
+                if do_umount(os.path.join('/'+point,output_subdirectory))==False:return False
 
     def touchLockFile(self):
         try:

@@ -253,7 +253,8 @@
     "fu-complete": {
       "properties": {
         "host": {
-          "type": "string"
+          "type": "string",
+          "index": "not_analyzed"
         },
         "fm_date": {
           "type": "date"
@@ -327,7 +328,8 @@
       },
       "properties": {
         "host": {
-          "type": "string"
+          "type": "string",
+          "index": "not_analyzed"
         },
         "pid": {
           "type": "integer"
@@ -344,7 +346,8 @@
           "type": "integer"
         },
         "category": {
-          "type": "string"
+          "type": "string",
+          "index": "not_analyzed"
         },
         "fwkState": {
           "type": "string",
@@ -380,7 +383,8 @@
           "format": "dd-MMM-YYYY HH:mm:ss"
         },
         "msgtimezone": {
-          "type": "string"
+          "type": "string",
+          "index": "not_analyzed"
         }
       }
     }

@@ -267,15 +267,15 @@ class Daemon2:
                     time.sleep(0.5)
                     subprocess.check_call(['umount','-f',mpoint])
                 except subprocess.CalledProcessError, err2:
-                if err2.returncode>1:
-                    try:
-                        time.sleep(1)
-                        subprocess.check_call(['umount','-f',mpoint])
-                    except subprocess.CalledProcessError, err3:
-                        if err3.returncode>1:
-                            sys.stdout.write("Error calling umount (-f) in cleanup_mountpoints\n")
-                            sys.stdout.write(str(err3.returncode)+"\n")
-                            return False
+                    if err2.returncode>1:
+                        try:
+                            time.sleep(1)
+                            subprocess.check_call(['umount','-f',mpoint])
+                        except subprocess.CalledProcessError, err3:
+                            if err3.returncode>1:
+                                sys.stdout.write("Error calling umount (-f) in cleanup_mountpoints\n")
+                                sys.stdout.write(str(err3.returncode)+"\n")
+                                return False
         except Exception as ex:
             sys.stdout.write(ex.args[0]+"\n")
         return True

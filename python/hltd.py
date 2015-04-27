@@ -710,6 +710,9 @@ class system_monitor(threading.Thread):
                     activeRunQueuedLumisNum = -1
                     activeRunCMSSWMaxLumi = -1
 
+                    used_data_dir_all = 0
+                    total_data_dir_all = 0
+
                     current_time = time.time()
                     stale_machines = []
                     try:
@@ -741,6 +744,8 @@ class system_monitor(threading.Thread):
                                 resource_count_used+=edata['used']
                                 resource_count_broken+=edata['broken']
                             cloud_count+=edata['cloud']
+                            used_data_dir_all+=int(edata['usedDataDir'])
+                            total_data_dir_all+=int(edata['totalDataDir'])
                         except Exception as ex:
                             logger.warning('problem updating boxinfo summary: '+str(ex))
                         try:
@@ -781,7 +786,9 @@ class system_monitor(threading.Thread):
                                 "activeFURun":lastFUrun,
                                 "activeRunNumQueuedLS":activeRunQueuedLumisNum,
                                 "activeRunCMSSWMaxLS":activeRunCMSSWMaxLumi,
-                                "ramdisk_occupancy":ramdisk_occ
+                                "ramdisk_occupancy":ramdisk_occ,
+                                "used_fu_data_dir":used_data_dir_all,
+                                "total_fu_data_dir":total_data_dir_all
                               }
                     with open(res_path_temp,'w') as fp:
                         json.dump(res_doc,fp,indent=True)

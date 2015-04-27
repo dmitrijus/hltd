@@ -53,6 +53,7 @@ class hltdConf:
         self.cmssw_threads = int(self.cmssw_threads)
         self.cmssw_streams = int(self.cmssw_streams)
         self.resource_use_fraction = float(self.resource_use_fraction)
+        self.max_local_disk_usage = int(self.max_local_disk_usage)
         self.service_log_level = getattr(logging,self.service_log_level)
         self.autodetect_parameters()
 

@@ -60,6 +60,7 @@ abort_cloud_mode=False
 cached_pending_run = None
 
 
+fu_watchdir_is_mountpoint=False
 ramdisk_submount_size=0
 machine_blacklist=[]
 boxinfoFUMap = {}
@@ -744,8 +745,13 @@ class system_monitor(threading.Thread):
                                 resource_count_used+=edata['used']
                                 resource_count_broken+=edata['broken']
                             cloud_count+=edata['cloud']
-                            used_data_dir_all+=int(edata['usedDataDir'])
-                            total_data_dir_all+=int(edata['totalDataDir'])
+                            d_u = int(edata['usedDataDir'])
+                            d_tot = int(edata['totalDataDir'])
+                            if d_u>d_tot:
+                                #limit in case some FU has leftover files locally
+                                d_u=d_tot
+                            used_data_dir_all+=d_u
+                            total_data_dir_all+=d_tot
                         except Exception as ex:
                             logger.warning('problem updating boxinfo summary: '+str(ex))
                         try:
@@ -774,6 +780,8 @@ class system_monitor(threading.Thread):
                                     maxcmsswls = int(edata['activeRunCMSSWMaxLS'])
                                     if maxcmsswls>activeRunCMSSWMaxLumi:activeRunCMSSWMaxLumi=maxcmsswls
                             except:pass
+                    if total_data_dir_all>0: fu_data_occ=float(used_data_dir_all)/float(total_data_dir_all)
+                    else: fu_data_occ=0.
                     res_doc = {
                                 "active_resources":resource_count_idle+resource_count_used,
                                 "active_resources_activeRun":resource_count_activeRun,
@@ -787,8 +795,7 @@ class system_monitor(threading.Thread):
                                 "activeRunNumQueuedLS":activeRunQueuedLumisNum,
                                 "activeRunCMSSWMaxLS":activeRunCMSSWMaxLumi,
                                 "ramdisk_occupancy":ramdisk_occ,
-                                "used_fu_data_dir":used_data_dir_all,
-                                "total_fu_data_dir":total_data_dir_all
+                                "fu_workdir_occupancy":fu_data_occ
                               }
                     with open(res_path_temp,'w') as fp:
                         json.dump(res_doc,fp,indent=True)
@@ -801,7 +808,17 @@ class system_monitor(threading.Thread):
                         if not conf.mount_control_path:
                             self.runStatNFS()
 
-                        dirstat = os.statvfs(conf.watch_directory)
+                        if fu_watchdir_is_mountpoint:
+                            dirstat = os.statvfs(conf.watch_directory)
+                            d_used = ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20,
+                            d_total =  (dirstat.f_blocks*dirstat.f_bsize)>>20,
+                        else:
+                            p = subprocess.Popen("du -s " + str(conf.watch_directory), shell=True, stdout=subprocess.PIPE)
+                            p.wait()
+                            std_out=p.stdout.read()
+                            out = std_out.split('\t')[0]
+                            d_used = int(out)>>10
+                            d_total = conf.max_local_disk_usage
 
                         lRun = runList.getLastRun()
                         n_used_activeRun=0
@@ -2941,6 +2958,13 @@ class hltd(Daemon2,object):
                 os.makedirs(conf.watch_directory)
             except:
                 pass
+
+            #recursively remove any stale run data in theFU watch directory
+            if conf.watch.directory.strip()!='/':
+                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run*')
+                p.wait()
+            global fu_watchdir_is_mountpoint
+            if os.path.ismount(conf.watch_directory):fu_watchdir_is_mountpoint=True
 
             #switch to cloud mode if it is activated on hltd startup time
             cloud_active = is_cloud_inactive()==False

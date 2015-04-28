@@ -39,7 +39,7 @@ def convert(input):
 	else:
 		return input
 
-def setupES(es_server_url='http://localhost:9200',deleteOld=True,doLog=False):
+def setupES(es_server_url='http://localhost:9200',deleteOld=1,doLog=False):
 
     #ip_url=getURLwithIP(es_server_url)
     es = ElasticSearch(es_server_url,timeout=3)
@@ -60,7 +60,7 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=True,doLog=False):
             create_template(es,template_name)
         else:
             norm_name = convert(templateList[template_name])
-            if deleteOld==False:
+            if deleteOld==0:
                 if doLog:
                     print "{0} already exists. Add 'replace' parameter to force update.".format(template_name)
             else:
@@ -69,8 +69,8 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=True,doLog=False):
                 loaddoc = load_template(es,template_name)
                 if loaddoc!=None:
                     mappingSame =  norm_name['mappings']==loaddoc['mappings']
-                    settingSame = norm_name['settings']==loaddoc['settings']
-                    if not (mappingSame and settingSame):
+                    #settingSame = norm_name['settings']==loaddoc['settings']
+                    if not (mappingSame) or deleteOld>1: #and settingSame):
                         delete_template(es,template_name)
                         if doLog:
                             print "deleted old template and will recreate {0}".format(template_name)
@@ -87,10 +87,12 @@ if __name__ == '__main__':
         print "Please provide an elasticsearch server url (e.g. http://localhost:9200)"
         sys.exit(1)
 
-    replaceOption=False
+    replaceOption=0
     if len(sys.argv)>2:
         if "replace" in sys.argv[2]:
-            replaceOption=True
+            replaceOption=1
+        if "forcereplace" in sys.argv[2]:
+            replaceOption=2
 
     setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doLog=True)
 

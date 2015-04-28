@@ -1,23 +1,24 @@
 {
   "template": "run*appliance*",
+
   "settings": {
-    "index": {
-      "analysis": {
-        "analyzer": {
-          "prefix-test-analyzer": {
-            "type": "custom",
-            "tokenizer": "prefix-test-tokenizer"
-          },
-          "tokenizer": {
-            "prefix-test-tokenizer": {
-              "type": "path_hierarchy",
-              "delimiter": "_"
-            }
-          }
+    "analysis": {
+      "analyzer": {
+        "prefix-test-analyzer": {
+          "type": "custom",
+          "tokenizer": "prefix-test-tokenizer"
         }
       },
-      "number_of_shards": "2",
-      "number_of_replicas": "0"
+      "tokenizer": {
+        "prefix-test-tokenizer": {
+          "type": "path_hierarchy",
+          "delimiter": "_"
+        }
+      }
+    },
+    "index": {
+      "number_of_shards": 2,
+      "number_of_replicas": 0
     }
   },
   "mappings": {

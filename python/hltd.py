@@ -59,7 +59,7 @@ exiting_cloud_mode=False
 cloud_mode=False
 abort_cloud_mode=False
 cached_pending_run = None
-
+resources_blocked_flag=False
 
 fu_watchdir_is_mountpoint=False
 ramdisk_submount_size=0
@@ -180,7 +180,7 @@ def extinguish_cloud():
             return True
         else:
             logger.error("cloud igniter stop returned "+str(proc.returncode))
-            logger.error(out)
+            if len(out):logger.error(out)
 
     except OSError as ex:
         if ex.errno==2:
@@ -705,6 +705,7 @@ class system_monitor(threading.Thread):
                     resource_count_used = 0
                     resource_count_broken = 0
                     resource_count_stale = 0
+                    resource_count_pending = 0
                     resource_count_activeRun = 0
                     cloud_count = 0
                     lastFURuns = []
@@ -741,10 +742,13 @@ class system_monitor(threading.Thread):
                             else:
                                 if current_runnumber in  edata['activeRuns']:
                                     resource_count_activeRun += edata['used_activeRun']+edata['broken_activeRun']
-
-                                resource_count_idle+=edata['idles']
-                                resource_count_used+=edata['used']
-                                resource_count_broken+=edata['broken']
+                                 
+                                if edata['cloudState'] == "resourcesReleased":
+                                    resource_count_pending += edata['idles']+edata['used']+edata['broken']
+                                else:
+                                    resource_count_idle+=edata['idles']
+                                    resource_count_used+=edata['used']
+                                    resource_count_broken+=edata['broken']
                             cloud_count+=edata['cloud']
                             d_u = int(edata['usedDataDir'])
                             d_tot = int(edata['totalDataDir'])
@@ -792,6 +796,7 @@ class system_monitor(threading.Thread):
                                 "broken":resource_count_broken,
                                 "stale_resources":resource_count_stale,
                                 "cloud":cloud_count,
+                                "pending_resources":resource_count_pending,
                                 "activeFURun":lastFUrun,
                                 "activeRunNumQueuedLS":activeRunQueuedLumisNum,
                                 "activeRunCMSSWMaxLS":activeRunCMSSWMaxLumi,
@@ -851,6 +856,9 @@ class system_monitor(threading.Thread):
                                 if entering_cloud_mode: cloud_state="starting"
                                 elif exiting_cloud_mode:cloud_state="stopping"
                                 else: cloud_state="on"
+                            elif resources_blocked_flag:
+                              cloud_state = "resourcesReleased"
+                              
                             else:
                               cloud_state = "off"
 
@@ -872,7 +880,7 @@ class system_monitor(threading.Thread):
                                 'activeRunStats':runList.getStateDoc(),
                                 'cloudState':cloud_state,
                                 'detectedStaleHandle':self.stale_flag,
-                                "version":self.boxdoc_version
+                                'version':self.boxdoc_version
                             }
                             with open(mfile,'w+') as fp:
                                 json.dump(boxdoc,fp,indent=True)
@@ -1132,18 +1140,21 @@ class OnlineResource:
         if self.watchdog:
             self.watchdog.disableRestart()
 
-    def clearQuarantined(self):
-        resource_lock.acquire()
+    def clearQuarantined(self,doLock=True):
+        retq=[]
+        if doLock:resource_lock.acquire()
         try:
             for cpu in self.quarantined:
                 logger.info('Clearing quarantined resource '+cpu)
                 os.rename(quarantined+cpu,idles+cpu)
+                retq.append(cpu)
             self.quarantined = []
             self.parent.n_used=0
             self.parent.n_quarantined=0
         except Exception as ex:
             logger.exception(ex)
-        resource_lock.release()
+        if doLock:resource_lock.release()
+        return retq
 
 class ProcessWatchdog(threading.Thread):
     def __init__(self,resource,lock):
@@ -1744,10 +1755,11 @@ class Run:
             bu_lumis = (sorted([int(x.split('_')[1][2:]) for x in bu_eols_files]))
           except:
             logger.error("Unable to parse BU EoLS files")
+          ls_delay=3
           if len(bu_lumis):
-              logger.info('last closed lumisection in ramdisk is '+str(bu_lumis[-1]))
-              writedoc['lastLS']=bu_lumis[-1]+3 #current+3
-          else:  writedoc['lastLS']=2
+              logger.info('last closed lumisection in ramdisk is '+str(bu_lumis[-1])+', requesting to close at LS '+ str(bu_lumis[-1]+ls_delay))
+              writedoc['lastLS']=bu_lumis[-1]+ls_delay #current+delay
+          else:  writedoc['lastLS']=ls_delay
           json.dump(writedoc,f)
         try:
           os.rename(os.path.join(self.dirname,"temp_CMSSW_STOP"),os.path.join(self.dirname,"CMSSW_STOP"))
@@ -1768,32 +1780,36 @@ class Run:
         try:
             for resource in self.online_resource_list:
                 resource.disableRestart()
+            time.sleep(.1)
             for resource in self.online_resource_list:
                 if conf.role == 'fu':
                     if resource.processstate==100:
                         logger.info('terminating process '+str(resource.process.pid)+
-                                     ' in state '+str(resource.processstate))
+                                     ' in state '+str(resource.processstate)+' owning '+str(resource.cpu))
 
                         if killJobs:resource.process.kill()
                         else:resource.process.terminate()
-                        logger.info('process '+str(resource.process.pid)+' join watchdog thread')
-                        #                    time.sleep(.1)
-                        resource.join()
+                        if resource.watchdog!=None and resource.watchdog.is_alive():
+                            try:
+                                resource.join()
+                            except:
+                                pass
                         logger.info('process '+str(resource.process.pid)+' terminated')
+                    time.sleep(.1) 
                     logger.info('releasing resource(s) '+str(resource.cpu))
-                    resource.clearQuarantined()
-                    
                     resource_lock.acquire()
+                    cleared_q = resource.clearQuarantined(doLock=False)
                     for cpu in resource.cpu:
-                        try:
-                            os.rename(used+cpu,idles+cpu)
-                            self.n_used-=1
-                        except OSError:
-                            #@SM:happens if it was quarantined
-                            logger.warning('Unable to find resource file '+used+cpu+'.')
-                        except Exception as ex:
-                            resource_lock.release()
-                            raise(ex)
+                        if cpu not in cleared_q:
+                            try:
+                                os.rename(used+cpu,idles+cpu)
+                                self.n_used-=1
+                            except OSError:
+                                #@SM:can happen if it was quarantined
+                                logger.warning('Unable to find resource '+used+cpu)
+                            except Exception as ex:
+                                resource_lock.release()
+                                raise(ex)
                     resource_lock.release()
                     resource.process=None
 
@@ -1940,6 +1956,7 @@ class Run:
                 logger.exception(ex)
             logger.info("new active runs.."+str(runList.getActiveRunNumbers()))
 
+            global resources_blocked_flag
             if cloud_mode==True:
                 if len(runList.getActiveRunNumbers())>=1:
                     logger.info("VM mode: waiting for runs: " + str(runList.getActiveRunNumbers()) + " to finish")
@@ -1950,6 +1967,7 @@ class Run:
                     #check if cloud mode switch has been aborted in the meantime
                     if abort_cloud_mode:
                         abort_cloud_mode=False
+                        resources_blocked_flag=True
                         cloud_mode=False
                         resource_lock.release()
                         return
@@ -2175,6 +2193,7 @@ class RunRanger:
         global entering_cloud_mode
         global exiting_cloud_mode
         global abort_cloud_mode
+        global resources_blocked_flag
         global cached_pending_run
         fullpath = event.fullpath
         logger.info('RunRanger: event '+fullpath)
@@ -2211,8 +2230,9 @@ class RunRanger:
                             run.Shutdown(True,False)
                             time.sleep(.1)
 
+                        resources_blocked_flag=False
                         if cloud_mode==True:
-                            logger.info("received new run notification in VM mode. Ignoring...")
+                            logger.info("received new run notification in CLOUD mode. Ignoring new run.")
                             #remember this run and attempt to continue it once hltd exits the cloud mode
                             cached_pending_run = fullpath
                             os.rmdir(fullpath)
@@ -2573,6 +2593,7 @@ class RunRanger:
                     if last_status>1:
                         logger.warning('Received error code from cloud igniter script. Switching off cloud mode')
                     resource_lock.acquire()
+                    resources_blocked_flag=True
                     cloud_mode=False
                     cleanup_resources()
                     resource_lock.release()

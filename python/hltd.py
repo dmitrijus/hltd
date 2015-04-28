@@ -1020,7 +1020,8 @@ class OnlineResource:
         self.runnumber = runnumber
         logger.info("checking ES template")
         try:
-            setupES()
+            if conf.use_elasticsearch:
+                setupES()
         except:
             logger.error("Unable to check run appliance template")
         logger.info("calling start of run on "+self.cpu[0])

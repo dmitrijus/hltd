@@ -54,12 +54,12 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=True,doLog=False):
 
     TEMPLATES = ["runappliance"]
     for template_name in TEMPLATES:
-        norm_name = convert(templateList[template_name])
         if template_name not in templateList:
             if doLog:
                 print "{0} template not present. It will be created. ".format(template_name)
             create_template(es,template_name)
         else:
+            norm_name = convert(templateList[template_name])
             if deleteOld==False:
                 if doLog:
                     print "{0} already exists. Add 'replace' parameter to force update.".format(template_name)

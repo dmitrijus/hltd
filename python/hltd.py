@@ -619,7 +619,6 @@ class system_monitor(threading.Thread):
                 fu_stale_counter = 0
             except (IOError,OSError) as ex:
                 err_detected=True
-                #TODO: find out which kind of error is thrown with unresponsive Force10 network
                 if ex.errno == 116:
                     if fu_stale_counter==0 or fu_stale_counter%20==0:
                         logger.fatal('detected stale file handle: '+str(disk))
@@ -861,7 +860,6 @@ class system_monitor(threading.Thread):
                               
                             else:
                               cloud_state = "off"
-
 
                             boxdoc = {
                                 'fm_date':tstring,

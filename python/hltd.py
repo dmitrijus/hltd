@@ -1916,14 +1916,16 @@ class Run:
                     if conf.dqm_machine==False:
                         self.anelastic_monitor.wait()
                 except OSError,ex:
-                    logger.info("Exception encountered in waiting for termination of anelastic:" +str(ex))
+                    if "No child processes" not in str(ex):
+                        logger.info("Exception encountered in waiting for termination of anelastic:" +str(ex))
                 self.anelastic_monitor = None
 
             if conf.use_elasticsearch == True:
                 try:
                     self.elastic_monitor.wait()
                 except OSError,ex:
-                    logger.info("Exception encountered in waiting for termination of anelastic:" +str(ex))
+                    if "No child processes" not in str(ex):
+                        logger.info("Exception encountered in waiting for termination of anelastic:" +str(ex))
                 self.elastic_monitor = None
             if conf.delete_run_dir is not None and conf.delete_run_dir == True:
                 try:

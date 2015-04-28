@@ -796,7 +796,7 @@ class system_monitor(threading.Thread):
                                 "activeRunNumQueuedLS":activeRunQueuedLumisNum,
                                 "activeRunCMSSWMaxLS":activeRunCMSSWMaxLumi,
                                 "ramdisk_occupancy":ramdisk_occ,
-                                "fu_workdir_occupancy":fu_data_occ
+                                "fu_workdir_used_quota":fu_data_occ
                               }
                     with open(res_path_temp,'w') as fp:
                         json.dump(res_doc,fp,indent=True)
@@ -1051,8 +1051,7 @@ class OnlineResource:
         """
         input_disk = bu_disk_list_ramdisk_instance[startindex%len(bu_disk_list_ramdisk_instance)]
         #run_dir = input_disk + '/run' + str(self.runnumber).zfill(conf.run_number_padding)
-
-        logger.info("starting process with "+version+" and run number "+str(runnumber))
+        logger.info("starting process with "+version+" and run number "+str(runnumber)+ ' threads:'+str(num_threads)+' streams:'+str(num_streams))
 
         if "_patch" in version:
             full_release="cmssw-patch"
@@ -1100,7 +1099,6 @@ class OnlineResource:
             else:
                 logging.info('Not able to determine the DQM run key from the "global" file. Default value from the input source will be used.')
 
-        logger.info("arg array "+str(new_run_args).translate(None, "'"))
         try:
 #            dem = demote.demote(conf.user)
             self.process = subprocess.Popen(new_run_args,
@@ -1108,7 +1106,7 @@ class OnlineResource:
                                             close_fds=True
                                             )
             self.processstate = 100
-            logger.info("started process "+str(self.process.pid))
+            logger.info("arg array "+str(new_run_args).translate(None, "'")+' started with pid '+str(self.process.pid))
 #            time.sleep(1.)
             if self.watchdog==None:
                 self.watchdog = ProcessWatchdog(self,self.lock)
@@ -1602,13 +1600,13 @@ class Run:
             count = count+1
             cpu_group.append(cpu)
             age = current_time - os.path.getmtime(idles+cpu)
-            logger.info("found resource "+cpu+" which is "+str(age)+" seconds old")
             if conf.role == 'fu':
                 if count == nstreams:
                   self.AcquireResource(cpu_group,'idle')
                   cpu_group=[]
                   count=0
             else:
+                logger.info("found resource "+cpu+" which is "+str(age)+" seconds old")
                 if age < 10:
                     cpus = [cpu]
                     self.ContactResource(cpus)
@@ -1667,7 +1665,6 @@ class Run:
         resource.statefiledir=conf.watch_directory+'/run'+str(self.runnumber).zfill(conf.run_number_padding)
         mondir = os.path.join(resource.statefiledir,'mon')
         resource.associateddir=mondir
-        logger.info(str(nthreads)+' '+str(nstreams))
         resource.StartNewProcess(self.runnumber,
                                  self.online_resource_list.index(resource),
                                  self.arch,
@@ -1749,7 +1746,7 @@ class Run:
             logger.error("Unable to parse BU EoLS files")
           if len(bu_lumis):
               logger.info('last closed lumisection in ramdisk is '+str(bu_lumis[-1]))
-              writedoc['lastLS']=bu_lumis[-1]+2 #current+2
+              writedoc['lastLS']=bu_lumis[-1]+3 #current+3
           else:  writedoc['lastLS']=2
           json.dump(writedoc,f)
         try:
@@ -1941,10 +1938,10 @@ class Run:
                 runList.remove(self.runnumber)
             except Exception as ex:
                 logger.exception(ex)
-            logger.info("new active runs.."+str(runList.getActiveRuns()))
+            logger.info("new active runs.."+str(runList.getActiveRunNumbers()))
 
             if cloud_mode==True:
-                if len(runList.getActiveRuns)>=1:
+                if len(runList.getActiveRunNumbers())>=1:
                     logger.info("VM mode: waiting for runs: " + str(runList.getActiveRunNumbers()) + " to finish")
                 else:
                     logger.info("No active runs. moving all resource files to cloud")

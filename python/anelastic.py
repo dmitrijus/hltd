@@ -174,7 +174,7 @@ class LumiSectionRanger():
                         self.cleanStreamFiles()
                     return
                 isEmptyLS = True if filetype not in [INDEX] else False
-                if isEmptyLs and not self.allowEmptyLs:
+                if isEmptyLS and not self.allowEmptyLs:
                     #detected CMSSW version which writes out empty lumisections
                     return
                 self.LSHandlerList[key] = LumiSectionHandler(self,run,ls,self.activeStreams,self.streamCounters,self.tempdir,self.outdir,self.jsdfile,isEmptyLS)

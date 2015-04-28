@@ -35,6 +35,7 @@ import _inotify as inotify
 
 from elasticbu import BoxInfoUpdater
 from aUtils import fileHandler
+from setupES import setupES 
 
 thishost = os.uname()[1]
 nthreads = None
@@ -863,8 +864,8 @@ class system_monitor(threading.Thread):
                                 'broken_activeRun' : n_broken_activeRun,
                                 'cloud' : n_cloud,
                                 'quarantined' : n_quarantined,
-                                'usedDataDir' : ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20,
-                                'totalDataDir' : (dirstat.f_blocks*dirstat.f_bsize)>>20,
+                                'usedDataDir' : d_used,
+                                'totalDataDir' : d_total,
                                 'activeRuns' :   runList.getActiveRunNumbers(),
                                 'activeRunNumQueuedLS':numQueuedLumis,
                                 'activeRunCMSSWMaxLS':maxCMSSWLumi,
@@ -1009,7 +1010,12 @@ class OnlineResource:
 
     def NotifyNewRun(self,runnumber):
         self.runnumber = runnumber
-        logger.info("calling start of run on "+self.cpu[0]);
+        logger.info("checking ES template")
+        try:
+            setupES()
+        except:
+            logger.error("Unable to check run appliance template")
+        logger.info("calling start of run on "+self.cpu[0])
         try:
             connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset)
             connection.request("GET",'cgi-bin/start_cgi.py?run='+str(runnumber))
@@ -2794,8 +2800,10 @@ class ResourceRanger:
             else:
                 current_time = time.time()
                 current_datetime = datetime.datetime.utcfromtimestamp(current_time)
+                emptyBox=False
                 try:
                     infile = fileHandler(event.fullpath)
+                    if infile.data=={}:emptyBox=True
                     #check which time is later (in case of small clock skew and small difference)
                     if current_datetime >  dateutil.parser.parse(infile.data['fm_date']):
                         dt = (current_datetime - dateutil.parser.parse(infile.data['fm_date'])).seconds 
@@ -2812,8 +2820,11 @@ class ResourceRanger:
 
                     boxinfoFUMap[basename] = [infile.data,current_time,True]
                 except Exception as ex:
-                    logger.error("Unable to read of parse boxinfo file "+basename)
-                    logger.exception(ex)
+                    if not emptyBox:
+                        logger.error("Unable to read of parse boxinfo file "+basename)
+                        logger.exception(ex)
+                    else:
+                        logger.warning("got empty box file "+basename)
                     try:
                         boxinfoFUMap[basename][2]=False
                     except:
@@ -2959,10 +2970,15 @@ class hltd(Daemon2,object):
             except:
                 pass
 
-            #recursively remove any stale run data in theFU watch directory
-            if conf.watch.directory.strip()!='/':
-                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run*')
+            #recursively remove any stale run data and other commands in the FU watch directory
+            #if conf.watch_directory.strip()!='/':
+            #    p = subprocess.Popen("rm -rf " + conf.watch_directory.strip()+'/{run*,end*,quarantined*,exclude,include,suspend*,populationcontrol,herod,logrestart,emu*}',shell=True)
+            #    p.wait()
+
+            if conf.watch_directory.startswith('/fff'):
+                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/*',shell=True)
                 p.wait()
+
             global fu_watchdir_is_mountpoint
             if os.path.ismount(conf.watch_directory):fu_watchdir_is_mountpoint=True
 

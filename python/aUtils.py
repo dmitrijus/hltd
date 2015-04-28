@@ -293,9 +293,9 @@ class fileHandler(object):
         except IOError,e:
             data = {}
         except StandardError,e:
-            self.logger.exception(e)
+        #    self.logger.exception(e)
+            self.logger.warning('Box parse error:'+str(e))
             data = {}
-
         return data
 
         #get data from json file

@@ -213,9 +213,9 @@ def umount_helper(point,attemptsLeft=3,initial=True):
             logger.info('calling umount of '+point)
             subprocess.check_call(['umount',point])
         except subprocess.CalledProcessError, err1:
-            if err2.returncode<2:return True
+            if err1.returncode<2:return True
             if attemptsLeft<=0:
-                logger.error('Failed to perform umount of '+point+'. returncode:'+str(err2.returncode))
+                logger.error('Failed to perform umount of '+point+'. returncode:'+str(err1.returncode))
                 return False
             logger.warning("umount failed, trying to kill users of mountpoint "+point)
             try:

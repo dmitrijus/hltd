@@ -187,6 +187,7 @@ class Daemon2:
             message = " not running, no pidfile %s\n"
             sys.stdout.write(message % self.pidfile)
             sys.stdout.flush()
+            self.emergencyUmount()
             return # not an error in a restart
 
         # Try killing the daemon process
@@ -258,7 +259,7 @@ class Daemon2:
         daemonized by start() or restart().
         """
 
-    def do_umount(mpoint):
+    def do_umount(self,mpoint):
         try:
             subprocess.check_call(['umount',mpoint])
         except subprocess.CalledProcessError, err1:
@@ -303,9 +304,9 @@ class Daemon2:
         for mpoint in mounts:
             point = mpoint.rstrip('/')
             sys.stdout.write("trying emergency umount of "+point+"\n")
-            if do_umount(os.path.join('/'+point,ramdisk_subdirectory))==False:return False
+            if self.do_umount(os.path.join('/'+point,ramdisk_subdirectory))==False:return False
             if not point.rstrip('/').endswith("-CI"):
-                if do_umount(os.path.join('/'+point,output_subdirectory))==False:return False
+                if self.do_umount(os.path.join('/'+point,output_subdirectory))==False:return False
 
     def touchLockFile(self):
         try:

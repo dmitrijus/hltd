@@ -104,7 +104,7 @@ class LumiSectionRanger():
                     except:
                         #no such file or directory
                         if ex.errno==2:
-                            self.logger.error('Starting run with input directory missing. anelastic script will die.')
+                            self.logger.warning('Starting run with input directory missing. anelastic script will die.')
                             os._exit(1)
                 except:
                     pass

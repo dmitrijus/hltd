@@ -40,7 +40,7 @@ def convert(input):
 	else:
 		return input
 
-def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False):
+def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,overrideTests=False):
 
     #ip_url=getURLwithIP(es_server_url)
     es = ElasticSearch(es_server_url,timeout=3)
@@ -79,6 +79,14 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False):
                     if norm_name['settings']['index']['analysis']!=loaddoc['settings']['analysis']:
                         settingsSame=False
                     if not (mappingSame and settingsSame) or deleteOld>1:
+                        #test is override
+                        if overrideTests==False and norm_name['settings']['index']['test']==True:
+                            if doPrint:
+                                print "Template test setting found, skipping update..."
+                            else:
+                                logging.info('Template test setting found, skipping update..')
+                            return
+
                         delete_template(es,template_name)
                         if doPrint:
                             print "deleted old template and will recreate {0}".format(template_name)
@@ -105,5 +113,5 @@ if __name__ == '__main__':
         if "forcereplace" in sys.argv[2]:
             replaceOption=2
 
-    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True)
+    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True,overrideTests=True)
 

@@ -27,6 +27,8 @@ import socket
 #silence HTTP connection info from requests package
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
+GENERICJSON,SUMMARYJSON = range(2) #injected JSON range
+
 def getURLwithIP(url,nsslock=None):
   try:
       prefix = ''
@@ -209,6 +211,11 @@ class elasticBandBU:
         documents = [document]
         self.index_documents('run',documents)
 
+    def elasticize_resource_summary(self,jsondoc):
+        self.logger.debug('injecting resource summary document')
+        jsondoc['appliance']=self.host
+        self.index_documents('resource_summary',[jsondoc],bulk=False)
+
     def elasticize_box(self,infile):
 
         basename = infile.basename
@@ -331,7 +338,7 @@ class elasticBandBU:
         attempts=0
         destination_index = ""
         is_box=False
-        if name.startswith("boxinfo"):
+        if name.startswith("boxinfo") or name=='resource_summary':
           destination_index = self.boxinfo_write
           is_box=True
         else:
@@ -346,7 +353,7 @@ class elasticBandBU:
                 return True
             except ElasticHttpError as ex:
                 if attempts<=1:continue
-                self.logger.error('elasticsearch HTTP error. skipping document '+name)
+                self.logger.error('elasticsearch HTTP error'+str(ex)+'. skipping document '+name)
                 if is_box==True:break
                 #self.logger.exception(ex)
                 return False
@@ -450,6 +457,10 @@ class elasticCollectorBU():
             elif filetype == EOR:
                 self.es.elasticize_eor(self.infile)
 
+class JsonEvent:
+    def __init__(self,json,eventtype):
+        self.eventtype = eventtype
+        self.json = json
 
 class elasticBoxCollectorBU():
 
@@ -475,13 +486,17 @@ class elasticBoxCollectorBU():
             if self.source:
                 try:
                     event = self.source.get(True,1.0) #blocking with timeout
-                    self.eventtype = event.mask
-                    self.infile = fileHandler(event.fullpath)
                     self.emptyQueue.clear()
                     if self.dropThreshold>0 and self.source.qsize()>self.dropThreshold:
                         self.logger.info('box queue size reached: '+str(self.source.qsize())+' - dropping event from queue.')
                         continue
-                    self.process() 
+                    if isinstance(event,JsonEvent):
+                        self.processInjected(event) 
+                    else:
+                        self.eventtype = event.mask
+                        self.infile = fileHandler(event.fullpath)
+                        self.process() 
+
                 except (KeyboardInterrupt,Queue.Empty) as e:
                     self.emptyQueue.set()
                 except ValueError as ex:
@@ -506,6 +521,15 @@ class elasticBoxCollectorBU():
             #self.logger.info(self.infile.basename)
             self.es.elasticize_box(self.infile)
 
+    def injectJson(self,json,eventtype):
+        self.source.put(JsonEvent(json,eventtype))
+
+    def injectSummaryJson(self,json):
+        self.injectJson(json,SUMMARYJSON)
+
+    def processInjected(self,event):
+        if event.eventtype==SUMMARYJSON:
+            self.es.elasticize_resource_summary(event.json)
 
 class BoxInfoUpdater(threading.Thread):
 

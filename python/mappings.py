@@ -235,6 +235,30 @@ central_boxinfo_mapping = {
               "path"      : "fm_date"
               }
             },
+          'resource_summary' : {
+            'properties' : {
+              'fm_date'       :{'type':'date'},
+              'appliance' : {'type':'string',"index":"not_analyzed"},
+              "activeFURun" : {"type" : "integer"},
+              "activeRunCMSSWMaxLS" : {"type" : "integer"},
+              "activeRunNumQueuedLS" :       { "type" : "integer" },
+              "active_resources" :           { "type" : "integer" },
+              "active_resources_activeRun" : { "type" : "integer" },
+              "broken" :                     { "type" : "integer" },
+              "cloud" :                      { "type" : "integer" },
+              "fu_workdir_used_quota" :      { "type" : "float" },
+              "idle" :                       { "type" : "integer" },
+              "pending_resources" :          { "type" : "integer" },
+              "ramdisk_occupancy" :          { "type" : "float" },
+              "stale_resources" :            { "type" : "integer" },
+              "used" :                       { "type" : "integer" }
+              },
+            '_timestamp' : { 
+              'enabled'   : True,
+              'store'     : "yes",
+              "path"      : "fm_date"
+              }
+            }
           }
 
 

@@ -5,6 +5,7 @@ from pyelasticsearch.exceptions import *
 
 import simplejson as json
 import socket
+import logging
 
 def delete_template(es,name):
     es.send_request('DELETE', ['_template', name])
@@ -39,7 +40,7 @@ def convert(input):
 	else:
 		return input
 
-def setupES(es_server_url='http://localhost:9200',deleteOld=1,doLog=False):
+def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False):
 
     #ip_url=getURLwithIP(es_server_url)
     es = ElasticSearch(es_server_url,timeout=3)
@@ -55,27 +56,37 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doLog=False):
     TEMPLATES = ["runappliance"]
     for template_name in TEMPLATES:
         if template_name not in templateList:
-            if doLog:
+            if doPrint:
                 print "{0} template not present. It will be created. ".format(template_name)
             create_template(es,template_name)
         else:
             norm_name = convert(templateList[template_name])
             if deleteOld==0:
-                if doLog:
+                if doPrint:
                     print "{0} already exists. Add 'replace' parameter to force update.".format(template_name)
             else:
-                if doLog:
+                if doPrint:
                     print "{0} already exists.".format(template_name)
                 loaddoc = load_template(es,template_name)
                 if loaddoc!=None:
                     mappingSame =  norm_name['mappings']==loaddoc['mappings']
                     #settingSame = norm_name['settings']==loaddoc['settings']
-                    if not (mappingSame) or deleteOld>1: #and settingSame):
+                    settingsSame=True
+                    if int(norm_name['settings']['index']['number_of_replicas'])!=int(loaddoc['settings']['index']['number_of_replicas']):
+                        settingsSame=False
+                    if int(norm_name['settings']['index']['number_of_shards'])!=int(loaddoc['settings']['index']['number_of_shards']):
+                        settingsSame=False
+                    if norm_name['settings']['index']['analysis']!=loaddoc['settings']['analysis']:
+                        settingsSame=False
+                    if not (mappingSame and settingsSame) or deleteOld>1:
                         delete_template(es,template_name)
-                        if doLog:
+                        if doPrint:
                             print "deleted old template and will recreate {0}".format(template_name)
+                        else:
+                           logging.info('Updating runappliance ES template')
                         create_template(es,template_name)
-
+                    elif not doPrint:
+                           logging.info('runappliance ES template is up to date')
 
 
 if __name__ == '__main__':
@@ -94,6 +105,5 @@ if __name__ == '__main__':
         if "forcereplace" in sys.argv[2]:
             replaceOption=2
 
-    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doLog=True)
-
+    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True)
 

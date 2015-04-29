@@ -835,6 +835,9 @@ class system_monitor(threading.Thread):
                     with open(res_path_temp,'w') as fp:
                         json.dump(res_doc,fp,indent=True)
                     os.rename(res_path_temp,res_path)
+                    res_doc['fm_date']=tstring
+                    try:boxInfo.ec.injectSummaryJson(res_doc)
+                    except:pass
 
                 for mfile in self.file:
                     if conf.role == 'fu':
@@ -1486,7 +1489,7 @@ class Run:
         if conf.role=='fu':
             try:
                 hltTargetName = 'HltConfig.py_run'+str(self.runnumber)+'_'+self.arch+'_'+self.version+'_'+self.transfermode
-                shutil.copyfileobj(self.menu_path,os.path.join(conf.log_dir,'pid',hltTargetName))
+                shutil.copy(self.menu_path,os.path.join(conf.log_dir,'pid',hltTargetName))
             except:
                 logger.warn('Unable to backup HLT menu')
 
@@ -3091,6 +3094,7 @@ class hltd(Daemon2,object):
 
         #start boxinfo elasticsearch updater
         global nsslock
+        global boxInfo
         boxInfo = None
         if conf.role == 'bu':
             try:os.makedirs(os.path.join(watch_directory,'appliance/dn'))

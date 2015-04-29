@@ -353,7 +353,7 @@ class LumiSectionRanger():
     def checkDestinationDir(self):
         if not os.path.exists(os.path.join(outputDir,'run'+self.run_number.zfill(conf.run_number_padding))):
             self.logger.fatal("Can not find output (destination) directory. Anelastic script will die.")
-            os.__exit(1)
+            os._exit(1)
 
     def createOutputEoR(self):
 

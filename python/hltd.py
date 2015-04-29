@@ -487,6 +487,36 @@ def submount_size(basedir):
     except:pass
     return loop_size
 
+def cleanup_bu_disks():
+    outdirPath = conf.watch_directory[:conf.watch_directory.find(conf.ramdisk_subdirectory)]+conf.output_subdirectory
+    if conf.watch_directory.startswith('/fff') and conf.ramdisk_subdirectory in conf.watch_directory:
+        logger.info('cleanup BU disks: deleting runs in ramdisk ...')
+        tries = 10
+        while tries > 0:
+            tries-=1
+            p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run*',shell=True)
+            p.wait()
+            if p.returncode==0:
+                logger.info('Ramdisk cleanup performed')
+                break
+            else:
+                logger.info('Failed ramdisk cleanup (return code:'+str(p.returncode)+') in attempt'+str(10-tries))
+
+    logger.info('outdirPath:'+ outdirPath + ' '+conf.output_subdirectory)
+    if outdirPath.startswith('/fff') and conf.output_subdirectory in outdirPath:
+
+        logger.info('cleanup BU disks: deleting runs in output disk ...')
+        tries = 10
+        while tries > 0:
+            tries-=1
+            p = subprocess.Popen("rm -rf " + outdirPath+'/run*',shell=True)
+            p.wait()
+            if p.returncode==0:
+                logger.info('Output cleanup performed')
+                break
+            else:
+                logger.info('Failed output disk cleanup (return code:'+str(p.returncode)+') in attempt '+str(10-tries))
+ 
 
 def calculate_threadnumber():
     global nthreads
@@ -2079,6 +2109,23 @@ class Run:
                 logger.info("Completed checker: end of processing of run "+str(self.runnumber))
                 break
 
+    def createEmptyEoRMaybe(self):
+
+        #this is used to notify elasticBU to fill the end time before it is terminated
+        rundirstr = 'run'+ str(self.runnumber).zfill(conf.run_number_padding)
+        rundirCheckPath = os.path.join(conf.watch_directory, rundirstr)
+        eorCheckPath = os.path.join(rundirCheckPath,rundirstr + '_ls0000_EoR.jsn')
+        try:
+            os.stat(eorCheckPath)
+        except:
+            logger.info('creating empty EoR file in run directory '+rundirCheckPath)
+            try:
+                with open(eorCheckPath,'w') as fi:
+                    pass
+                time.sleep(.5)
+            except Exception as ex:
+                logger.exception(ex)
+
     def checkNotifiedBoxes(self):
         keys = boxinfoFUMap.keys()
         c_time = time.time()
@@ -2350,7 +2397,13 @@ class RunRanger:
                     run.Shutdown(True,False)
             elif conf.role == 'bu':
                 for run in runList.getActiveRuns():
+                    run.createEmptyEoRMaybe()
                     run.ShutdownBU()
+
+                #delete input and output BU directories
+                cleanup_bu_disks()
+
+                #contact any FU that appears alive
                 boxdir = conf.resource_base +'/boxes/'
                 try:
                     dirlist = os.listdir(boxdir)
@@ -2361,8 +2414,10 @@ class RunRanger:
                         age = current_time - os.path.getmtime(boxdir+name)
                         logger.info('found box '+name+' with keepalive age '+str(age))
                         if age < 20:
-                            connection = httplib.HTTPConnection(name, conf.cgi_port - self.cgi_instance_port_offset)
+                            connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset)
+                            time.sleep(0.05)
                             connection.request("GET",'cgi-bin/herod_cgi.py')
+                            time.sleep(0.1)
                             response = connection.getresponse()
                     logger.info("sent herod to all child FUs")
                 except Exception as ex:

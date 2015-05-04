@@ -618,7 +618,11 @@ if __name__ == "__main__":
         if type == 'fu' or type == 'bu':
 
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','1G')
+            #TODO:have better way to detect new FUs
+            if os.uname()[1].startswith('fu-c2d'):
+              essyscfg.reg('ES_HEAP_SIZE','2G')
+            else:
+              essyscfg.reg('ES_HEAP_SIZE','1G')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ')
@@ -634,6 +638,8 @@ if __name__ == "__main__":
                 else:
                     escfg.reg('discovery.zen.ping.unicast.hosts',"[\"" + buName + ".cms" + "\"]")
                 escfg.reg('indices.fielddata.cache.size', '50%')
+                #escfg.reg('indices.fielddata.cache.expire','60m')
+                #escfg.reg('index.cache.field.expire','60m')
                 escfg.reg('node.master','false')
                 escfg.reg('node.data','true')
             if type == 'bu':

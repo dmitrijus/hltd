@@ -742,8 +742,7 @@ class system_monitor(threading.Thread):
                     activeRunQueuedLumisNum = -1
                     activeRunCMSSWMaxLumi = -1
 
-                    used_data_dir_all = 0
-                    total_data_dir_all = 0
+                    fu_data_alarm=False
 
                     current_time = time.time()
                     stale_machines = []
@@ -779,13 +778,7 @@ class system_monitor(threading.Thread):
                                     resource_count_used+=edata['used']
                                     resource_count_broken+=edata['broken']
                             cloud_count+=edata['cloud']
-                            d_u = int(edata['usedDataDir'])
-                            d_tot = int(edata['totalDataDir'])
-                            if d_u>d_tot:
-                                #limit in case some FU has leftover files locally
-                                d_u=d_tot
-                            used_data_dir_all+=d_u
-                            total_data_dir_all+=d_tot
+                            fu_data_alarm = edata['fuDataAlarm'] or fu_data_alarm
                         except Exception as ex:
                             logger.warning('problem updating boxinfo summary: '+str(ex))
                         try:
@@ -814,8 +807,6 @@ class system_monitor(threading.Thread):
                                     maxcmsswls = int(edata['activeRunCMSSWMaxLS'])
                                     if maxcmsswls>activeRunCMSSWMaxLumi:activeRunCMSSWMaxLumi=maxcmsswls
                             except:pass
-                    if total_data_dir_all>0: fu_data_occ=float(used_data_dir_all)/float(total_data_dir_all)
-                    else: fu_data_occ=0.
                     res_doc = {
                                 "active_resources":resource_count_idle+resource_count_used,
                                 "active_resources_activeRun":resource_count_activeRun,
@@ -830,7 +821,7 @@ class system_monitor(threading.Thread):
                                 "activeRunNumQueuedLS":activeRunQueuedLumisNum,
                                 "activeRunCMSSWMaxLS":activeRunCMSSWMaxLumi,
                                 "ramdisk_occupancy":ramdisk_occ,
-                                "fu_workdir_used_quota":fu_data_occ
+                                "fuDiskspaceAlarm":fu_data_alarm
                               }
                     with open(res_path_temp,'w') as fp:
                         json.dump(res_doc,fp,indent=True)
@@ -905,6 +896,7 @@ class system_monitor(threading.Thread):
                                 'quarantined' : n_quarantined,
                                 'usedDataDir' : d_used,
                                 'totalDataDir' : d_total,
+                                'fuDataAlarm' : d_used > 0.9*d_total,
                                 'activeRuns' :   runList.getActiveRunNumbers(),
                                 'activeRunNumQueuedLS':numQueuedLumis,
                                 'activeRunCMSSWMaxLS':maxCMSSWLumi,

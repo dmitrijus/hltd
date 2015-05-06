@@ -226,7 +226,6 @@ echo "fi"                                                              >> %{buil
 
 cp $BASEDIR/esplugins/$pluginfile1 %{buildroot}/opt/fff/esplugins/$pluginfile1
 cp $BASEDIR/esplugins/$pluginfile2 %{buildroot}/opt/fff/esplugins/$pluginfile2
-cp $BASEDIR/esplugins/$pluginfile3 %{buildroot}/opt/fff/esplugins/$pluginfile3
 cp $BASEDIR/esplugins/install.sh %{buildroot}/opt/fff/esplugins/install.sh
 cp $BASEDIR/esplugins/uninstall.sh %{buildroot}/opt/fff/esplugins/uninstall.sh
 
@@ -262,7 +261,6 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 755 ,root, root) /etc/init.d/fff
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile1
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile2
-%attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile3
 %attr( 755 ,root, root) /opt/fff/esplugins/install.sh
 %attr( 755 ,root, root) /opt/fff/esplugins/uninstall.sh
 
@@ -289,7 +287,6 @@ chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
 /opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile2 $pluginname2
 
 /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname3 > /dev/null
-/opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile3 $pluginname3
 
 /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname4 > /dev/null
 

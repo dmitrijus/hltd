@@ -69,6 +69,8 @@ boxdoc_version = 1
 
 logCollector = None
 
+q_list = []
+
 dqm_globalrun_filepattern = '.run{0}.global'
 
 def setFromConf(myinstance):
@@ -136,6 +138,7 @@ def cleanup_resources():
         return False
 
 def move_resources_to_cloud():
+    global q_list
     dirlist = os.listdir(broken)
     for cpu in dirlist:
         os.rename(broken+cpu,cloud+cpu)
@@ -145,6 +148,7 @@ def move_resources_to_cloud():
     dirlist = os.listdir(quarantined)
     for cpu in dirlist:
         os.rename(quarantined+cpu,cloud+cpu)
+    q_list=[]
     dirlist = os.listdir(idles)
     for cpu in dirlist:
         os.rename(idles+cpu,cloud+cpu)
@@ -1173,8 +1177,12 @@ class OnlineResource:
         if self.watchdog:
             self.watchdog.disableRestart()
 
-    def clearQuarantined(self,doLock=True):
+    def clearQuarantined(self,doLock=True,restore=True):
+        global q_list
         retq=[]
+        if not restore:
+            q_list+=self.quarantined
+            return self.quarantined
         if doLock:resource_lock.acquire()
         try:
             for cpu in self.quarantined:
@@ -1831,9 +1839,10 @@ class Run:
                                 pass
                         logger.info('process '+str(resource.process.pid)+' terminated')
                     time.sleep(.1) 
-                    logger.info('releasing resource(s) '+str(resource.cpu))
+                    logger.info(' releasing resource(s) '+str(resource.cpu))
                     resource_lock.acquire()
-                    cleared_q = resource.clearQuarantined(doLock=False)
+                    q_clear_condition = (not self.checkQuarantinedLimit()) or conf.auto_clear_quarantined
+                    cleared_q = resource.clearQuarantined(doLock=False,restore=q_clear_condition)
                     for cpu in resource.cpu:
                         if cpu not in cleared_q:
                             try:
@@ -1951,8 +1960,7 @@ class Run:
                         resource.join()
                         logger.info('process '+str(resource.process.pid)+' completed')
                     except:pass
-                if conf.auto_clear_quarantined:
-                    resource.clearQuarantined()
+                resource.clearQuarantined()
                 resource.process=None
             self.online_resource_list = []
             if conf.role == 'fu':
@@ -2059,7 +2067,7 @@ class Run:
             if self.is_ongoing_run == True:
                 #abort the run
                 self.anelasticWatchdog=None
-                logger.fatal("Premature end of anelastic.py")
+                logger.warning("Premature end of anelastic.py")
                 self.Shutdown(killJobs=True,killScripts=True)
         except:
             pass
@@ -2399,6 +2407,15 @@ class RunRanger:
                 logger.info("killing all CMSSW child processes")
                 for run in runList.getActiveRuns():
                     run.Shutdown(True,False)
+                time.sleep(.2)
+                #clear all quarantined cores
+                for cpu in q_list:
+                    try:
+                        logger.info('Clearing quarantined resource '+cpu)
+                        os.rename(quarantined+cpu,idles+cpu)
+                    except:
+                        logger.info('Qquarantined resource was already cleared: '+cpu)
+
             elif conf.role == 'bu':
                 for run in runList.getActiveRuns():
                     run.createEmptyEoRMaybe()
@@ -2613,8 +2630,8 @@ class RunRanger:
                 cloud_mode=False
             try:resource_lock.release()
             except:pass
-            #move resources to cloud even if CMSSW aren't finished, and check again later
-            move_resources_to_cloud()
+            ####move resources to cloud even if CMSSW aren't finished, and check again later
+            #move_resources_to_cloud()
             os.remove(fullpath)
 
         elif dirname.startswith('include') and conf.role == 'fu':

@@ -741,6 +741,7 @@ class system_monitor(threading.Thread):
                     lastFUrun=-1
                     activeRunQueuedLumisNum = -1
                     activeRunCMSSWMaxLumi = -1
+                    active_res = 0
 
                     fu_data_alarm=False
 
@@ -770,13 +771,22 @@ class system_monitor(threading.Thread):
                             else:
                                 if current_runnumber in  edata['activeRuns']:
                                     resource_count_activeRun += edata['used_activeRun']+edata['broken_activeRun']
-                                 
+                                active_addition =0 
+
                                 if edata['cloudState'] == "resourcesReleased":
-                                    resource_count_pending += edata['idles']+edata['used']+edata['broken']
+                                    resource_count_pending += edata['idles']
                                 else:
                                     resource_count_idle+=edata['idles']
-                                    resource_count_used+=edata['used']
-                                    resource_count_broken+=edata['broken']
+                                    active_addition+=edata['idles']
+
+                                active_addition+=edata['used']
+                                resource_count_used+=edata['used']
+                                resource_count_broken+=edata['broken']
+
+                                #active resources reported to BU if cloud state is off
+                                if edata['cloudState'] == "off":
+                                    active_res+=active_addition
+
                             cloud_count+=edata['cloud']
                             fu_data_alarm = edata['fuDataAlarm'] or fu_data_alarm
                         except Exception as ex:
@@ -808,7 +818,7 @@ class system_monitor(threading.Thread):
                                     if maxcmsswls>activeRunCMSSWMaxLumi:activeRunCMSSWMaxLumi=maxcmsswls
                             except:pass
                     res_doc = {
-                                "active_resources":resource_count_idle+resource_count_used,
+                                "active_resources":active_res,
                                 "active_resources_activeRun":resource_count_activeRun,
                                 #"active_resources":resource_count_activeRun,
                                 "idle":resource_count_idle,
@@ -854,23 +864,23 @@ class system_monitor(threading.Thread):
                         n_broken_activeRun=0
 
                         try:
-                            if cloud_mode==True and entering_cloud_mode==True:
-                              n_idles = 0
-                              n_used = 0
-                              n_broken = 0
-                              n_cloud = len(os.listdir(cloud))+len(os.listdir(idles))+len(os.listdir(used))+len(os.listdir(broken))
-                            else:
-                              usedlist = os.listdir(used)
-                              brokenlist = os.listdir(broken)
-                              if lRun:
-                                  try:
-                                      n_used_activeRun = lRun.countOwnedResourcesFrom(usedlist)
-                                      n_broken_activeRun = lRun.countOwnedResourcesFrom(brokenlist)
-                                  except:pass
-                              n_idles = len(os.listdir(idles))
-                              n_used = len(usedlist)
-                              n_broken = len(brokenlist)
-                              n_cloud = len(os.listdir(cloud))
+                            #if cloud_mode==True and entering_cloud_mode==True:
+                            #  n_idles = 0
+                            #  n_used = 0
+                            #  n_broken = 0
+                            #  n_cloud = len(os.listdir(cloud))+len(os.listdir(idles))+len(os.listdir(used))+len(os.listdir(broken))
+                            #else:
+                            usedlist = os.listdir(used)
+                            brokenlist = os.listdir(broken)
+                            if lRun:
+                                try:
+                                    n_used_activeRun = lRun.countOwnedResourcesFrom(usedlist)
+                                    n_broken_activeRun = lRun.countOwnedResourcesFrom(brokenlist)
+                                except:pass
+                            n_idles = len(os.listdir(idles))
+                            n_used = len(usedlist)
+                            n_broken = len(brokenlist)
+                            n_cloud = len(os.listdir(cloud))
                             n_quarantined = len(os.listdir(quarantined))
                             numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
 
@@ -881,7 +891,6 @@ class system_monitor(threading.Thread):
                                 else: cloud_state="on"
                             elif resources_blocked_flag:
                               cloud_state = "resourcesReleased"
-                              
                             else:
                               cloud_state = "off"
 
@@ -1360,7 +1369,10 @@ class ProcessWatchdog(threading.Thread):
                 # move back the resource now that it's safe since the run is marked as ended
                 resource_lock.acquire()
                 for cpu in self.resource.cpu:
-                  os.rename(used+cpu,idles+cpu)
+                  try:
+                      os.rename(used+cpu,idles+cpu)
+                  except Exception as ex:
+                      logger.warning('problem moving core from used to idle:'+str(ex))
                 resource_lock.release()
 
                 #self.resource.process=None
@@ -1450,11 +1462,11 @@ class Run:
 
                 except ValueError as ex:
                     if readMenuAttempts>50:
-                        self.logger.exception(ex)
+                        logger.exception(ex)
                         break
                 except Exception as ex:
                     if readMenuAttempts>50:
-                        self.logger.exception(ex)
+                        logger.exception(ex)
                         break
 
             else:
@@ -1512,7 +1524,6 @@ class Run:
                     return
             else:
                 self.inputdir_exists = True
-            
 
         self.lock = threading.Lock()
 
@@ -1940,7 +1951,8 @@ class Run:
                         resource.join()
                         logger.info('process '+str(resource.process.pid)+' completed')
                     except:pass
-                resource.clearQuarantined()
+                if conf.auto_clear_quarantined:
+                    resource.clearQuarantined()
                 resource.process=None
             self.online_resource_list = []
             if conf.role == 'fu':
@@ -2144,9 +2156,6 @@ class Run:
         return True,False
 
 
-
-
-
 class RunList:
     def __init__(self):
         self.runs = []
@@ -2284,7 +2293,7 @@ class RunRanger:
                                 os.symlink(bu_dir+'/jsd',fullpath+'/jsd')
                             except:
                                 if not conf.dqm_machine:
-                                    self.logger.warning('jsd directory symlink error, continuing without creating link')
+                                    logger.warning('jsd directory symlink error, continuing without creating link')
                                 pass
                         else:
                             bu_dir = ''
@@ -2604,6 +2613,8 @@ class RunRanger:
                 cloud_mode=False
             try:resource_lock.release()
             except:pass
+            #move resources to cloud even if CMSSW aren't finished, and check again later
+            move_resources_to_cloud()
             os.remove(fullpath)
 
         elif dirname.startswith('include') and conf.role == 'fu':
@@ -2651,8 +2662,10 @@ class RunRanger:
             os.remove(fullpath)
             if cached_pending_run != None:
                 #create last pending run received during the cloud mode
+                time.sleep(5) #let core file notifications run
                 os.mkdir(cached_pending_run)
                 cached_pending_run = None
+            else: time.sleep(2)
             logger.info('cloud mode in hltd has been switched off')
 
         elif dirname.startswith('logrestart'):
@@ -2701,6 +2714,7 @@ class ResourceRanger:
             resourcestate=resourcepath[resourcepath.rfind("/")+1:]
             resourcename=event.fullpath[event.fullpath.rfind("/")+1:]
             resource_lock.acquire()
+
             if not (resourcestate == 'online' or resourcestate == 'cloud'
                     or resourcestate == 'quarantined'):
                 logger.debug('ResourceNotifier: new resource '
@@ -2710,6 +2724,16 @@ class ResourceRanger:
                               +' state '
                               +resourcestate
                               )
+
+                if cloud_mode and not entering_cloud_mode and not exiting_cloud_mode and not abort_cloud_mode:
+                    time.sleep(1)
+                    logging.info('detected resource moved to non-cloud resource dir while already switched to cloud mode. Deactivating cloud.')
+                    with open(os.path.join(conf.watch_directory,'include'),'w+') as fobj:
+                        pass
+                    resource_lock.release()
+                    time.sleep(1)
+                    return
+
                 run = runList.getLastOngoingRun()
                 if run is not None:
                     logger.info("ResourceRanger: found active run "+str(run.runnumber))
@@ -2724,6 +2748,7 @@ class ResourceRanger:
                         logger.info("exception encountered in looking for resources")
                         logger.exception(ex)
                     #put inotify-ed resource as the first item
+                    fileFound=False
                     for resindex,resname in enumerate(reslist):
                         fileFound=False
                         if resname == resourcename:
@@ -2789,7 +2814,14 @@ class ResourceRanger:
                         except Exception as ex:
                             logger.info("exception encountered in looking for resources in except")
                             logger.info(ex)
-
+            elif resourcestate=="cloud":
+                #check if cloud mode was initiated, activate if necessary
+                if conf.role=='fu' and cloud_mode==False:
+                    time.sleep(1)
+                    logging.info('detected core moved to cloud resources. Triggering cloud activation sequence.')
+                    with open(os.path.join(conf.watch_directory,'exclude'),'w+') as fobj:
+                        pass
+                    time.sleep(1)
         except Exception as ex:
             logger.error("exception in ResourceRanger")
             logger.error(ex)
@@ -3123,6 +3155,7 @@ class hltd(Daemon2,object):
                 imask  = inotify.IN_MOVED_TO
                 rr.register_inotify_path(appliance_base, imask_appl)
                 rr.register_inotify_path(resource_base+'/idle', imask)
+                rr.register_inotify_path(resource_base+'/cloud', imask)
                 rr.register_inotify_path(resource_base+'/except', imask)
             rr.start_inotify()
             logger.info("started ResourceRanger - watch_directory "+resource_base)

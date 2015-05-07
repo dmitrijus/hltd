@@ -619,6 +619,7 @@ if __name__ == "__main__":
 
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
             essyscfg.reg('ES_HEAP_SIZE','1G')
+            essyscfg.reg('MAX_LOCKED_MEMORY','unlimited')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ')
@@ -636,6 +637,7 @@ if __name__ == "__main__":
                 escfg.reg('indices.fielddata.cache.size', '50%')
                 #escfg.reg('indices.fielddata.cache.expire','60m')
                 #escfg.reg('index.cache.field.expire','60m')
+                escfg.reg('bootstrap.mlockall','true')
                 escfg.reg('node.master','false')
                 escfg.reg('node.data','true')
             if type == 'bu':

@@ -218,6 +218,9 @@ echo "    python2.6 /opt/fff/setupmachine.py elasticsearch $params"    >> %{buil
 echo "  elif [ \\\$1 == \"hltd\" ]; then"                              >> %{buildroot}/opt/fff/configurefff.sh
 echo "    python2.6 /opt/hltd/python/fillresources.py"                 >> %{buildroot}/opt/fff/configurefff.sh
 echo "    python2.6 /opt/fff/setupmachine.py hltd $params"             >> %{buildroot}/opt/fff/configurefff.sh
+echo "  elif [ \\\$1 == \"init\" ]; then"                              >> %{buildroot}/opt/fff/configurefff.sh
+echo "    python2.6 /opt/hltd/python/fillresources.py ignorecloud"       >> %{buildroot}/opt/fff/configurefff.sh
+echo "    python2.6 /opt/fff/setupmachine.py elasticsearch,hltd $params" >> %{buildroot}/opt/fff/configurefff.sh 
 echo "  fi"                                                            >> %{buildroot}/opt/fff/configurefff.sh
 echo "else"                                                            >> %{buildroot}/opt/fff/configurefff.sh
 echo "  python2.6 /opt/hltd/python/fillresources.py"                   >> %{buildroot}/opt/fff/configurefff.sh
@@ -236,11 +239,11 @@ echo "#"                                 >> %{buildroot}/etc/init.d/fffmeta
 echo "# chkconfig:   2345 79 22"         >> %{buildroot}/etc/init.d/fffmeta
 echo "#"                                 >> %{buildroot}/etc/init.d/fffmeta
 echo "if [ \\\$1 == \"start\" ]; then"   >> %{buildroot}/etc/init.d/fffmeta
-echo "  /opt/fff/configurefff.sh"  >> %{buildroot}/etc/init.d/fffmeta
+echo "  /opt/fff/configurefff.sh init"   >> %{buildroot}/etc/init.d/fffmeta
 echo "  exit 0"                          >> %{buildroot}/etc/init.d/fffmeta
 echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 echo "if [ \\\$1 == \"restart\" ]; then" >> %{buildroot}/etc/init.d/fffmeta
-echo "/opt/fff/configurefff.sh"    >> %{buildroot}/etc/init.d/fffmeta
+echo "/opt/fff/configurefff.sh init"     >> %{buildroot}/etc/init.d/fffmeta
 echo "  exit 0"                          >> %{buildroot}/etc/init.d/fffmeta
 echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 echo "if [ \\\$1 == \"status\" ]; then"  >> %{buildroot}/etc/init.d/fffmeta

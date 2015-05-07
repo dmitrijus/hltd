@@ -618,11 +618,7 @@ if __name__ == "__main__":
         if type == 'fu' or type == 'bu':
 
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            #TODO:have better way to detect new FUs
-            if os.uname()[1].startswith('fu-c2d'):
-              essyscfg.reg('ES_HEAP_SIZE','2G')
-            else:
-              essyscfg.reg('ES_HEAP_SIZE','1G')
+            essyscfg.reg('ES_HEAP_SIZE','1G')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ')

@@ -3067,7 +3067,20 @@ class hltd(Daemon2,object):
             """
             cleanup resources
             """
+            global cloud_mode
+            is_in_cloud = len(os.listdir(cloud))>0
             while True:
+                #switch to cloud mode if cloud files are found (e.g. machine rebooted while in cloud)
+                if is_in_cloud:
+                    logger.warning('found cores in cloud. this session will start in the cloud mode')
+                    try:
+                        move_resources_to_cloud()
+                    except:
+                        pass
+                    cloud_mode=True
+                    if is_cloud_inactive():
+                        ignite_cloud()
+                    break
                 if cleanup_resources()==True:break
                 time.sleep(0.1)
                 logger.warning("retrying cleanup_resources")
@@ -3100,13 +3113,12 @@ class hltd(Daemon2,object):
             global fu_watchdir_is_mountpoint
             if os.path.ismount(conf.watch_directory):fu_watchdir_is_mountpoint=True
 
-            #switch to cloud mode if it is activated on hltd startup time
-            cloud_active = is_cloud_inactive()==False
-            if cloud_active:
-                logger.warning("cloud is on at hltd startup, run use include API to switch HLT mode")
-                move_resources_to_cloud()
-                global cloud_mode
-                cloud_mode=True
+            #switch to cloud mode if active and hltd did not have cores in cloud directory in the last session
+            if not is_in_cloud:
+                if not is_cloud_inactive():
+                    logger.warning("cloud is on on this host at hltd startup, switching to cloud mode")
+                    move_resources_to_cloud()
+                    cloud_mode=True
  
         if conf.role == 'bu':
             global machine_blacklist

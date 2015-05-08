@@ -30,7 +30,9 @@ class elasticBand():
         self.fastUpdateModulo = fastUpdateModulo
         aliasName = runstring + "_" + indexSuffix
         self.indexName = aliasName# + "_" + self.hostname 
- 
+        eslib_logger = logging.getLogger('elasticsearch')
+        eslib_logger.setLevel(logging.ERROR)
+
     def imbue_jsn(self,infile,silent=False):
         with open(infile.filepath,'r') as fp:
             try:

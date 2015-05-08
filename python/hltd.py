@@ -66,6 +66,7 @@ ramdisk_submount_size=0
 machine_blacklist=[]
 boxinfoFUMap = {}
 boxdoc_version = 1
+es_setup_attempts=2
 
 logCollector = None
 
@@ -1055,11 +1056,14 @@ class OnlineResource:
     def NotifyNewRun(self,runnumber):
         self.runnumber = runnumber
         logger.info("checking ES template")
+        global es_setup_attempts
         try:
-            if conf.use_elasticsearch:
+            if conf.use_elasticsearch and es_setup_attempts>0:
                 setupES()
+                es_setup_attempts=0
         except:
-            logger.error("Unable to check run appliance template")
+            logger.error("Unable to check run appliance template:"+str(ex))
+            es_setup_attempts-=1
         logger.info("calling start of run on "+self.cpu[0])
         try:
             connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset)

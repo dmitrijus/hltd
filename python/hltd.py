@@ -66,7 +66,6 @@ ramdisk_submount_size=0
 machine_blacklist=[]
 boxinfoFUMap = {}
 boxdoc_version = 1
-es_setup_attempts=2
 
 logCollector = None
 
@@ -1055,15 +1054,6 @@ class OnlineResource:
 
     def NotifyNewRun(self,runnumber):
         self.runnumber = runnumber
-        logger.info("checking ES template")
-        global es_setup_attempts
-        try:
-            if conf.use_elasticsearch and es_setup_attempts>0:
-                setupES()
-                es_setup_attempts=0
-        except:
-            logger.error("Unable to check run appliance template:"+str(ex))
-            es_setup_attempts-=1
         logger.info("calling start of run on "+self.cpu[0])
         try:
             connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset)
@@ -1670,6 +1660,14 @@ class Run:
                     self.ContactResource(cpus)
         return True
         #self.lock.release()
+
+    def CheckTemplate(self):
+        if conf.role=='bu' and conf.use_elasticsearch:
+            logger.info("checking ES template")
+            try:
+                setupES()
+            except Exception as ex:
+                logger.error("Unable to check run appliance template:"+str(ex))
 
     def Start(self):
         self.is_ongoing_run = True
@@ -2331,6 +2329,7 @@ class RunRanger:
                         resource_lock.acquire()
                         runList.add(run)
                         if run.AcquireResources(mode='greedy'):
+                            run.CheckTemplate()
                             run.Start()
                         else:
                             #BU mode: failed to get blacklist

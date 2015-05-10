@@ -856,7 +856,7 @@ class system_monitor(threading.Thread):
                             d_used = ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20,
                             d_total =  (dirstat.f_blocks*dirstat.f_bsize)>>20,
                         else:
-                            p = subprocess.Popen("du -s " + str(conf.watch_directory), shell=True, stdout=subprocess.PIPE)
+                            p = subprocess.Popen("du -s --exclude TEMP_ES_DIRECTORY --exclude mon " + str(conf.watch_directory), shell=True, stdout=subprocess.PIPE)
                             p.wait()
                             std_out=p.stdout.read()
                             out = std_out.split('\t')[0]

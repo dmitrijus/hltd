@@ -28,16 +28,24 @@ class hltdConf:
                 self.__dict__[item] = value
 
         self.enabled = bool(self.enabled=="True")
+        self.mount_control_path = bool(self.mount_control_path=="True")
         self.run_number_padding = int(self.run_number_padding)
         self.delete_run_dir = bool(self.delete_run_dir=="True")
         self.use_elasticsearch = bool(self.use_elasticsearch=="True")
         self.close_es_index = bool(self.close_es_index=="True")
         self.cgi_port = int(self.cgi_port)
+        self.cgi_instance_port_offset = int(self.cgi_instance_port_offset)
         self.soap2file_port = int(self.soap2file_port)
+
+        try:
+          self.instance_same_destination=bool(self.instance_same_destination=="True")
+        except:
+          self.instance_same_destination = True
 
         self.dqm_machine = bool(self.dqm_machine=="True")
         if self.dqm_machine:
             self.resource_base = self.dqm_resource_base
+        self.dqm_globallock = bool(self.dqm_globallock=="True")
 
         self.process_restart_delay_sec = float(self.process_restart_delay_sec)
         self.process_restart_limit = int(self.process_restart_limit)
@@ -45,10 +53,12 @@ class hltdConf:
         self.cmssw_threads = int(self.cmssw_threads)
         self.cmssw_streams = int(self.cmssw_streams)
         self.resource_use_fraction = float(self.resource_use_fraction)
+        self.auto_clear_quarantined = bool(self.auto_clear_quarantined=="True")
+        self.max_local_disk_usage = int(self.max_local_disk_usage)
         self.service_log_level = getattr(logging,self.service_log_level)
         self.autodetect_parameters()
 
-        #read cluster name from elastic search configuration file (used to specify index name)
+        #read cluster name from elastic search configuration file (if not set up directly)
         if not self.elastic_cluster and self.use_elasticsearch == True:
             f = None
             try:
@@ -63,14 +73,10 @@ class hltdConf:
                         self.elastic_cluster = line.split(':')[1].strip()
       
     def dump(self):
-        logging.info( '<CONFIGURATION time='+str(datetime.datetime.now())+'>')
-        logging.info( 'conf.user            '+self.user)
-        logging.info( 'conf.role            '+ self.role)
-        logging.info( 'conf.cmssw_base      '+ self.cmssw_base)
-        logging.info( '</CONFIGURATION>')
+        logging.info( '<hltd STATUS time="' + str(datetime.datetime.now()).split('.')[0] + '" user:' + self.user + ' role:' + self.role + '>')
 
     def autodetect_parameters(self):
-        if not self.role and 'bu' in os.uname()[1]:
+        if not self.role and (os.uname()[1].startswith('bu-') or os.uname()[1].startswith('dvbu-')):
             self.role = 'bu'
         elif not self.role:
             self.role = 'fu'
@@ -78,5 +84,12 @@ class hltdConf:
             if self.role == 'bu': self.watch_directory='/fff/ramdisk'
             if self.role == 'fu': self.watch_directory='/fff/data'
 
+def initConf(instance='main'):
+    conf=None
+    try:
+        if instance!='main':
+            conf = hltdConf('/etc/hltd-'+instance+'.conf')
+    except:pass
+    if conf==None and instance=='main': conf = hltdConf('/etc/hltd.conf')
+    return conf
 
-conf = hltdConf('/etc/hltd.conf')

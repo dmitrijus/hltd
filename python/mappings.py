@@ -119,7 +119,8 @@ central_runindex_mapping = {
                     'ls'            :{'type':'integer'},
                     'NEvents'       :{'type':'integer'},
                     'NFiles'        :{'type':'integer'},
-                    'TotalEvents'   :{'type':'integer'}
+                    'TotalEvents'   :{'type':'integer'},
+                    'NLostEvents'   :{'type':'integer'}
                     },
                 '_timestamp' : { 
                     'enabled'   : True,
@@ -139,9 +140,25 @@ central_runindex_mapping = {
                     'processed'     :{'type':'integer'},
                     'accepted'      :{'type':'integer'},
                     'errorEvents'   :{'type':'integer'},
-                    'size'          :{'type':'integer'},
+                    'size'          :{'type':'long'},
+                    }
+                },
+            'macromerge' : {
+                '_id'        :{'path':'id'},
+                '_parent'    :{'type':'run'},
+                'properties' : {
+                    'fm_date'       :{'type':'date'},
+                    'id'            :{'type':'string'}, #run+appliance+stream+ls
+                    'appliance'     :{'type':'string'},
+                    'stream'        :{'type':'string','index' : 'not_analyzed'},
+                    'ls'            :{'type':'integer'},
+                    'processed'     :{'type':'integer'},
+                    'accepted'      :{'type':'integer'},
+                    'errorEvents'   :{'type':'integer'},
+                    'size'          :{'type':'long'},
                     }
                 }
+
             }
 central_boxinfo_mapping = {
           'boxinfo' : {
@@ -149,17 +166,39 @@ central_boxinfo_mapping = {
             'properties' : {
               'fm_date'       :{'type':'date'},
               'id'            :{'type':'string'},
+              'host'          :{'type':'string',"index":"not_analyzed"},
+              'appliance'     :{'type':'string',"index":"not_analyzed"},
+              'instance'      :{'type':'string',"index":"not_analyzed"},
               'broken'        :{'type':'integer'},
+              'broken_lastrun':{'type':'integer'},
               'used'          :{'type':'integer'},
+              'used_lastrun'  :{'type':'integer'},
               'idles'         :{'type':'integer'},
               'quarantined'   :{'type':'integer'},
+              'cloud'         :{'type':'integer'},
               'usedDataDir'   :{'type':'integer'},
               'totalDataDir'  :{'type':'integer'},
               'usedRamdisk'   :{'type':'integer'},
               'totalRamdisk'  :{'type':'integer'},
               'usedOutput'    :{'type':'integer'},
               'totalOutput'   :{'type':'integer'},
-              'activeRuns'    :{'type':'string'}
+              'activeRuns'    :{'type':'string'},
+              'activeRunNumQueuedLS':{'type':'integer'},
+              'activeRunCMSSWMaxLS': {'type':'integer'},
+              'activeRunStats'    :{
+                  'type':'nested',
+                  #"include_in_parent": True,
+                  'properties': {
+                      'run':      {'type': 'integer'},
+                      'ongoing':  {'type': 'boolean'},
+                      'totalRes': {'type': 'integer'},
+                      'qRes':     {'type': 'integer'},
+                      'errors':   {'type': 'integer'}
+                      }
+                  },
+              'cloudState'    :{'type':'string',"index":"not_analyzed"},
+              'detectedStaleHandle':{'type':'boolean'}
+              #'activeRunsErrors':{'type':'string',"index":"not_analyzed"},#deprecated
               },
             '_timestamp' : { 
               'enabled'   : True,
@@ -177,6 +216,7 @@ central_boxinfo_mapping = {
               'used'          :{'type':'integer'},
               'idles'         :{'type':'integer'},
               'quarantined'   :{'type':'integer'},
+              'cloud'         :{'type':'integer'},
               'usedDataDir'   :{'type':'integer'},
               'totalDataDir'  :{'type':'integer'},
               'usedRamdisk'   :{'type':'integer'},
@@ -184,30 +224,34 @@ central_boxinfo_mapping = {
               'usedOutput'    :{'type':'integer'},
               'totalOutput'   :{'type':'integer'},
               'activeRuns'    :{'type':'string'},
-              'hosts'         :{'type':'string',"index":"not_analyzed"}
+              'hosts'           :{'type':'string',"index":"not_analyzed"},
+              'blacklistedHosts':{'type':'string',"index":"not_analyzed"},
+              'appliance'       :{'type':'string',"index":"not_analyzed"},
+              'instance'        :{'type':'string',"index":"not_analyzed"}
               },
             '_timestamp' : { 
               'enabled'   : True,
               'store'     : "yes",
               "path"      : "fm_date"
               }
-          },
-          'boxinfo_last' : {#deprecated
-            '_id'        :{'path':'id'},
+            },
+          'resource_summary' : {
             'properties' : {
               'fm_date'       :{'type':'date'},
-              'id'            :{'type':'string'},
-              'broken'        :{'type':'integer'},
-              'used'          :{'type':'integer'},
-              'idles'         :{'type':'integer'},
-              'quarantined'   :{'type':'integer'},
-              'usedDataDir'   :{'type':'integer'},
-              'totalDataDir'  :{'type':'integer'},
-              'usedRamdisk'   :{'type':'integer'},
-              'totalRamdisk'  :{'type':'integer'},
-              'usedOutput'    :{'type':'integer'},
-              'totalOutput'   :{'type':'integer'},
-              'activeRuns'    :{'type':'string'}
+              'appliance' : {'type':'string',"index":"not_analyzed"},
+              "activeFURun" : {"type" : "integer"},
+              "activeRunCMSSWMaxLS" : {"type" : "integer"},
+              "activeRunNumQueuedLS" :       { "type" : "integer" },
+              "active_resources" :           { "type" : "integer" },
+              "active_resources_activeRun" : { "type" : "integer" },
+              "broken" :                     { "type" : "integer" },
+              "cloud" :                      { "type" : "integer" },
+              "fu_workdir_used_quota" :      { "type" : "float" },
+              "idle" :                       { "type" : "integer" },
+              "pending_resources" :          { "type" : "integer" },
+              "ramdisk_occupancy" :          { "type" : "float" },
+              "stale_resources" :            { "type" : "integer" },
+              "used" :                       { "type" : "integer" }
               },
             '_timestamp' : { 
               'enabled'   : True,
@@ -215,7 +259,6 @@ central_boxinfo_mapping = {
               "path"      : "fm_date"
               }
             }
-          
           }
 
 

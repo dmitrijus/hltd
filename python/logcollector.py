@@ -15,17 +15,16 @@ from inotifywrapper import InotifyWrapper
 import _inotify as inotify
 import threading
 import Queue
-import json
+import simplejson as json
 import logging
 import collections
 import subprocess
 import requests
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout as RequestsTimeout
 
 from pyelasticsearch.client import ElasticSearch
-from pyelasticsearch.client import IndexAlreadyExistsError
-from pyelasticsearch.client import ElasticHttpError
-from pyelasticsearch.client import ConnectionError
-from pyelasticsearch.client import Timeout
+from pyelasticsearch.exceptions import *
 
 from hltdconf import *
 from elasticBand import elasticBand
@@ -330,7 +329,7 @@ class CMSSWLogParser(threading.Thread):
     def __init__(self,path,pid,queue):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.es = ElasticSearch('http://localhost:9200')
+        self.es = ElasticSearch('http://'+conf.es_local+':9200')
         self.path = path
         self.pid = pid
         self.mainQueue = queue
@@ -493,6 +492,7 @@ class CMSSWLogESWriter(threading.Thread):
         self.threadEvent = threading.Event()
         self.rn = rn
         self.abort = False
+        self.initialized = False
 
         #try to create elasticsearch index for run logging
         #if not conf.elastic_cluster:
@@ -500,9 +500,9 @@ class CMSSWLogESWriter(threading.Thread):
         #else:
         self.index_runstring = 'run'+str(self.rn).zfill(conf.run_number_padding)
         self.index_suffix = conf.elastic_cluster
-        self.eb = elasticBand('http://localhost:9200',self.index_runstring,self.index_suffix,0,0)
-        
+        self.eb = elasticBand('http://'+conf.es_local+':9200',self.index_runstring,self.index_suffix,0,0)
         self.contextualCounter = ContextualCounter()
+        self.initialized=True 
 
     def run(self):
         while self.abort == False:
@@ -617,15 +617,21 @@ class CMSSWLogCollector(object):
         if rn and rn > 0 and pid:
             if rn not in self.indices:
                 self.indices[rn] = CMSSWLogESWriter(rn)
+                if self.indices[rn].initialized==False:
+                    self.logger.warning('Unable to initialize CMSSWLogESWriter. Skip handling '+event.fullpath)
+                    return
                 self.indices[rn].start()
 
                 #clean old log files if size is excessive
                 if self.getDirSize(event.fullpath[:event.fullpath.rfind('/')])>maxlogsize: #4GB ; 33554432 = 32G in kbytes
                     self.deleteOldLogs(168)#delete files older than 1 week
-
-                    #if not sufficient, delete all old log files 
+                    #if not sufficient, delete more recent files
                     if self.getDirSize(event.fullpath[:event.fullpath.rfind('/')])>maxlogsize:
-                        self.deleteOldLogs(0)#
+                        self.deleteOldLogs(84)#
+                        #if not sufficient, delete everything
+                        if self.getDirSize(event.fullpath[:event.fullpath.rfind('/')])>maxlogsize:
+                            self.deleteOldLogs(0)#
+
             self.indices[rn].addParser(event.fullpath,pid)
 
         #cleanup
@@ -666,9 +672,9 @@ class CMSSWLogCollector(object):
                        file_dt = os.path.getmtime(file)
                        if (current_dt - file_dt).totalHours > maxAgeHours:
                            #delete file
-                           os.remove(file)
+                           os.remove(os.path.join(self.dir,file))
                    else:
-                       os.remove(file)
+                       os.remove(os.path.join(self.dir,file))
                except Exception,ex:
                    #maybe permissions were insufficient
                    self.logger.error("could not delete log file")
@@ -726,14 +732,9 @@ class HLTDLogIndex():
                 ip_url=getURLwithIP(es_server_url)
                 self.es = ElasticSearch(ip_url)
                 #update in case of new documents added to mapping definition
-                for key in mappings.central_hltdlogs_mapping:
-                    doc = mappings.central_hltdlogs_mapping[key]
-                    res = requests.get(ip_url+'/'+self.index_name+'/'+key+'/_mapping')
-                    #only update if mapping is empty
-                    if res.status_code==200 and res.content.strip()=='{}':
-                        requests.post(ip_url+'/'+self.index_name+'/'+key+'/_mapping',str(doc))
+                self.updateMappingMaybe(ip_url)
                 break
-            except (ElasticHttpError,ConnectionError,Timeout) as ex:
+            except (ElasticHttpError,ConnectionError,Timeout,RequestsConnectionError,RequestsTimeout) as ex:
                 #try to reconnect with different IP from DNS load balancing
                 self.logger.info(ex)
                 if attempts<=0:
@@ -774,8 +775,16 @@ class HLTDLogIndex():
                 ip_url=getURLwithIP(self.es_server_url)
                 self.es = ElasticSearch(ip_url)
                 self.es.index(self.index_name,'hltdlog',document)
-            except:
-                logger.warning('failed connection attempts to ' + self.es_server_url)
+            except Exception as ex:
+                logger.warning('failed connection attempts to ' + self.es_server_url + ' : '+str(ex))
+
+    def updateMappingMaybe(self,ip_url):
+        for key in mappings.central_hltdlogs_mapping:
+                doc = mappings.central_hltdlogs_mapping[key]
+                res = requests.get(ip_url+'/'+self.index_name+'/'+key+'/_mapping')
+                #only update if mapping is empty
+                if res.status_code==200 and res.content.strip()=='{}':
+                    requests.post(ip_url+'/'+self.index_name+'/'+key+'/_mapping',json.dumps(doc))
  
 class HLTDLogParser(threading.Thread):
     def __init__(self,dir,file,loglevel,esHandler,skipToEnd):
@@ -804,8 +813,8 @@ class HLTDLogParser(threading.Thread):
     def parseEntry(self,level,line,openNew=True):
         if self.logOpen:
             #ship previous
-            self.esHandler.elasticize_log(self.type,self.msglevel,self.timestamp,self.msg)
             self.logOpen=False
+            self.esHandler.elasticize_log(self.type,self.msglevel,self.timestamp,self.msg)
 
         if openNew:
             begin = line.find(':')+1
@@ -815,6 +824,10 @@ class HLTDLogParser(threading.Thread):
             self.timestamp = line[begin:end]
             self.msg = [line[msgbegin:]]
             self.logOpen=True
+            if len(self.timestamp)<=1:
+                self.logger.warning("Invalid timestamp "+str(self.timestamp))
+                #taking current time
+                self.timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     def stop(self):
         self.abort=True
@@ -944,8 +957,14 @@ def registerSignal(eventRef):
     
 
 if __name__ == "__main__":
+
+    import procname
+    procname.setprocname('logcol')
+
+    conf=initConf(sys.argv[1])
+
     logging.basicConfig(filename=os.path.join(conf.log_dir,"logcollector.log"),
-                    level=logging.INFO,
+                    level=conf.service_log_level,
                     format='%(levelname)s:%(asctime)s - %(funcName)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
     logger = logging.getLogger(os.path.basename(__file__))
@@ -981,9 +1000,10 @@ if __name__ == "__main__":
     threadEvent = threading.Event()
     registerSignal(threadEvent)
 
-    hltdlogdir = '/var/log/hltd'
+    hltdlogdir = conf.log_dir
     hltdlogs = ['hltd.log','anelastic.log','elastic.log','elasticbu.log']
-    cmsswlogdir = '/var/log/hltd/pid'
+    cmsswlogdir = os.path.join(conf.log_dir,'pid')
+
 
     mask = inotify.IN_CREATE
     logger.info("starting CMSSW log collector for "+cmsswlogdir)

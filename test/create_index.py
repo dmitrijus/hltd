@@ -10,10 +10,7 @@ sys.path.append('/opt/hltd/lib')
 import mappings
 
 from pyelasticsearch.client import ElasticSearch
-from pyelasticsearch.client import IndexAlreadyExistsError
-from pyelasticsearch.client import ElasticHttpError
-from pyelasticsearch.client import ConnectionError
-from pyelasticsearch.client import Timeout
+from pyelasticsearch.exceptions import *
 
 if len(sys.argv)>=4:
 

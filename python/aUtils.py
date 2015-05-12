@@ -2,21 +2,27 @@ import sys,traceback
 import os,stat
 import time,datetime
 import shutil
-import json
+import simplejson as json
 import logging
 import zlib
+import subprocess
+import threading
+#import fcntl
 
 from inotifywrapper import InotifyWrapper
 import _inotify as inotify
 
 
 ES_DIR_NAME = "TEMP_ES_DIRECTORY"
-UNKNOWN,JSD,STREAM,INDEX,FAST,SLOW,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,INI,EOLS,EOR,COMPLETE,DAT,PDAT,PIDPB,PB,CRASH,MODULELEGEND,PATHLEGEND,BOX,BOLS,HLTRATES,HLTRATESJSD = range(24)            #file types 
-TO_ELASTICIZE = [STREAM,INDEX,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,EOLS,EOR,COMPLETE]
+UNKNOWN,OUTPUTJSD,DEFINITION,STREAM,INDEX,FAST,SLOW,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,INI,EOLS,BOLS,EOR,COMPLETE,DAT,PDAT,PJSNDATA,PIDPB,PB,CRASH,MODULELEGEND,PATHLEGEND,BOX,QSTATUS,FLUSH,PROCESSING = range(27)            #file types 
+TO_ELASTICIZE = [STREAM,INDEX,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,EOLS,EOR,COMPLETE,FLUSH]
 TEMPEXT = ".recv"
 ZEROLS = 'ls0000'
 STREAMERRORNAME = 'streamError'
 STREAMDQMHISTNAME = 'streamDQMHistograms'
+THISHOST = os.uname()[1]
+
+jsdCache = {}
 
 #Output redirection class
 class stdOutLog:
@@ -38,6 +44,17 @@ class MonitorRanger:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.eventQueue = False
         self.inotifyWrapper = InotifyWrapper(self,recursiveMode)
+        self.queueStatusPath = None
+        self.queueStatusPathMon = None
+        self.queueStatusPathDir = None
+        self.queuedLumiList = []
+        self.maxQueuedLumi=-1
+        #max seen/closed by anelastic thread
+        self.maxReceivedEoLS=-1
+        self.maxClosedLumi=-1
+        self.numOpenLumis=-1
+        self.maxCMSSWLumi=-1
+        self.lock = threading.Lock()
 
     def register_inotify_path(self,path,mask):
         self.inotifyWrapper.registerPath(path,mask)
@@ -45,20 +62,130 @@ class MonitorRanger:
     def start_inotify(self):
         self.inotifyWrapper.start()
 
-    def stop_inotify(self):
-        logging.info("MonitorRanger: Stop inotify wrapper")
+    def stop_inotifyTimeout(self,timeout):
+        self.logger.info("MonitorRanger: Stop inotify wrapper")
         self.inotifyWrapper.stop()
-        logging.info("MonitorRanger: Join inotify wrapper")
+        self.logger.info("MonitorRanger: Join inotify wrapper")
+        self.inotifyWrapper.join(timeout)
+        if self.inotifyWrapper.isAlive():
+            self.logger.info("MonitorRanger: Inotify wrapper join timeout ("+str(timeout)+")")
+            return False
+        else:
+            self.logger.info("MonitorRanger: Inotify wrapper returned")
+            return True
+ 
+    def stop_inotify(self):
+        self.logger.info("MonitorRanger: Stop inotify wrapper")
+        self.inotifyWrapper.stop()
+        self.logger.info("MonitorRanger: Join inotify wrapper")
         self.inotifyWrapper.join()
-        logging.info("MonitorRanger: Inotify wrapper returned")
+        self.logger.info("MonitorRanger: Inotify wrapper returned")
 
     def process_default(self, event):
         self.logger.debug("event: %s on: %s" %(str(event.mask),event.fullpath))
         if self.eventQueue:
-            self.eventQueue.put(event)
+
+            if self.queueStatusPath!=None:
+                if self.checkNewLumi(event):
+                    self.eventQueue.put(event)
+            else:
+                self.eventQueue.put(event)
 
     def setEventQueue(self,queue):
         self.eventQueue = queue
+
+    def checkNewLumi(self,event):
+        if event.fullpath.endswith("_EoLS.jsn"):
+            try:
+                queuedLumi = int(os.path.basename(event.fullpath).split('_')[1][2:])
+                self.lock.acquire()
+                if queuedLumi not in self.queuedLumiList:
+                    if queuedLumi>self.maxQueuedLumi:
+                        self.maxQueuedLumi=queuedLumi
+                    self.queuedLumiList.append(queuedLumi)
+                    self.lock.release()
+                    self.updateQueueStatusFile()
+                else:
+                    self.lock.release()
+                    #skip if EoL for LS in queue has already been written once (e.g. double file create race)
+                    return False
+            except:
+                self.logger.warning("Problem checking new EoLS filename: "+str(os.path.basename(event.fullpath)) + " error:"+str(ex))
+                try:self.lock.release()
+                except:pass
+            #delete associated BoLS file 
+            try:
+                os.unlink(event.fullpath[:event.fullpath.rfind("_EoLS.jsn")]+"_BoLS.jsn")
+            except:
+                pass
+        elif event.fullpath.endswith("_BoLS.jsn"):
+            try:
+                queuedLumi = int(os.path.basename(event.fullpath).split('_')[1][2:])
+                if queuedLumi>self.maxCMSSWLumi:
+                    self.maxCMSSWLumi = queuedLumi
+                self.updateQueueStatusFile()
+            except:
+                pass
+            #not passed to the queue
+            return False
+        return True
+
+    def notifyLumi(self,ls,maxReceivedEoLS,maxClosedLumi,numOpenLumis):
+        if self.queueStatusPath==None:return
+        self.lock.acquire()
+        if ls!=None and ls in self.queuedLumiList:
+            self.queuedLumiList.remove(ls)
+        self.maxReceivedEoLS=maxReceivedEoLS
+        self.maxClosedLumi=maxClosedLumi
+        self.numOpenLumis=numOpenLumis
+        self.lock.release()
+        self.updateQueueStatusFile()
+
+    def setQueueStatusPath(self,path,monpath):
+        self.queueStatusPath = path
+        self.queueStatusPathMon = monpath
+        self.queueStatusPathDir = path[:path.rfind('/')]
+
+    def updateQueueStatusFile(self):
+        if self.queueStatusPath==None:return
+        num_queued_lumis = len(self.queuedLumiList)
+        if not os.path.exists(self.queueStatusPathDir):
+            self.logger.error("No directory to write queueStatusFile: "+str(self.queueStatusPathDir))
+        else:
+            self.logger.info("Update status file - queued lumis:"+str(num_queued_lumis)+ " EoLS:: max queued:"+str(self.maxQueuedLumi) \
+                             +" un-queued:"+str(self.maxReceivedEoLS)+"  Lumis:: last closed:"+str(self.maxClosedLumi) \
+                             + " num open:"+str(self.numOpenLumis) + " max LS in cmssw:"+str(self.maxCMSSWLumi))
+        #write json
+        doc = {"numQueuedLS":num_queued_lumis,
+               "maxQueuedLS":self.maxQueuedLumi,
+               "numReadFromQueueLS:":self.maxReceivedEoLS,
+               "maxClosedLS":self.maxClosedLumi,
+               "numReadOpenLS":self.numOpenLumis,
+               "CMSSWMaxLS":self.maxCMSSWLumi
+               }
+        try:
+            if self.queueStatusPath!=None:
+                attempts=3
+                while attempts>0:
+                    try:
+                        with open(self.queueStatusPath+TEMPEXT,"w") as fp:
+                            #fcntl.flock(fp, fcntl.LOCK_EX)
+                            json.dump(doc,fp)
+                        os.rename(self.queueStatusPath+TEMPEXT,self.queueStatusPath)
+                        break
+                    except Exception as ex:
+                        attempts-=1
+                        if attempts==0:
+                            raise ex
+                        self.logger.warning("Unable to write status file, with error:" + str(ex)+".retrying...")
+                        time.sleep(0.05)
+                try:
+                    shutil.copyfile(self.queueStatusPath,self.queueStatusPathMon)
+                except:
+                    pass
+        except Exception as ex:
+            self.logger.error("Unable to open/write " + self.queueStatusPath)
+            self.logger.exception(ex)
 
 
 class fileHandler(object):
@@ -83,6 +210,7 @@ class fileHandler(object):
         self.outDir = self.dir
         self.mergeStage = 0
         self.inputs = []
+        self.inputData = []
 
     def getTime(self,t):
         if self.exists():
@@ -103,34 +231,38 @@ class fileHandler(object):
         if not filepath: filepath = self.filepath
         filename = self.basename
         name,ext = self.name,self.ext
+        if ext==TEMPEXT:return UNKNOWN
         name = name.upper()
         if "mon" not in filepath:
             if ext == ".dat" and "_PID" not in name: return DAT
             if ext == ".dat" and "_PID" in name: return PDAT
+            if ext == ".jsndata" and "_PID" in name: return PJSNDATA
             if ext == ".ini" and "_PID" in name: return INI
-            if ext == ".jsd" and "OUTPUT" in name: return JSD
+            if ext == ".jsd" and "OUTPUT_" in name: return OUTPUTJSD
+            if ext == ".jsd" : return DEFINITION
             if ext == ".jsn":
                 if STREAMERRORNAME.upper() in name: return STREAMERR
-                elif "BOLS" in name : return BOLS
-                elif "STREAM" in name and "_PID" in name: return STREAM
-                elif "INDEX" in name and  "_PID" in name: return INDEX
-                elif "CRASH" in name and "_PID" in name: return CRASH
-                elif "EOLS" in name: return EOLS
-                elif "EOR" in name: return EOR
-        if ext==".jsd" and name.startswith("HLTRATES"): return HLTRATESJSD
+                elif "_STREAM" in name and "_PID" in name: return STREAM
+                elif "_INDEX" in name and  "_PID" in name: return INDEX
+                elif "_CRASH" in name and "_PID" in name: return CRASH
+                elif "_EOLS" in name: return EOLS
+                elif "_BOLS" in name: return BOLS
+                elif "_EOR" in name: return EOR
         if ext==".jsn":
             if STREAMDQMHISTNAME.upper() in name and "_PID" not in name: return STREAMDQMHISTOUTPUT
-            if "STREAM" in name and "_PID" not in name: return OUTPUT
-            if name.startswith("HLTRATES"): return  HLTRATES
+            if "_STREAM" in name and "_PID" not in name: return OUTPUT
+            if name.startswith("QUEUE_STATUS"): return QSTATUS
         if ext==".pb":
             if "_PID" not in name: return PB
             else: return PIDPB
         if name.endswith("COMPLETE"): return COMPLETE
-        if ".fast" in filename: return FAST
-        if "slow" in filename: return SLOW
+        if ext == ".fast" in filename: return FAST
+        if ext == ".slow" in filename: return SLOW
         if ext == ".leg" and "MICROSTATELEGEND" in name: return MODULELEGEND
         if ext == ".leg" and "PATHLEGEND" in name: return PATHLEGEND
         if "boxes" in filepath : return BOX
+        if filename == 'flush': return FLUSH
+        if filename == 'processing': return PROCESSING
         return UNKNOWN
 
 
@@ -138,13 +270,12 @@ class fileHandler(object):
         filetype = self.filetype
         name,ext = self.name,self.ext
         splitname = name.split("_")
-        if filetype in [STREAM,INI,PDAT,PIDPB,CRASH]: self.run,self.ls,self.stream,self.pid = splitname
+        if filetype in [STREAM,INI,PDAT,PJSNDATA,PIDPB,CRASH]: self.run,self.ls,self.stream,self.pid = splitname
         elif filetype == SLOW: self.run,self.ls,self.pid = splitname #this is wrong
         elif filetype == FAST: self.run,self.pid = splitname
         elif filetype in [DAT,PB,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT]: self.run,self.ls,self.stream,self.host = splitname
         elif filetype == INDEX: self.run,self.ls,self.index,self.pid = splitname
-        elif filetype == EOLS: self.run,self.ls,self.eols = splitname
-        elif filetype == HLTRATES:ftype,self.run,self.ls,self.pid = splitname
+        elif filetype in [EOLS,BOLS]: self.run,self.ls,self.eols = splitname
         else: 
             self.logger.warning("Bad filetype: %s" %self.filepath)
             self.run,self.ls,self.stream = [None]*3
@@ -156,17 +287,15 @@ class fileHandler(object):
 
     def getBoxData(self,filepath = None):
         if not filepath: filepath = self.filepath
-        sep = '\n'
         try:
             with open(filepath,'r') as fi:
-                data = fi.read()
-                data = data.strip(sep).split(sep)
-                data = dict([d.split('=') for d in data])
-        except StandardError,e:
-            self.logger.exception(e)
+                data = json.load(fi)
+        except IOError,e:
             data = {}
-
-
+        except StandardError,e:
+        #    self.logger.exception(e)
+            self.logger.warning('Box parse error:'+str(e))
+            data = {}
         return data
 
         #get data from json file
@@ -185,7 +314,7 @@ class fileHandler(object):
 
     def setJsdfile(self,jsdfile):
         self.jsdfile = jsdfile
-        if self.filetype in [OUTPUT,STREAMDQMHISTOUTPUT,CRASH,STREAMERR,HLTRATES]: self.initData()
+        if self.filetype in [OUTPUT,STREAMDQMHISTOUTPUT,CRASH,STREAMERR]: self.initData()
         
     def initData(self):
         defs = self.definitions
@@ -241,20 +370,29 @@ class fileHandler(object):
 
         #get definitions from jsd file
     def getDefinitions(self):
-        if self.filetype in [STREAM,HLTRATES]:
+        if self.filetype in [STREAM]:
+            #try:
             self.jsdfile = self.data["definition"]
+            #except:
+            #    self.logger.error("no definition field in "+str(self.filepath))
+            #   self.definitions = {}
+            #   return False
         elif not self.jsdfile: 
             self.logger.warning("jsd file not set")
             self.definitions = {}
             return False
-        self.definitions = self.getJsonData(self.jsdfile)["data"]
+        if self.jsdfile not in jsdCache.keys():
+          jsdCache[self.jsdfile] = self.getJsonData(self.jsdfile)
+        self.definitions = jsdCache[self.jsdfile]["data"]
+        #self.definitions = self.getJsonData(self.jsdfile)["data"]
         return True
 
 
-    def deleteFile(self):
+    def deleteFile(self,silent=False):
         #return True
         filepath = self.filepath
-        self.logger.info(filepath)
+        if silent==False:
+            self.logger.info(filepath)
         if os.path.isfile(filepath):
             try:
                 os.remove(filepath)
@@ -263,7 +401,7 @@ class fileHandler(object):
                 return False
         return True
 
-    def moveFile(self,newpath,copy = False,adler32=False):
+    def moveFile(self,newpath,copy = False,adler32=False,silent=False, createDestinationDir=True, missingDirAlert=True):
         checksum=1
         if not self.exists(): return True,checksum
         oldpath = self.filepath
@@ -275,10 +413,21 @@ class fileHandler(object):
 
         self.logger.info("%s -> %s" %(oldpath,newpath))
         retries = 5
-        newpath_tmp = newpath+TEMPEXT
+        #temp name with temporary host name included to avoid conflict between multiple hosts copying at the same time
+        newpath_tmp = newpath+'_'+THISHOST+TEMPEXT
         while True:
           try:
-              if not os.path.isdir(newdir): os.makedirs(newdir)
+              if not os.path.isdir(newdir):
+                  if createDestinationDir==False:
+                      if silent==False and missingDirAlert==True:
+                          self.logger.error("Unable to transport file "+str(oldpath)+". Destination directory does not exist: " + str(newdir))
+                      return False,checksum
+                  try:
+                      os.makedirs(newdir)
+                  except:
+                      #repeated check if dir was created in the meantime
+                      if not os.path.isdir(newdir):
+                          os.makedirs(newdir)
 
               if adler32:checksum=self.moveFileAdler32(oldpath,newpath_tmp,copy)
               else:
@@ -288,28 +437,45 @@ class fileHandler(object):
               break
 
           except (OSError,IOError),e:
-              self.logger.exception(e)
+              if silent==False:
+                  self.logger.exception(e)
               retries-=1
               if retries == 0:
-                  self.logger.error("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp))
+                  if silent==False:
+                      #do not print this warning if directory was removed
+                      if os.path.isdir(newdir):
+                          self.logger.error("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp))
+                      else:
+                          self.logger.warning("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp)+'.Target directory is gone')
                   return False,checksum
               else:
                   time.sleep(0.5)
+          except Exception, e:
+              self.logger.exception(e)
+              raise e
+        #renaming
         retries = 5
         while True:
-        #renaming
             try:
-                #shutil.move(newpath,newpath.replace(TEMPEXT,""))
                 os.rename(newpath_tmp,newpath)
                 break
             except (OSError,IOError),e:
-                self.logger.exception(e)
+                if silent==False:
+                    self.logger.exception(e)
                 retries-=1
                 if retries == 0:
-                    self.logger.error("Failure to rename the temporary file "+str(newpath_tmp)+" to "+str(newpath))
+                    if silent==False:
+                        #do not print this warning if directory was deleted
+                        if os.path.isdir(newdir):
+                            self.logger.error("Failure to rename temporary file "+str(newpath_tmp)+" to "+str(newpath))
+                        else:
+                            self.logger.warning("Failure to rename temporary file "+str(newpath_tmp)+" to "+str(newpath)+'.Target directory is gone')
                     return False,checksum
                 else:
                     time.sleep(0.5)
+            except Exception, e:
+                self.logger.exception(e)
+                raise e
 
         self.filepath = newpath
         self.getFileInfo()
@@ -370,22 +536,38 @@ class fileHandler(object):
             return False
         return True
 
+    #TODO:make sure that the file is copied only once
     def esCopy(self):
         if not self.exists(): return
         if self.filetype in TO_ELASTICIZE:
             esDir = os.path.join(self.dir,ES_DIR_NAME)
             if os.path.isdir(esDir):
+                newpathTemp = os.path.join(esDir,self.basename+TEMPEXT)
                 newpath = os.path.join(esDir,self.basename)
                 retries = 5
                 while True:
                     try:
-                        shutil.copy(self.filepath,newpath)
+                        shutil.copy(self.filepath,newpathTemp)
                         break
                     except (OSError,IOError),e:
-                        self.logger.exception(e)
                         retries-=1
                         if retries == 0:
-                            raise e
+                            self.logger.exception(e)
+                            return
+                            #raise e #non-critical exception
+                        else:
+                            time.sleep(0.5)
+                retries = 5
+                while True:
+                    try:
+                        os.rename(newpathTemp,newpath)
+                        break
+                    except (OSError,IOError),e:
+                        retries-=1
+                        if retries == 0:
+                            self.logger.exception(e)
+                            return
+                            #raise e #non-critical exception
                         else:
                             time.sleep(0.5)
 
@@ -406,11 +588,60 @@ class fileHandler(object):
         if self.filetype==STREAMDQMHISTOUTPUT:
             self.inputs.append(infile)
         else:
+            #append list of files if this is json metadata stream
+            try:
+                findex,ftype = self.getFieldIndex("Filelist")
+                flist = newData[findex].split(',')
+                for l in flist:
+                  if l.endswith('.jsndata'):
+                    if (l.startswith('/')==False):
+                      self.inputData.append(os.path.join(self.dir,l))
+                    else:
+                      self.inputData.append(l)
+            except Exception as ex:
+              self.logger.exception(ex)
+              pass
             self.writeout()
 
     def updateData(self,infile):
         self.data["data"]=infile.data["data"][:]
 
+    def isJsonDataStream(self):
+        if len(self.inputData)>0:return True
+        return False
+
+    def mergeAndMoveJsnDataMaybe(self,outDir, removeInput=True):
+        if len(self.inputData):
+          try:
+            outfile = os.path.join(self.dir,self.name+'.jsndata')
+            command_args = ["jsonMerger",outfile]
+            for fid in self.inputData:
+              command_args.append(fid)
+            p = subprocess.Popen(command_args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+            p.wait()
+            if p.returncode!=0:
+              self.logger.error('jsonMerger returned with exit code '+str(p.returncode)+' and response: ' + str(p.communicate()) + '. Merging parameters given:'+str(command_args))
+              return False
+          except Exception as ex:
+              self.logger.exception(ex)
+              return False
+          if removeInput:
+            for f in self.inputData:
+              try:
+                os.remove(f)
+              except:
+                pass
+            try:
+              self.setFieldByName("Filesize",str(os.stat(outfile).st_size))
+              self.setFieldByName("FileAdler32","-1")
+              self.writeout() 
+              jsndatFile = fileHandler(outfile)
+              jsndatFile.moveFile(os.path.join(outDir, os.path.basename(outfile)),adler32=False,createDestinationDir=False)
+            except Exception as ex:
+              self.logger.error("Unable to copy jsonStream data file "+str(outfile)+" to output.")
+              self.logger.exception(ex)
+              return False
+        return True 
 
 class Aggregator(object):
     def __init__(self,definitions,newData,oldData):
@@ -466,6 +697,9 @@ class Aggregator(object):
         return str(res)
 
     def action_same(self,data1,data2):
+        #this is not ideal..
+        if str(data1)=='' or str(data1)=='0':
+            return str(data2)
         if str(data1) == str(data2):
             return str(data1)
         else:

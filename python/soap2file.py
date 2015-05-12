@@ -4,12 +4,11 @@
 #
 
 import os
-import pwd
 import sys
 import SOAPpy
 
 sys.path.append('/opt/hltd/python')
-sys.path.append('/opt/hltd/lib')
+#sys.path.append('/opt/hltd/lib')
 
 import demote
 import hltdconf
@@ -30,7 +29,6 @@ def writeToFile(filename,content,overwrite):
     except IOError as ex:
         return "Failed to write data: "+str(ex)
 
-
 def createDirectory(dirname):
     try:
         os.mkdir(dirname)
@@ -38,14 +36,24 @@ def createDirectory(dirname):
     except OSError as ex:
         return "Failed to create directory: "+str(ex)
 
+def renamePath(oldpath,newpath):
+    try:
+        os.rename(oldpath,newpath)
+        return "Success"
+    except Exception as ex:
+        return  "Failed to rename file: "+str(ex)
 
 class Soap2file(Daemon2):
 
-    def __init__(self,pidfile):
-        Daemon2.__init__(self,pidfile,'soap2file')
+    def __init__(self):
+        Daemon2.__init__(self,'soap2file','main','hltd')
         #SOAPpy.Config.debug = 1
         self._conf=hltdconf.hltdConf('/etc/hltd.conf')
         self._hostname = os.uname()[1]
+
+    def checkEnabled(self):
+        if self._conf.soap2file_port>0:return True
+        return False
 
     def run(self):
         dem = demote.demote(self._conf.user)
@@ -54,43 +62,13 @@ class Soap2file(Daemon2):
         server = SOAPpy.SOAPServer((self._hostname, self._conf.soap2file_port))
         server.registerFunction(writeToFile)
         server.registerFunction(createDirectory)
+        server.registerFunction(renamePath)
         server.serve_forever()
 
 
 if __name__ == "__main__":
-
-    pidfile = '/var/run/soap2file.pid'
-    soap2file = Soap2file(pidfile)
-
-    if len(sys.argv) == 2:
-
-        if 'start' == sys.argv[1]:
-            try:
-                soap2file.start()
-                if soap2file.silentStatus():
-                    print '[OK]'
-                else:
-                    print '[Failed]'
-            except:
-                pass
-
-        elif 'stop' == sys.argv[1]:
-            if soap2file.status():
-                soap2file.stop()
-            elif os.path.exists(pidfile):
-                soap2file.delpid()
-
-        elif 'restart' == sys.argv[1]:
-            soap2file.restart()
-
-        elif 'status' == sys.argv[1]:
-            soap2file.status()
-
-        else:
-            print "Unknown command"
-            sys.exit(2)
-            sys.exit(0)
-    else:
-        print "usage: %s start|stop|restart|status" % sys.argv[0]
-        sys.exit(2)
+    daemon = Soap2file()
+    import procname
+    procname.setprocname('soap2file')
+    daemon.start()
 

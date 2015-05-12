@@ -1,0 +1,394 @@
+{
+  "template": "run*appliance*",
+
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "prefix-test-analyzer": {
+          "type": "custom",
+          "tokenizer": "prefix-test-tokenizer"
+        }
+      },
+      "tokenizer": {
+        "prefix-test-tokenizer": {
+          "type": "path_hierarchy",
+          "delimiter": "_"
+        }
+      }
+    },
+    "index": {
+      "number_of_shards": 2,
+      "number_of_replicas": 0
+    }
+  },
+  "mappings": {
+    "prc-i-state": {
+      "properties": {
+        "macro": {
+          "type": "integer"
+        },
+        "mini": {
+          "type": "integer"
+        },
+        "micro": {
+          "type": "integer"
+        },
+        "tp": {
+          "type": "double"
+        },
+        "lead": {
+          "type": "double"
+        },
+        "nfiles": {
+          "type": "integer"
+        },
+        "fm_date": {
+          "type": "date"
+        }
+      },
+      "_timestamp": {
+        "enabled": true,
+        "store": "yes",
+        "path": "fm_date"
+      },
+      "_ttl": {
+        "enabled": true,
+        "default": "5m"
+      }
+    },
+    "prc-s-state": {
+      "properties": {
+        "macro": {
+          "type": "integer"
+        },
+        "mini": {
+          "type": "integer"
+        },
+        "micro": {
+          "type": "integer"
+        },
+        "tp": {
+          "type": "double"
+        },
+        "lead": {
+          "type": "double"
+        },
+        "nfiles": {
+          "type": "integer"
+        },
+        "ls": {
+          "type": "integer"
+        },
+        "process": {
+          "type": "string"
+        }
+      }
+    },
+    "fu-s-state": {
+      "properties": {
+        "macro": {
+          "type": "integer"
+        },
+        "mini": {
+          "type": "integer"
+        },
+        "micro": {
+          "type": "integer"
+        },
+        "tp": {
+          "type": "double"
+        },
+        "lead": {
+          "type": "double"
+        },
+        "nfiles": {
+          "type": "integer"
+        },
+        "ls": {
+          "type": "integer"
+        },
+        "machine": {
+          "type": "string"
+        }
+      }
+    },
+    "prc-out": {
+      "_routing": {
+        "required": true,
+        "path": "source"
+      },
+      "properties": {
+        "data": {
+          "properties": {
+            "in": {
+              "type": "integer"
+            },
+            "out": {
+              "type": "integer"
+            },
+            "file": {
+              "type": "string",
+              "index": "not_analyzed"
+            }
+          }
+        },
+        "ls": {
+          "type": "integer",
+          "store": "yes"
+        },
+        "stream": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "source": {
+          "type": "string",
+          "index_analyzer": "prefix-test-analyzer",
+          "search_analyzer": "keyword",
+          "store": "yes",
+          "index": "analyzed"
+        }
+      },
+      "_timestamp": {
+        "enabled": true,
+        "store": "yes"
+      }
+    },
+    "prc-in": {
+      "_routing": {
+        "required": true,
+        "path": "dest"
+      },
+      "properties": {
+        "data": {
+          "properties": {
+            "out": {
+              "type": "integer"
+            }
+          }
+        },
+        "ls": {
+          "type": "integer",
+          "store": "yes"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "dest": {
+          "type": "string",
+          "index_analyzer": "prefix-test-analyzer",
+          "search_analyzer": "keyword",
+          "store": "yes",
+          "index": "analyzed"
+        },
+        "process": {
+          "type": "integer"
+        }
+      },
+      "_timestamp": {
+        "enabled": true,
+        "store": "yes"
+      }
+    },
+    "fu-out": {
+      "_routing": {
+        "required": true,
+        "path": "source"
+      },
+      "properties": {
+        "data": {
+          "properties": {
+            "in": {
+              "type": "integer"
+            },
+            "out": {
+              "type": "integer"
+            },
+            "errorEvents": {
+              "type": "integer"
+            },
+            "returnCodeMask": {
+              "type": "string",
+              "index": "not_analyzed"
+            },
+            "fileSize": {
+              "type": "long"
+            },
+            "fileAdler32": {
+              "type": "long"
+            },
+            "TransferDestination": {
+              "type": "string",
+              "index": "not_analyzed"
+            },
+            "files": {
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "index": "not_analyzed"
+                }
+              }
+            }
+          }
+        },
+        "ls": {
+          "type": "integer"
+        },
+        "stream": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "source": {
+          "type": "string",
+          "index_analyzer": "prefix-test-analyzer",
+          "search_analyzer": "keyword"
+        }
+      },
+      "_timestamp": {
+        "enabled": true,
+        "store": "yes"
+      }
+    },
+    "fu-complete": {
+      "properties": {
+        "host": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "fm_date": {
+          "type": "date"
+        }
+      },
+      "_timestamp": {
+        "enabled": true,
+        "store": "yes",
+        "path": "fm_date"
+      }
+    },
+    "bu-out": {
+      "properties": {
+        "out": {
+          "type": "integer"
+        },
+        "ls": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    },
+    "qstatus": {
+      "properties": {
+        "numQueuedLS": {
+          "type": "integer"
+        },
+        "maxQueuedLS": {
+          "type": "integer"
+        },
+        "numReadFromQueueLS": {
+          "type": "integer"
+        },
+        "maxClosedLS": {
+          "type": "integer"
+        },
+        "numReadOpenLS": {
+          "type": "integer"
+        },
+        "CMSSWMaxLS": {
+          "type": "integer"
+        },
+        "fm_date": {
+          "type": "date"
+        },
+        "host": {
+          "type": "string",
+          "index":"not_analyzed"
+        }
+      },
+      "_timestamp": {
+        "enabled": true,
+        "store": "yes",
+        "path": "fm_date"
+      }
+    },
+    "cmsswlog": {
+      "_timestamp": {
+        "enabled": true,
+        "store": "yes"
+      },
+      "_ttl": {
+        "enabled": true,
+        "default": "30d"
+      },
+      "_routing": {
+        "required": true,
+        "path": "host"
+      },
+      "properties": {
+        "host": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "pid": {
+          "type": "integer"
+        },
+        "type": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "severity": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "severityVal": {
+          "type": "integer"
+        },
+        "category": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "fwkState": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "module": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "moduleInstance": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "moduleCall": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "lumi": {
+          "type": "integer"
+        },
+        "eventInPrc": {
+          "type": "long"
+        },
+        "message": {
+          "type": "string"
+        },
+        "lexicalId": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "msgtime": {
+          "type": "date",
+          "format": "dd-MMM-YYYY HH:mm:ss"
+        },
+        "msgtimezone": {
+          "type": "string",
+          "index": "not_analyzed"
+        }
+      }
+    }
+  }
+}
+

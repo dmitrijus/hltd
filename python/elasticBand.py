@@ -1,17 +1,14 @@
 import os,socket,time
 import sys
 from pyelasticsearch.client import ElasticSearch
-from pyelasticsearch.client import IndexAlreadyExistsError
-from pyelasticsearch.client import ElasticHttpError
-import json
+from pyelasticsearch.exceptions import *
+import simplejson as json
 import csv
 import math
 import logging
 
 from aUtils import *
 
-#MONBUFFERSIZE = 50
-es_server_url = 'http://localhost:9200'
 
 class elasticBand():
 
@@ -19,276 +16,28 @@ class elasticBand():
     def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.istateBuffer = []  
-        self.prcinBuffer = {}   # {"lsX": doclist}
+        self.prcinBuffer = {}
         self.prcoutBuffer = {}
         self.fuoutBuffer = {}
-        self.es = ElasticSearch(es_server_url) 
+        self.es = ElasticSearch(es_server_url,timeout=20) 
         self.hostname = os.uname()[1]
         self.hostip = socket.gethostbyname_ex(self.hostname)[2][0]
-        self.number_of_data_nodes = self.es.health()['number_of_data_nodes']
-        self.settings = {
-            "analysis":{
-                "analyzer": {
-                    "prefix-test-analyzer": {
-                        "type": "custom",
-                        "tokenizer": "prefix-test-tokenizer"
-                    }
-                    },
-                "tokenizer": {
-                    "prefix-test-tokenizer": {
-                        "type": "path_hierarchy",
-                        "delimiter": "_"
-                        }
-                    }
-                },
-            "index":{
-                'number_of_shards' : 2,
-                'number_of_replicas' : 0,
-                "routing" : {
-                    "allocation" : {
-                        "require" : {
-                            "_ip" : self.hostip
-                            }
-                        }
-                    }
-                }
-            }
-        
-        
-        
-
-        self.run_mapping = {
-            'prc-i-state' : {
-                'properties' : {
-                    'macro'     : {'type' : 'integer'},
-                    'mini'      : {'type' : 'integer'},
-                    'micro'     : {'type' : 'integer'},
-                    'tp'        : {'type' : 'double' },
-                    'lead'      : {'type' : 'double' },
-                    'nfiles'    : {'type' : 'integer'},
-                    'fm_date'   : {'type' : 'date'   }
-                },
-                '_timestamp' : { 
-                    'enabled'   : True,
-                    'store'     : "yes",
-                    "path"      : "fm_date"
-                },
-                '_ttl'       : { 'enabled' : True,                             
-                                 'default' :  '5m'
-                } 
-            },
-            'prc-s-state' : {
-                'properties' : {
-                    'macro'  : {'type' : 'integer'},
-                    'mini'   : {'type' : 'integer'},
-                    'micro'  : {'type' : 'integer'},
-                    'tp'     : {'type' : 'double'},
-                    'lead'   : {'type' : 'double'},
-                    'nfiles' : {'type' : 'integer'},            
-                    'ls'     : {'type' : 'integer'},
-                    'process': {'type' : 'string'}
-                },
-            },
-            'fu-s-state' : {
-                'properties' : {
-                    'macro'  : {'type' : 'integer'},
-                    'mini'   : {'type' : 'integer'},
-                    'micro'  : {'type' : 'integer'},
-                    'tp'     : {'type' : 'double'},
-                    'lead'   : {'type' : 'double'},
-                    'nfiles' : {'type' : 'integer'},            
-                    'ls'     : {'type' : 'integer'},
-                    'machine': {'type' : 'string'}
-                }
-            },
-            'prc-out': {
-                '_routing' :{
-                    'required' : True,
-                    'path'     : 'source'
-                },
-                'properties' : {
-                    #'definition': {'type': 'string'},
-                    'data' : { 'properties' : {
-                            'in' : { 'type' : 'integer'},
-                            'out': { 'type' : 'integer'},
-                            'file': { 'type' : 'string','index' : 'not_analyzed'}
-                            }           
-                    },
-                    'ls' : { 
-                        'type' : 'integer',
-                        'store': "yes"
-                    },
-                    'stream' : {'type' : 'string','index' : 'not_analyzed'},
-                    'source' : {
-                        'type' : 'string',
-                        'index_analyzer': 'prefix-test-analyzer',
-                        'search_analyzer': "keyword",
-                        'store' : "yes",
-                        'index' : "analyzed"
-                    }
-                },
-                '_timestamp' : { 
-                    'enabled' : True,
-                    'store'   : "yes"
-                }
-            },
-            'prc-in': {
-                '_routing' :{
-                    'required' : True,
-                    'path'     : 'dest'
-                },
-                'properties' : {
-                    #'definition': {'type': 'string',"index" : "not_analyzed"},
-                    'data' : { 'properties' : {
-                            'out'    : { 'type' : 'integer'}
-                            }
-                    },
-                    'ls'     : { 
-                        'type' : 'integer',
-                        'store': 'yes'
-                    },
-                    'index'  : { 'type' : 'integer' },
-                    'source' : { 'type' : 'string'  },
-                    'dest' : {
-                        'type' : 'string',
-                        'index_analyzer': 'prefix-test-analyzer',
-                        'search_analyzer': "keyword",
-                        'store' : "yes",
-                        'index' : "analyzed",
-                        },
-                    'process' : { 'type' : 'integer' }
-                },
-                '_timestamp' : { 
-                    'enabled' : True,
-                    'store'   : "yes"
-                }
-            },
-            'fu-out': {
-                '_routing' :{
-                    'required' : True,
-                    'path'     : 'source'
-                },
-                'properties' : {
-                    #'definition': {'type': 'string',"index" : "not_analyzed"},
-                    'data' : { 'properties' : {
-                            'in' : { 'type' : 'integer'},
-                            'out': { 'type' : 'integer'},
-                            'errorEvents' : {'type' : 'integer'},
-                            'returnCodeMask': {'type':'string',"index" : "not_analyzed"},
-                            'fileSize' : {'type':'long'},
-                            'fileAdler32' : {'type':'long'},
-                            'files': {
-                                'properties' : {
-                                    'name' : { 'type' : 'string',"index" : "not_analyzed"}
-                                    }
-                                }
-                             }
-                    },
-                    'ls' : { 'type' : 'integer' },
-                    'stream' : {'type' : 'string','index' : 'not_analyzed'},
-                    'source' : {
-                        'type' : 'string',
-                        'index_analyzer': 'prefix-test-analyzer',
-                        'search_analyzer': "keyword"
-                    }
-                },
-                '_timestamp' : { 
-                    'enabled' : True,
-                    'store'   : "yes"
-                }
-            },
-            'fu-complete' : {
-                'properties' : {
-                    'host'     : {'type' : 'string'},
-                    'fm_date'   : {'type' : 'date' }
-                },
-                '_timestamp' : { 
-                    'enabled'   : True,
-                    'store'     : "yes",
-                    "path"      : "fm_date"
-                },
-            },
-            'bu-out': {
-                'properties' : {
-                    #'definition': {'type': 'string',"index" : "not_analyzed"},
-                    'out': { 'type' : 'integer'},
-                    'ls' : { 'type' : 'integer' },
-                    'source' : {'type' : 'string'}#,"index" : "not_analyzed"}
-                }
-            },
-            'hltrates-legend': {
-                'properties': {
-                    'path-names'  : {'type' : 'string','index':'not_analyzed'}
-                }
-            },
-            'hltrates': {
-                'properties': {
-                    'ls' : {'type' : 'integer'},
-                    'pid' : {'type' : 'integer'},
-                    'processed' : {'type' : 'integer'},
-                    'path-accepted'  : {'type' : 'integer'}
-                }
-            },
-            'cmsswlog' : {
-                '_timestamp' : { 
-                    'enabled'   : True,
-                    'store'     : "yes"
-                },
-                '_ttl'       : { 'enabled' : True,
-                                 'default' :  '30d'
-                },
-                '_routing' :{
-                    'required' : True,
-                    'path'     : 'host'
-                },
-                'properties' : {
-                    'host'      : {'type' : 'string'},
-                    'pid'       : {'type' : 'integer'},
-                    'type'      : {'type' : 'string',"index" : "not_analyzed"},
-                    'severity'  : {'type' : 'string',"index" : "not_analyzed"},
-                    'severityVal'  : {'type' : 'integer'},
-                    'category'  : {'type' : 'string'},
-
-                    'fwkState'     : {'type' : 'string',"index" : "not_analyzed"},
-                    'module'     : {'type' : 'string',"index" : "not_analyzed"},
-                    'moduleInstance'     : {'type' : 'string',"index" : "not_analyzed"},
-                    'moduleCall'     : {'type' : 'string',"index" : "not_analyzed"},
-                    'lumi'     : {'type' : 'integer'},
-                    'eventInPrc'     : {'type' : 'long'},
-
-                    'message'   : {'type' : 'string'},#,"index" : "not_analyzed"},
-                    'lexicalId' : {'type' : 'string',"index" : "not_analyzed"},
-                    'msgtime' : {'type' : 'date','format':'dd-MMM-YYYY HH:mm:ss'},
-                    'msgtimezone' : {'type' : 'string'}
-                    #'context'   : {'type' : 'string'}
-                 }
-            }
-        }
-        self.run = runstring
+        #self.number_of_data_nodes = self.es.health()['number_of_data_nodes']
+        self.settings = {     "index.routing.allocation.require._ip" : self.hostip }
+        self.indexCreated=False
+        self.indexFailures=0
         self.monBufferSize = monBufferSize
         self.fastUpdateModulo = fastUpdateModulo
         aliasName = runstring + "_" + indexSuffix
-        self.indexName = aliasName + "_" + self.hostname 
-        alias_command ={'actions': [{"add":
-                                        {"index":self.indexName,
-                                         "alias":aliasName
-                                         }
-                                    }]
-                       }
-        try:
-            self.es.create_index(self.indexName, settings={ 'settings': self.settings, 'mappings': self.run_mapping })
-            self.es.update_aliases(alias_command)
-        except ElasticHttpError as ex:
-#            print "Index already existing - records will be overridden"
-            #this is normally fine as the index gets created somewhere across the cluster
-            pass
-
-    def imbue_jsn(self,infile):
+        self.indexName = aliasName# + "_" + self.hostname 
+ 
+    def imbue_jsn(self,infile,silent=False):
         with open(infile.filepath,'r') as fp:
             try:
                 document = json.load(fp)
             except json.scanner.JSONDecodeError,ex:
-                logger.exception(ex)
+                if silent==False:
+                    self.logger.exception(ex)
                 return None,-1
             return document,0
 
@@ -343,8 +92,8 @@ class elasticBand():
         datadict['tp']      = float(document['data'][4]) if not math.isnan(float(document['data'][4])) and not  math.isinf(float(document['data'][4])) else 0.
         datadict['lead']    = float(document['data'][5]) if not math.isnan(float(document['data'][5])) and not  math.isinf(float(document['data'][5])) else 0.
         datadict['nfiles']  = int(document['data'][6])
-        self.es.index(self.indexName,'prc-s-state',datadict)
-
+        self.tryIndex('prc-s-state',datadict)
+ 
     def elasticize_prc_out(self,infile):
         document,ret = self.imbue_jsn(infile)
         if ret<0:return
@@ -353,14 +102,16 @@ class elasticBand():
         stream=infile.stream
         #removing 'stream' prefix
         if stream.startswith("stream"): stream = stream[6:]
-
-        values = [int(f) if f.isdigit() else str(f) for f in document['data']]
-        keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32"]
+        values = [int(f) if ((type(f) is str and f.isdigit()) or type(f) is int) else str(f) for f in document['data']]
+        #values = [int(f) if f.isdigit() else str(f) for f in document['data']]
+        keys = ["in","out"]
+        #keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32"]
         datadict = dict(zip(keys, values))
-
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['stream']=stream
+        try:document.pop('definition')
+	except:pass
         self.prcoutBuffer.setdefault(ls,[]).append(document)
         #self.es.index(self.indexName,'prc-out',document)
         #return int(ls[2:])
@@ -374,18 +125,19 @@ class elasticBand():
         stream=infile.stream
         #removing 'stream' prefix
         if stream.startswith("stream"): stream = stream[6:]
-
-        values= [int(f) if f.isdigit() else str(f) for f in document['data']]
-        keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32"]
+        #TODO:read output jsd file to decide on the variable format
+        values = [int(f) if ((type(f) is str and f.isdigit()) or type(f) is int) else str(f) for f in document['data']]
+        keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32","TransferDestination"]
         datadict = dict(zip(keys, values))
-
-        
+        try:datadict.pop('Filelist')
+	except:pass
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['stream']=stream
+        try:document.pop('definition')
+	except:pass
         self.fuoutBuffer.setdefault(ls,[]).append(document)
         #self.es.index(self.indexName,'fu-out',document)
-        #return int(ls[2:])
 
     def elasticize_prc_in(self,infile):
         document,ret = self.imbue_jsn(infile)
@@ -399,41 +151,31 @@ class elasticBand():
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['index']=int(index[5:])
-        document['dest']=os.uname()[1]
+        document['dest']=self.hostname
         document['process']=int(prc[3:])
+        try:document.pop('definition')
+	except:pass
         self.prcinBuffer.setdefault(ls,[]).append(document)
         #self.es.index(self.indexName,'prc-in',document)
-        #os.remove(path+'/'+file)
-        #return int(ls[2:])
 
-    def elasticize_hltrates(self,infile,writeLegend):
-        document,ret = self.imbue_jsn(infile)
+    def elasticize_queue_status(self,infile):
+        document,ret = self.imbue_jsn(infile,silent=True)
         if ret<0:return False
-        if writeLegend:
-            legend = []
-            for item in infile.definitions:
-                if item['name']!='Processed': legend.append(item['name'])
-            datadict={'path-names':legend}
-            self.es.index(self.indexName,'hltrates-legend',datadict)
-            
-        datadict={}
-        datadict['ls'] = int(infile.ls[2:])
-        datadict['pid'] = int(infile.pid[3:])
-        datadict['path-accepted']=document['data'][1:]
-        datadict['processed']=document['data'][0]
-        self.es.index(self.indexName,'hltrates',datadict)
+        document['fm_date']=str(infile.mtime)
+        document['host']=self.hostname
+        self.tryIndex('qstatus',document)
         return True
- 
+
     def elasticize_fu_complete(self,timestamp):
         document = {}
-        document['host']=os.uname()[1]
+        document['host']=self.hostname
         document['fm_date']=timestamp
-        self.es.index(self.indexName,'fu-complete',document)
-
+        self.tryIndex('fu-complete',document)
+ 
     def flushMonBuffer(self):
         if self.istateBuffer:
             self.logger.info("flushing fast monitor buffer (len: %r) " %len(self.istateBuffer))
-            self.es.bulk_index(self.indexName,'prc-i-state',self.istateBuffer)
+            self.tryBulkIndex('prc-i-state',self.istateBuffer,attempts=1)
             self.istateBuffer = []
 
     def flushLS(self,ls):
@@ -441,17 +183,57 @@ class elasticBand():
         prcinDocs = self.prcinBuffer.pop(ls) if ls in self.prcinBuffer else None
         prcoutDocs = self.prcoutBuffer.pop(ls) if ls in self.prcoutBuffer else None
         fuoutDocs = self.fuoutBuffer.pop(ls) if ls in self.fuoutBuffer else None
-        if prcinDocs: self.es.bulk_index(self.indexName,'prc-in',prcinDocs)        
-        if prcoutDocs: self.es.bulk_index(self.indexName,'prc-out',prcoutDocs)
-        if fuoutDocs: self.es.bulk_index(self.indexName,'fu-out',fuoutDocs)
-
-    def flushAll(self):
-        self.flushMonBuffer()
+        if prcinDocs: self.tryBulkIndex('prc-in',prcinDocs,attempts=2)
+        if prcoutDocs: self.tryBulkIndex('prc-out',prcoutDocs,attempts=2)
+        if fuoutDocs: self.tryBulkIndex('fu-out',fuoutDocs,attempts=5)
+ 
+    def flushAllLS(self):
         lslist = list(  set(self.prcinBuffer.keys()) | 
                         set(self.prcoutBuffer.keys()) |
                         set(self.fuoutBuffer.keys()) )
         for ls in lslist:
             self.flushLS(ls)
 
-        
+    def flushAll(self):
+        self.flushMonBuffer()
+        self.flushAllLS()
+
+    def updateIndexSettingsMaybe(self):
+	return
+        if self.indexCreated==False:
+            self.es.update_settings(self.indexName,self.settings)
+            self.indexCreated=True
+
+    def tryIndex(self,docname,document): 
+        try:
+            self.es.index(self.indexName,docname,document)
+            self.updateIndexSettingsMaybe()
+        except (ConnectionError,Timeout) as ex:
+            self.indexFailures+=1
+            if self.indexFailures<2:
+                self.logger.warning("Elasticsearch connection error.")
+            time.sleep(5)
+        except ElasticHttpError as ex:
+            self.indexFailures+=1
+            if self.indexFailures<2:
+                self.logger.exception(ex)
+
+    def tryBulkIndex(self,docname,documents,attempts=1):
+        while attempts>0:
+            attempts-=1
+            try:
+                self.es.bulk_index(self.indexName,docname,documents)
+                self.updateIndexSettingsMaybe()
+                break
+            except (ConnectionError,Timeout) as ex:
+                if attempts==0:
+                    self.indexFailures+=1
+                    if self.indexFailures<2:
+                        self.logger.warning("Elasticsearch connection error.")
+                time.sleep(5)
+            except ElasticHttpError as ex:
+                if attempts==0:
+                    self.indexFailures+=1
+                    if self.indexFailures<2:
+                        self.logger.exception(ex)
 

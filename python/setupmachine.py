@@ -627,7 +627,7 @@ if __name__ == "__main__":
                 essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log"')
             essyscfg.commit()
 
-            escfg = FileManager(elasticconf,':',esEdited,'',' ')
+            escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('cluster.name',clusterName)
             escfg.reg('node.name',cnhostname)
             escfg.reg('discovery.zen.ping.multicast.enabled','false')

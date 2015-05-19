@@ -654,7 +654,7 @@ class system_monitor(threading.Thread):
             except (IOError,OSError) as ex:
                 err_detected=True
                 if ex.errno == 116:
-                    if fu_stale_counter==0 or fu_stale_counter%20==0:
+                    if fu_stale_counter==0 or fu_stale_counter%500==0:
                         logger.fatal('detected stale file handle: '+str(disk))
                 else:
                     logger.warning('stat mountpoint ' + str(disk) + ' caught Error: '+str(ex))

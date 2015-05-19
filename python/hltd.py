@@ -1692,11 +1692,7 @@ class Run:
             if conf.role == 'fu':
                 self.StartOnResource(resource)
             else:
-                is_stale = resource.checkIfStaleResource()
-                if not is_stale:
-                    resource.NotifyNewRun(self.runnumber)
-                else:
-                    logger.error("Run "+str(self.runnumber)+" start: skipping resource "+resource.cpu+" which is stale")
+                resource.NotifyNewRun(self.runnumber)
                 #update begin time to after notifying FUs
                 self.beginTime = datetime.datetime.now()
         if conf.role == 'fu' and conf.dqm_machine==False:

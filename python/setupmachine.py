@@ -621,9 +621,10 @@ if __name__ == "__main__":
             essyscfg.reg('ES_HEAP_SIZE','1G')
             essyscfg.reg('MAX_LOCKED_MEMORY','unlimited')
             essyscfg.reg('ES_USE_GC_LOGGING','true')
-            if myhost.startswith('fu-c2d'):#Megware FU racks
+            if type == 'fu':
+              if myhost.startswith('fu-c2d'):#Megware FU racks
                 essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log -XX:NewSize=500m -XX:MaxNewSize=600m"')
-            else:
+              else:
                 essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log"')
             essyscfg.commit()
 

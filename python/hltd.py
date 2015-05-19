@@ -1644,22 +1644,38 @@ class Run:
                 if cpu in machine_blacklist:
                     logger.info("skipping blacklisted resource "+str(cpu))
                     continue
- 
+                if self.checkStaleResourceFile(idles+cpu):
+                    logger.error("Skipping stale resource "+str(cpu))
+                    continue
+
             count = count+1
-            cpu_group.append(cpu)
-            age = current_time - os.path.getmtime(idles+cpu)
-            if conf.role == 'fu':
-                if count == nstreams:
-                  self.AcquireResource(cpu_group,'idle')
-                  cpu_group=[]
-                  count=0
-            else:
-                logger.info("found resource "+cpu+" which is "+str(age)+" seconds old")
-                if age < 10:
-                    cpus = [cpu]
-                    self.ContactResource(cpus)
+            try:
+                age = current_time - os.path.getmtime(idles+cpu)
+                cpu_group.append(cpu)
+                if conf.role == 'fu':
+                    if count == nstreams:
+                      self.AcquireResource(cpu_group,'idle')
+                      cpu_group=[]
+                      count=0
+                else:
+                    logger.info("found resource "+cpu+" which is "+str(age)+" seconds old")
+                    if age < 10:
+                        cpus = [cpu]
+                        self.ContactResource(cpus)
+            except Exception as ex:
+                logger.error('encountered exception in acquiring resource '+str(cpu)+':'+str(ex))
         return True
         #self.lock.release()
+
+    def checkStaleResourceFile(self,resourcepath):
+        try:
+            with open(resourcepath,'r') as fi:
+                doc = json.load(fi)
+                if doc['detectedStaleHandle']==True:
+                    return True
+        except:
+            logger.warning('can not parse ' + rfile)
+        return False
 
     def CheckTemplate(self):
         if conf.role=='bu' and conf.use_elasticsearch:
@@ -1676,7 +1692,11 @@ class Run:
             if conf.role == 'fu':
                 self.StartOnResource(resource)
             else:
-                resource.NotifyNewRun(self.runnumber)
+                is_stale = resource.checkIfStaleResource()
+                if not is_stale:
+                    resource.NotifyNewRun(self.runnumber)
+                else:
+                    logger.error("Run "+str(self.runnumber)+" start: skipping resource "+resource.cpu+" which is stale")
                 #update begin time to after notifying FUs
                 self.beginTime = datetime.datetime.now()
         if conf.role == 'fu' and conf.dqm_machine==False:
@@ -2884,6 +2904,10 @@ class ResourceRanger:
             lrun = runList.getLastRun()
             newRes = None
             if lrun!=None:
+                if lrun.checkStaleResourceFile(event.fullpath):
+                    logger.error("Run "+str(lrun.runnumber)+" notification: skipping resource "+basename+" which is stale")
+                    resource_lock.release()
+                    return
                 logger.info('Try attaching FU resource: last run is '+str(lrun.runnumber))
                 newRes = lrun.maybeNotifyNewRun(basename,resourceage)
             resource_lock.release()

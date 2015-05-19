@@ -157,7 +157,7 @@ ls
 pluginpath="/opt/fff/esplugins/"
 pluginname1="bigdesk"
 #pluginfile1="lukas-vlcek-bigdesk-v2.4.0-2-g9807b92-mod.zip"
-pluginfile1="lukas-vlcek-bigdesk-v2.5.0-1-g505b32e.zip"
+pluginfile1="lukas-vlcek-bigdesk-v2.5.0-1-g505b32e-mod.zip"
 pluginname2="head"
 pluginfile2="head-master.zip"
 pluginname3="HQ"

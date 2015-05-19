@@ -60,7 +60,6 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
     templateList = es.send_request('GET', ['_template'])
     #templateList = res['metadata']['templates']
 
-    print templateList
 
 
     TEMPLATES = ["runappliance"]

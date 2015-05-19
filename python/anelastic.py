@@ -292,14 +292,17 @@ class LumiSectionRanger():
             return
           except:
             pass
+          #copy to output with rename
+          self.infile.moveFile(os.path.join(outputDir,run,os.path.basename(newpath)),copy = True,adler32=False,
+                               silent=True,createDestinationDir=False,missingDirAlert=False)
+          #local copy
           self.infile.moveFile(newpath,copy = True,adler32=False,silent=True,createDestinationDir=False,missingDirAlert=False)
+ 
           #delete as we will use the one without pid
           try:os.unlink(oldpath)
           except:pass
         else:
-          #name with pid: copy to output
-          self.infile.moveFile(os.path.join(outputDir,run,self.infile.basename),copy = True,adler32=False,
-                               silent=True,createDestinationDir=False,missingDirAlert=False)
+          pass
           
     #def createEOLSFile(self,ls):
     #    eolname = os.path.join(self.tempdir,'run'+self.run_number.zfill(conf.run_number_padding)+"_"+ls+"_EoLS.jsn")

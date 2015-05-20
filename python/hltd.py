@@ -1583,11 +1583,13 @@ class Run:
 
     def countOwnedResourcesFrom(self,resourcelist):
         ret = 0
-        for resourcename in resourcelist:
-            try:
-                if resourcename in resourcenames:
-                    ret+=1
-            except:pass
+        try:
+          for p in self.online_resource_list:
+            for c in p.cpu:
+                for resourcename in resourcelist:
+                    if resourcename == c:
+                        ret+=1
+        except:pass
         return ret
 
     def AcquireResource(self,resourcenames,fromstate):

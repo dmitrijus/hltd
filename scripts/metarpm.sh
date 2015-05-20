@@ -157,7 +157,7 @@ ls
 pluginpath="/opt/fff/esplugins/"
 pluginname1="bigdesk"
 #pluginfile1="lukas-vlcek-bigdesk-v2.4.0-2-g9807b92-mod.zip"
-pluginfile1="lukas-vlcek-bigdesk-v2.5.0-1-g505b32e.zip"
+pluginfile1="lukas-vlcek-bigdesk-v2.5.0-1-g505b32e-mod.zip"
 pluginname2="head"
 pluginfile2="head-master.zip"
 pluginname3="HQ"
@@ -168,7 +168,7 @@ cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta.spec <<EOF
 Name: $PACKAGENAME
-Version: 1.7.0
+Version: 1.7.1
 Release: 0
 Summary: hlt daemon
 License: gpl
@@ -178,7 +178,7 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires:elasticsearch >= 1.4.2, hltd >= 1.7.0, cx_Oracle >= 5.1.2, java-1.7.0-openjdk
+Requires:elasticsearch >= 1.4.2, hltd >= 1.7.0, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/setupmachine.py

@@ -40,61 +40,65 @@ def convert(input):
 	else:
 		return input
 
+def printout(msg,usePrint,haveLog):
+    if usePrint:
+        print msg
+    elif haveLog:
+	logging.info(msg)
+
+
 def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,overrideTests=False):
 
     #ip_url=getURLwithIP(es_server_url)
-    es = ElasticSearch(es_server_url,timeout=3)
+    es = ElasticSearch(es_server_url,timeout=5)
 
     #get_template
     #es.send_request('GET', ['_template', name],query_params=query_params)
 
     #list_template
-    res = es.cluster_state(metric='metadata')
-    templateList = res['metadata']['templates']
+    #res = es.cluster_state(metric='metadata')
+    templateList = es.send_request('GET', ['_template'])
+    #templateList = res['metadata']['templates']
+
 
 
     TEMPLATES = ["runappliance"]
     for template_name in TEMPLATES:
         if template_name not in templateList:
-            if doPrint:
-                print "{0} template not present. It will be created. ".format(template_name)
+            printout(template_name+"template not present. It will be created. ",doPrint,False)
             create_template(es,template_name)
         else:
             norm_name = convert(templateList[template_name])
             if deleteOld==0:
-                if doPrint:
-                    print "{0} already exists. Add 'replace' parameter to force update.".format(template_name)
+                printout(template_name+" already exists. Add 'replace' parameter to update if different, or forceupdate to always  update.",doPrint,False)
             else:
-                if doPrint:
-                    print "{0} already exists.".format(template_name)
+                printout(template_name+" already exists.",doPrint,False)
                 loaddoc = load_template(es,template_name)
                 if loaddoc!=None:
                     mappingSame =  norm_name['mappings']==loaddoc['mappings']
                     #settingSame = norm_name['settings']==loaddoc['settings']
                     settingsSame=True
-                    if int(norm_name['settings']['index']['number_of_replicas'])!=int(loaddoc['settings']['index']['number_of_replicas']):
+                    if int(norm_name['settings']['index.number_of_replicas'])!=int(loaddoc['settings']['index']['number_of_replicas']):
                         settingsSame=False
-                    if int(norm_name['settings']['index']['number_of_shards'])!=int(loaddoc['settings']['index']['number_of_shards']):
+                    if int(norm_name['settings']['index.number_of_shards'])!=int(loaddoc['settings']['index']['number_of_shards']):
                         settingsSame=False
-                    if norm_name['settings']['index']['analysis']!=loaddoc['settings']['analysis']:
-                        settingsSame=False
+	            #currently analyzer settings are ot checked
+                    #if norm_name['settings']['index']['analysis']!=loaddoc['settings']['analysis']:
+                    #    settingsSame=False
                     if not (mappingSame and settingsSame) or deleteOld>1:
                         #test is override
-                        if overrideTests==False and norm_name['settings']['index']['test']==True:
-                            if doPrint:
-                                print "Template test setting found, skipping update..."
-                            else:
-                                logging.info('Template test setting found, skipping update..')
-                            return
-
-                        delete_template(es,template_name)
-                        if doPrint:
-                            print "deleted old template and will recreate {0}".format(template_name)
-                        else:
-                           logging.info('Updating runappliance ES template')
+			if overrideTests==False:
+			    try:
+		                if norm_name['settings']['index,test']==True:
+                                    printout("Template test setting found, skipping update...",doPrint,True)
+                                    return
+			    except:pass
+                        #delete_template(es,template_name)
+			printout("Updating "+template_name+" ES template",doPrint,True)
                         create_template(es,template_name)
-                    elif not doPrint:
-                           logging.info('runappliance ES template is up to date')
+		    else:
+                      printout('runappliance ES template is up to date',doPrint,True)
+                    
 
 
 if __name__ == '__main__':

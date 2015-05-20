@@ -105,6 +105,7 @@ class LumiSectionRanger():
                         #no such file or directory
                         if ex.errno==2:
                             self.logger.warning('Starting run with input directory missing. anelastic script will die.')
+                            self.writeElasticMarker()
                             os._exit(1)
                 except:
                     pass
@@ -260,8 +261,15 @@ class LumiSectionRanger():
         #calc generic local ini path
         filename = "_".join([run,ls,stream,self.host])+ext
         localfilepath = os.path.join(localdir,filename)
+        localmonfilepath = os.path.join(localdir,'mon',filename)
         remotefilepath = os.path.join(self.outdir,run,filename)
 
+        if not os.path.exists(localmonfilepath):
+            try:
+                with open(localmonfilepath,'w') as fp:
+                    pass
+            except:
+                self.logger.warning('could not create '+localmonfilepath)
 
             #check and move/delete ini file
         if not os.path.exists(localfilepath):
@@ -356,6 +364,7 @@ class LumiSectionRanger():
     def checkDestinationDir(self):
         if not os.path.exists(os.path.join(outputDir,'run'+self.run_number.zfill(conf.run_number_padding))):
             self.logger.fatal("Can not find output (destination) directory. Anelastic script will die.")
+            self.writeElasticMarker()
             os._exit(1)
 
     def createOutputEoR(self):
@@ -406,6 +415,16 @@ class LumiSectionRanger():
             pass
         os.remove(self.infile.filepath)
         return True
+
+    def writeElasticMarker(self):
+        logger.info('writing abort marker for the elastic script')
+        abortpath = os.path.join(self.tempdir,ES_DIR_NAME,'ABORTCOMPLETE')
+        try:
+            if not os.path.exists(abortpath):
+                with open(abortpath,'w') as abortfp:
+                    pass
+        except Exception as ex:
+            logger.warning(str(ex))
 
 
 class LumiSectionHandler():

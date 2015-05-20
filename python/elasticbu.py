@@ -156,6 +156,7 @@ class elasticBandBU:
             #only update if mapping is empty
             if res.status_code==200:
                 if res.content.strip()=='{}':
+                    self.logger.info('inserting new mapping for '+str(key))
                     requests.post(self.ip_url+'/'+index_name+'/'+key+'/_mapping',json.dumps(doc))
                 else:
                     #still check if number of properties is identical in each type
@@ -165,11 +166,11 @@ class elasticBandBU:
 
                         self.logger.info('checking mapping '+ indexname + '/' + key + ' which has '
                             + str(len(mapping[key]['properties'])) + '(index:' + str(len(properties)) + ') entries..')
-
-                        #should be size 1
                         for pdoc in mapping[key]['properties']:
                             if pdoc not in properties:
+                                self.logger.info('inserting mapping for ' + str(key) + ' which is missing mapping property ' + str(pdoc))
                                 requests.post(self.ip_url+'/'+index_name+'/'+key+'/_mapping',json.dumps(doc))
+                                #self.logger.info(str(json.dumps(doc)))
                                 break
             else:
                 self.logger.warning('requests error code '+res.status_code+' in mapping request')

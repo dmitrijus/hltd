@@ -745,8 +745,6 @@ if __name__ == "__main__":
               #write bus.config even if name is not yet available by DNS
               nameToWrite = addr
             f.writelines(nameToWrite)
-            #break after writing first entry. it is not yet safe to use secondary interface
-            break
         f.close()
 
       #FU should have one instance assigned, BUs can have multiple

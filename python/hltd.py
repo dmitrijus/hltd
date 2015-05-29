@@ -2361,8 +2361,8 @@ class RunRanger:
                         resource_lock.acquire()
                         runList.add(run)
                         try:
-                            if not entering_cloud_mode and not has_active_resources():
-                                logger.error('trying to start a run '+str(run.runnumber)+ ' without any available resources - this required manual intervention !')
+                            if conf.role=='fu' and not entering_cloud_mode and not has_active_resources():
+                                logger.error('trying to start a run '+str(run.runnumber)+ ' without any available resources - this requires manual intervention !')
                         except Exception,ex:
                             logger.exception(ex)
 

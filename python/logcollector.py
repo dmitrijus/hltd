@@ -505,6 +505,7 @@ class CMSSWLogESWriter(threading.Thread):
         self.initialized=True 
 
     def run(self):
+        counter=0
         while self.abort == False:
             if self.queue.qsize()>bulkinsertMin:
                 documents = []
@@ -533,8 +534,16 @@ class CMSSWLogESWriter(threading.Thread):
                             break
             else:
                 if self.doStop == False and self.abort == False:
-                    self.threadEvent.wait(1)
-                else: break 
+                    self.threadEvent.wait(2)
+                else: break
+                count+=1
+                if counter%60==0:
+                  try:
+                    #if local run directory is gone, run logging is finished
+                    os.stat(os.path.join(conf.watch_directory,self.index_runstring))
+                  except:
+                    self.logger.info('Shutting down logger loop for run '+str(self.rn))
+                    break
 
     def stop(self):
         for key in self.parsers.keys():
@@ -679,7 +688,20 @@ class CMSSWLogCollector(object):
                    #maybe permissions were insufficient
                    self.logger.error("could not delete log file")
                    self.logger.exception(ex)
-                   pass
+           elif file.startswith('HltConfig'):
+               try:
+                   if maxAgeHours>0:
+                       file_dt = os.path.getmtime(file)
+                       if (current_dt - file_dt).totalHours > maxAgeHours*4:
+                           #delete file
+                           os.remove(os.path.join(self.dir,file))
+                   else:
+                       os.remove(os.path.join(self.dir,file))
+               except Exception,ex:
+                   #maybe permissions were insufficient
+                   self.logger.error("could not delete old saved HLT menu file")
+                   self.logger.exception(ex)
+
 
     def getDirSize(self,dir):
         try:

@@ -537,7 +537,8 @@ if __name__ == "__main__":
     dqmmachine = 'False'
     execdir = '/opt/hltd'
     resourcefract = '0.5'
-
+    auto_clear_quarantined = 'False'
+    
     if cluster == 'daq2val':
         runindex_name = 'dv'
     elif cluster == 'daq2':
@@ -553,6 +554,7 @@ if __name__ == "__main__":
             username = 'dqmpro'
             resourcefract = '1.0'
             cmssw_version = ''
+            auto_clear_quarantined = 'True'
             if type == 'fu':
                 cmsswloglevel = 'ERROR'
                 cmssw_base = '/home/dqmprolocal'
@@ -858,6 +860,7 @@ if __name__ == "__main__":
           hltdcfg.reg('elastic_runindex_name',runindex_name,'[Monitoring]')
           hltdcfg.reg('use_elasticsearch',use_elasticsearch,'[Monitoring]')
           hltdcfg.reg('dqm_machine',dqmmachine,'[DQM]')
+          hltdcfg.reg('auto_clear_quarantined',auto_clear_quarantined,'[Recovery]')
           hltdcfg.reg('cmssw_base',cmssw_base,'[CMSSW]')
           hltdcfg.reg('cmssw_default_version',cmssw_version,'[CMSSW]')
           hltdcfg.reg('cmssw_threads',nthreads,'[CMSSW]')

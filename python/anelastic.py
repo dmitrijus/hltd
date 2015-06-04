@@ -122,7 +122,10 @@ class LumiSectionRanger():
         self.createOutputEoR()
 
         self.logger.info("joining DQM merger thread")
-        self.dqmHandler.waitFinish()
+        try:
+            self.dqmHandler.waitFinish()
+        except:
+            pass
         self.logger.info("Stop main loop")
 
         #send the fileEvent to the proper LShandlerand remove closed LSs, or process INI and EOR files

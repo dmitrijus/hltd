@@ -30,7 +30,9 @@ class elasticBand():
         self.fastUpdateModulo = fastUpdateModulo
         aliasName = runstring + "_" + indexSuffix
         self.indexName = aliasName# + "_" + self.hostname 
- 
+        eslib_logger = logging.getLogger('elasticsearch')
+        eslib_logger.setLevel(logging.ERROR)
+
     def imbue_jsn(self,infile,silent=False):
         with open(infile.filepath,'r') as fp:
             try:
@@ -63,6 +65,10 @@ class elasticBand():
             document['tp']    = float(stub[4])
             document['lead']  = float(stub[5])
             document['nfiles']= int(stub[6])
+            try:document['lockwaitUs']  = float(stub['data'][7])
+            except:pass
+            try:document['lockcount']  = float(stub['data'][8])
+            except:pass
             document['fm_date'] = str(mtime)
             self.istateBuffer.append(document)
         except Exception:
@@ -92,6 +98,10 @@ class elasticBand():
         datadict['tp']      = float(document['data'][4]) if not math.isnan(float(document['data'][4])) and not  math.isinf(float(document['data'][4])) else 0.
         datadict['lead']    = float(document['data'][5]) if not math.isnan(float(document['data'][5])) and not  math.isinf(float(document['data'][5])) else 0.
         datadict['nfiles']  = int(document['data'][6])
+        try:datadict['lockwaitUs']  = float(document['data'][7])
+        except:pass
+        try:datadict['lockcount']  = float(document['data'][8])
+        except:pass
         self.tryIndex('prc-s-state',datadict)
  
     def elasticize_prc_out(self,infile):

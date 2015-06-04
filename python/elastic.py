@@ -91,6 +91,15 @@ class elasticCollector():
                     logger.error(ex)
                     pass
                 self.movedPathLegend = True
+            elif filetype == INI:
+                destname = os.path.join(self.inputMonDir,infile.run+'_'+infile.ls+'_'+infile.stream+'_mon.ini')
+                try:
+                    if not os.path.exists(destname):
+                        infile.moveFile(destname,silent=True,createDestinationDir=False)
+                except Exception,ex:
+                    logger.error(ex)
+                    pass
+
 
 
 

@@ -34,7 +34,7 @@ from inotifywrapper import InotifyWrapper
 import _inotify as inotify
 
 from elasticbu import BoxInfoUpdater
-from aUtils import fileHandler
+from aUtils import fileHandler,ES_DIR_NAME
 from setupES import setupES 
 
 thishost = os.uname()[1]
@@ -60,6 +60,7 @@ cloud_mode=False
 abort_cloud_mode=False
 cached_pending_run = None
 resources_blocked_flag=False
+disabled_resource_allocation=False
 
 fu_watchdir_is_mountpoint=False
 ramdisk_submount_size=0
@@ -155,6 +156,9 @@ def move_resources_to_cloud():
     dirlist = os.listdir(idles)
     for cpu in dirlist:
         os.rename(idles+cpu,cloud+cpu)
+
+def has_active_resources():
+    return len(os.listdir(broken))+len(os.listdir(used))+len(os.listdir(idles)) > 0
 
 #interfaces to the cloud igniter script
 def ignite_cloud():
@@ -654,7 +658,7 @@ class system_monitor(threading.Thread):
             except (IOError,OSError) as ex:
                 err_detected=True
                 if ex.errno == 116:
-                    if fu_stale_counter==0 or fu_stale_counter%20==0:
+                    if fu_stale_counter==0 or fu_stale_counter%500==0:
                         logger.fatal('detected stale file handle: '+str(disk))
                 else:
                     logger.warning('stat mountpoint ' + str(disk) + ' caught Error: '+str(ex))
@@ -856,14 +860,14 @@ class system_monitor(threading.Thread):
                             d_used = ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20,
                             d_total =  (dirstat.f_blocks*dirstat.f_bsize)>>20,
                         else:
-                            p = subprocess.Popen("du -s " + str(conf.watch_directory), shell=True, stdout=subprocess.PIPE)
+                            p = subprocess.Popen("du -s --exclude " + ES_DIR_NAME + " --exclude mon " + str(conf.watch_directory), shell=True, stdout=subprocess.PIPE)
                             p.wait()
                             std_out=p.stdout.read()
                             out = std_out.split('\t')[0]
                             d_used = int(out)>>10
                             d_total = conf.max_local_disk_usage
 
-                        lRun = runList.getLastRun()
+                        lastrun = runList.getLastRun()
                         n_used_activeRun=0
                         n_broken_activeRun=0
 
@@ -876,10 +880,10 @@ class system_monitor(threading.Thread):
                             #else:
                             usedlist = os.listdir(used)
                             brokenlist = os.listdir(broken)
-                            if lRun:
+                            if lastrun:
                                 try:
-                                    n_used_activeRun = lRun.countOwnedResourcesFrom(usedlist)
-                                    n_broken_activeRun = lRun.countOwnedResourcesFrom(brokenlist)
+                                    n_used_activeRun = lastrun.countOwnedResourcesFrom(usedlist)
+                                    n_broken_activeRun = lastrun.countOwnedResourcesFrom(brokenlist)
                                 except:pass
                             n_idles = len(os.listdir(idles))
                             n_used = len(usedlist)
@@ -1054,12 +1058,6 @@ class OnlineResource:
 
     def NotifyNewRun(self,runnumber):
         self.runnumber = runnumber
-        logger.info("checking ES template")
-        try:
-            if conf.use_elasticsearch:
-                setupES()
-        except:
-            logger.error("Unable to check run appliance template")
         logger.info("calling start of run on "+self.cpu[0])
         try:
             connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset)
@@ -1406,7 +1404,7 @@ class Run:
     COMPLETE = 'complete'
     ABORTCOMPLETE = 'abortcomplete'
 
-    VALID_MARKERS = [STARTING,ACTIVE,STOPPING,COMPLETE,ABORTED]
+    VALID_MARKERS = [STARTING,ACTIVE,STOPPING,COMPLETE,ABORTED,ABORTCOMPLETE]
 
     def __init__(self,nr,dirname,bu_dir,instance):
 
@@ -1585,11 +1583,13 @@ class Run:
 
     def countOwnedResourcesFrom(self,resourcelist):
         ret = 0
-        for resourcename in resourcelist:
-            try:
-                if resourcename in resourcenames:
-                    ret+=1
-            except:pass
+        try:
+          for p in self.online_resource_list:
+            for c in p.cpu:
+                for resourcename in resourcelist:
+                    if resourcename == c:
+                        ret+=1
+        except:pass
         return ret
 
     def AcquireResource(self,resourcenames,fromstate):
@@ -1650,22 +1650,53 @@ class Run:
                 if cpu in machine_blacklist:
                     logger.info("skipping blacklisted resource "+str(cpu))
                     continue
- 
+                if self.checkStaleResourceFile(idles+cpu):
+                    logger.error("Skipping stale resource "+str(cpu))
+                    continue
+
             count = count+1
-            cpu_group.append(cpu)
-            age = current_time - os.path.getmtime(idles+cpu)
-            if conf.role == 'fu':
-                if count == nstreams:
-                  self.AcquireResource(cpu_group,'idle')
-                  cpu_group=[]
-                  count=0
-            else:
-                logger.info("found resource "+cpu+" which is "+str(age)+" seconds old")
-                if age < 10:
-                    cpus = [cpu]
-                    self.ContactResource(cpus)
+            try:
+                age = current_time - os.path.getmtime(idles+cpu)
+                cpu_group.append(cpu)
+                if conf.role == 'fu':
+                    if count == nstreams:
+                      self.AcquireResource(cpu_group,'idle')
+                      cpu_group=[]
+                      count=0
+                else:
+                    logger.info("found resource "+cpu+" which is "+str(age)+" seconds old")
+                    if age < 10:
+                        cpus = [cpu]
+                        self.ContactResource(cpus)
+            except Exception as ex:
+                logger.error('encountered exception in acquiring resource '+str(cpu)+':'+str(ex))
         return True
         #self.lock.release()
+
+    def checkStaleResourceFile(self,resourcepath):
+        try:
+            with open(resourcepath,'r') as fi:
+                doc = json.load(fi)
+                if doc['detectedStaleHandle']==True:
+                    return True
+        except:
+            time.sleep(.05)
+            try:
+                with open(resourcepath,'r') as fi:
+                    doc = json.load(fi)
+                    if doc['detectedStaleHandle']==True:
+                        return True
+            except:
+                logger.warning('can not parse ' + rfile)
+        return False
+
+    def CheckTemplate(self):
+        if conf.role=='bu' and conf.use_elasticsearch:
+            logger.info("checking ES template")
+            try:
+                setupES()
+            except Exception as ex:
+                logger.error("Unable to check run appliance template:"+str(ex))
 
     def Start(self):
         self.is_ongoing_run = True
@@ -1811,7 +1842,7 @@ class Run:
 
     def Shutdown(self,killJobs=False,killScripts=False):
         #herod mode sends sigkill to all process, however waits for all scripts to finish
-        logger.debug("Run:Shutdown called")
+        logger.debug("run:Shutdown called")
         self.pending_shutdown=False
         self.is_ongoing_run = False
 
@@ -2217,8 +2248,10 @@ class RunList:
         except:
             return None
 
-    def isHighestRun(self,runObj):
-        return len(filter(lambda x: x.runnumber>runObj.runnumber,self.runs))==0
+    def isLatestRun(self,runObj):
+        #TODO:test
+        return self.runs[-1] == runObj
+        #return len(filter(lambda x: x.runnumber>runObj.runnumber,self.runs))==0
 
     def getStateDoc(self):
         docArray = []
@@ -2253,6 +2286,7 @@ class RunRanger:
         global abort_cloud_mode
         global resources_blocked_flag
         global cached_pending_run
+        global disabled_resource_allocation
         fullpath = event.fullpath
         logger.info('RunRanger: event '+fullpath)
         dirname=fullpath[fullpath.rfind("/")+1:]
@@ -2326,7 +2360,14 @@ class RunRanger:
                             return
                         resource_lock.acquire()
                         runList.add(run)
+                        try:
+                            if not entering_cloud_mode and not has_active_resources():
+                                logger.error('trying to start a run '+str(run.runnumber)+ ' without any available resources - this required manual intervention !')
+                        except Exception,ex:
+                            logger.exception(ex)
+
                         if run.AcquireResources(mode='greedy'):
+                            run.CheckTemplate()
                             run.Start()
                         else:
                             #BU mode: failed to get blacklist
@@ -2414,7 +2455,7 @@ class RunRanger:
                         logger.info('Clearing quarantined resource '+cpu)
                         os.rename(quarantined+cpu,idles+cpu)
                     except:
-                        logger.info('Qquarantined resource was already cleared: '+cpu)
+                        logger.info('Quarantined resource was already cleared: '+cpu)
 
             elif conf.role == 'bu':
                 for run in runList.getActiveRuns():
@@ -2479,7 +2520,7 @@ class RunRanger:
                     try:
                         run = runList.getRun(nr)
                         if run.checkQuarantinedLimit():
-                            if runList.isHighestRun(run):
+                            if runList.isLatestRun(run):
                                 run.pending_shutdown=True
                             else:
                                 run.Shutdown(True,False)
@@ -2580,6 +2621,35 @@ class RunRanger:
             suspended=False
             logger.info("Remount is performed")
 
+        elif dirname=='stop' and conf.role == 'fu':
+            logger.fatal("Stopping all runs..")
+            #make sure to not run inotify acquire while we are here
+            resource_lock.acquire()
+            disabled_resource_allocation=True
+            resource_lock.release()
+
+            #shut down any quarantined runs
+            try:
+                for run in runList.getQuarantinedRuns():
+                    run.Shutdown(True,False)
+                listOfActiveRuns = runList.getActiveRuns()
+                for run in listOfActiveRuns:
+                    if not run.pending_shutdown:
+                        if len(run.online_resource_list)==0:
+                            run.Shutdown(True,False)
+                        else:
+                            resource_lock.acquire()
+                            run.Stop()
+                            resource_lock.release()
+                time.sleep(.1)
+            except Exception as ex:
+                logger.fatal("Unable to stop run(s)")
+                logger.exception(ex)
+            disabled_resource_allocation=False
+            try:resource_lock.release()
+            except:pass
+            os.remove(fullpath)
+
         elif dirname.startswith('exclude') and conf.role == 'fu':
             #service on this machine is asked to be excluded for cloud use
             if cloud_mode:
@@ -2594,30 +2664,33 @@ class RunRanger:
                 os.remove(fullpath)
                 return
 
-            try:
-                #TODO:avoid keeping the run for long..
-                for run in runList.getQuarantinedRuns():
-                    run.Shutdown(True,False)
-            except Exception as ex:
-                logger.fatal("Unable to clear quarantined runs. Will not enter VM mode.")
-                logger.exception(ex)
-                os.remove(fullpath)
-                return #
- 
+            #make sure to not run not acquire resources by inotify while we are here
             resource_lock.acquire()
             cloud_mode=True
             entering_cloud_mode=True
+            resource_lock.release()
+            time.sleep(.1)
+
+            #shut down any quarantined runs
             try:
-                #check again for quarantined runs
                 for run in runList.getQuarantinedRuns():
                     run.Shutdown(True,False)
 
+                requested_stop=False
                 listOfActiveRuns = runList.getActiveRuns()
-                if len(listOfActiveRuns)>0:
-                    for run in listOfActiveRuns:
-                        #write signal file for CMSSW to quit with 0 after certain LS
-                        run.Stop()
-                else:
+                for run in listOfActiveRuns:
+                    if not run.pending_shutdown:
+                        if len(run.online_resource_list)==0:
+                            run.Shutdown(True,False)
+                        else:
+                            resource_lock.acquire()
+                            requested_stop=True
+                            run.Stop()
+                            resource_lock.release()
+
+                time.sleep(.1)
+                resource_lock.acquire()
+                if requested_stop==False:
                     #no runs present, switch to cloud mode immediately
                     entering_cloud_mode=False
                     move_resources_to_cloud()
@@ -2627,11 +2700,10 @@ class RunRanger:
             except Exception as ex:
                 logger.fatal("Unable to clear runs. Will not enter VM mode.")
                 logger.exception(ex)
+                entering_cloud_mode=False
                 cloud_mode=False
             try:resource_lock.release()
             except:pass
-            ####move resources to cloud even if CMSSW aren't finished, and check again later
-            #move_resources_to_cloud()
             os.remove(fullpath)
 
         elif dirname.startswith('include') and conf.role == 'fu':
@@ -2742,7 +2814,7 @@ class ResourceRanger:
                               +resourcestate
                               )
 
-                if cloud_mode and not entering_cloud_mode and not exiting_cloud_mode and not abort_cloud_mode:
+                if cloud_mode and not entering_cloud_mode and not exiting_cloud_mode and not abort_cloud_mode and not disabled_resource_allocation:
                     time.sleep(1)
                     logging.info('detected resource moved to non-cloud resource dir while already switched to cloud mode. Deactivating cloud.')
                     with open(os.path.join(conf.watch_directory,'include'),'w+') as fobj:
@@ -2881,6 +2953,10 @@ class ResourceRanger:
             lrun = runList.getLastRun()
             newRes = None
             if lrun!=None:
+                if lrun.checkStaleResourceFile(event.fullpath):
+                    logger.error("Run "+str(lrun.runnumber)+" notification: skipping resource "+basename+" which is stale")
+                    resource_lock.release()
+                    return
                 logger.info('Try attaching FU resource: last run is '+str(lrun.runnumber))
                 newRes = lrun.maybeNotifyNewRun(basename,resourceage)
             resource_lock.release()

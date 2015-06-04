@@ -109,7 +109,20 @@ central_runindex_mapping = {
 
                     }
                 },
-
+            'stream_label' : {
+                '_id': {
+                    'path': 'id'
+                },
+                '_parent':{'type':'run'},
+                'properties' : {
+                    'name':{
+                         'type':'string','index':'not_analyzed'
+                         },
+                    'id':{
+                         'type':'string','index':'not_analyzed'
+                    }
+                }
+            },
             'eols' : {
                 '_id'        :{'path':'id'},
                 '_parent'    :{'type':'run'},
@@ -170,9 +183,9 @@ central_boxinfo_mapping = {
               'appliance'     :{'type':'string',"index":"not_analyzed"},
               'instance'      :{'type':'string',"index":"not_analyzed"},
               'broken'        :{'type':'integer'},
-              'broken_lastrun':{'type':'integer'},
+              'broken_activeRun':{'type':'integer'},
               'used'          :{'type':'integer'},
-              'used_lastrun'  :{'type':'integer'},
+              'used_activeRun'  :{'type':'integer'},
               'idles'         :{'type':'integer'},
               'quarantined'   :{'type':'integer'},
               'cloud'         :{'type':'integer'},
@@ -209,32 +222,6 @@ central_boxinfo_mapping = {
                              'default' :  '30d'
                              }
           },
-          'boxinfo_appliance' : {
-            'properties' : {
-              'fm_date'       :{'type':'date'},
-              'broken'        :{'type':'integer'},
-              'used'          :{'type':'integer'},
-              'idles'         :{'type':'integer'},
-              'quarantined'   :{'type':'integer'},
-              'cloud'         :{'type':'integer'},
-              'usedDataDir'   :{'type':'integer'},
-              'totalDataDir'  :{'type':'integer'},
-              'usedRamdisk'   :{'type':'integer'},
-              'totalRamdisk'  :{'type':'integer'},
-              'usedOutput'    :{'type':'integer'},
-              'totalOutput'   :{'type':'integer'},
-              'activeRuns'    :{'type':'string'},
-              'hosts'           :{'type':'string',"index":"not_analyzed"},
-              'blacklistedHosts':{'type':'string',"index":"not_analyzed"},
-              'appliance'       :{'type':'string',"index":"not_analyzed"},
-              'instance'        :{'type':'string',"index":"not_analyzed"}
-              },
-            '_timestamp' : { 
-              'enabled'   : True,
-              'store'     : "yes",
-              "path"      : "fm_date"
-              }
-            },
           'resource_summary' : {
             'properties' : {
               'fm_date'       :{'type':'date'},

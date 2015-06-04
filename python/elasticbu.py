@@ -156,6 +156,7 @@ class elasticBandBU:
             #only update if mapping is empty
             if res.status_code==200:
                 if res.content.strip()=='{}':
+                    self.logger.info('inserting new mapping for '+str(key))
                     requests.post(self.ip_url+'/'+index_name+'/'+key+'/_mapping',json.dumps(doc))
                 else:
                     #still check if number of properties is identical in each type
@@ -165,10 +166,9 @@ class elasticBandBU:
 
                         self.logger.info('checking mapping '+ indexname + '/' + key + ' which has '
                             + str(len(mapping[key]['properties'])) + '(index:' + str(len(properties)) + ') entries..')
-
-                        #should be size 1
                         for pdoc in mapping[key]['properties']:
                             if pdoc not in properties:
+                                self.logger.info('inserting mapping for ' + str(key) + ' which is missing mapping property ' + str(pdoc))
                                 requests.post(self.ip_url+'/'+index_name+'/'+key+'/_mapping',json.dumps(doc))
                                 break
             else:
@@ -200,6 +200,15 @@ class elasticBandBU:
         document['names']= self.read_line(fullpath)
         documents = [document]
         return self.index_documents('pathlegend',documents)
+
+    def elasticize_stream_label(self,infile):
+        #elasticize stream name information
+        self.logger.info(infile.filepath)
+        document = {}
+        document['_parent']= self.runnumber
+        document['stream']=infile.stream[6:]
+        document['id']=infile.basename
+        return self.index_documents('stream_label',[document])
 
     def elasticize_runend_time(self,endtime):
 
@@ -267,7 +276,6 @@ class elasticBandBU:
                 document['id']=basename
 
             document['activeRuns'] = str(document['activeRuns']).strip('[]')
-            #both here and in "boxinfo_appliance"
             document['appliance']=self.host
             document['instance']=self.conf.instance
             #only here
@@ -278,45 +286,6 @@ class elasticBandBU:
         except Exception as ex:
             self.logger.warning('box info not injected: '+str(ex))
             return
-        if bu_doc:
-            try:
-                document = infile.data
-                try:
-                    document.pop('id')
-                except:pass
-                try:
-                    document.pop('host')
-                except:pass
-                #aggregation from FUs
-                document['idles']=0
-                document['used']=0
-                document['broken']=0
-                document['quarantined']=0
-                document['cloud']=0
-                document['usedDataDir']=0
-                document['totalDataDir']=0
-                document['hosts']=[basename]
-                document['blacklistedHosts']=[]
-                for key in self.boxinfoFUMap:
-                    dpair = self.boxinfoFUMap[key]
-                    d = dpair[0]
-                    #check if entry is not older than 10 seconds
-                    if current_time - dpair[1] > 10:continue
-                    document['idles']+=int(d['idles'])
-                    document['used']+=int(d['used'])
-                    document['broken']+=int(d['broken'])
-                    document['quarantined']+=int(d['quarantined'])
-                    document['cloud']+=int(d['cloud'])
-                    document['usedDataDir']+=int(d['usedDataDir'])
-                    document['totalDataDir']+=int(d['totalDataDir'])
-                    document['hosts'].append(key)
-                for blacklistedHost in self.black_list:
-                    document['blacklistedHosts'].append(blacklistedHost)
-                self.index_documents('boxinfo_appliance',[document],bulk=False)
-            except Exception as ex:
-                #in case of malformed box info
-                self.logger.warning('box info not injected: '+str(ex))
-                return
 
     def elasticize_eols(self,infile):
         basename = infile.basename
@@ -451,8 +420,9 @@ class elasticCollectorBU():
             elif filetype in [PATHLEGEND] and self.insertedPathLegend == False:
                 if self.es.elasticize_pathlegend(filepath):
                     self.insertedPathLegend = True
+            elif filetype == INI:
+                self.es.elasticize_stream_label(self.infile)
             elif filetype == EOLS:
-                self.logger.info(self.infile.basename)
                 self.es.elasticize_eols(self.infile)
             elif filetype == EOR:
                 self.es.elasticize_eor(self.infile)

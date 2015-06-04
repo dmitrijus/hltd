@@ -233,7 +233,7 @@ class fileHandler(object):
         name,ext = self.name,self.ext
         if ext==TEMPEXT:return UNKNOWN
         name = name.upper()
-        if "mon" not in filepath:
+        if "/mon" not in filepath:
             if ext == ".dat" and "_PID" not in name: return DAT
             if ext == ".dat" and "_PID" in name: return PDAT
             if ext == ".jsndata" and "_PID" in name: return PJSNDATA
@@ -255,6 +255,7 @@ class fileHandler(object):
         if ext==".pb":
             if "_PID" not in name: return PB
             else: return PIDPB
+        if ext == ".ini" and "/mon" in filepath: return INI
         if name.endswith("COMPLETE"): return COMPLETE
         if ext == ".fast" in filename: return FAST
         if ext == ".slow" in filename: return SLOW

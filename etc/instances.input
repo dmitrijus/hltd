@@ -19,7 +19,7 @@
     "names":["main","testing"],
     "sizes":[1000,500]
   },
-  "fu-vm-02-02.cern.ch":
+  "DISABLED_fu-vm-02-02.cern.ch":
   {
     "names":["testing"],
     "sizes":[0]

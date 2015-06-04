@@ -620,9 +620,15 @@ if __name__ == "__main__":
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
             essyscfg.reg('ES_HEAP_SIZE','1G')
             essyscfg.reg('MAX_LOCKED_MEMORY','unlimited')
+            essyscfg.reg('ES_USE_GC_LOGGING','true')
+            if type == 'fu':
+              if myhost.startswith('fu-c2d'):#Megware FU racks
+                essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log -XX:NewSize=500m -XX:MaxNewSize=600m"')
+              else:
+                essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log"')
             essyscfg.commit()
 
-            escfg = FileManager(elasticconf,':',esEdited,'',' ')
+            escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('cluster.name',clusterName)
             escfg.reg('node.name',cnhostname)
             escfg.reg('discovery.zen.ping.multicast.enabled','false')
@@ -739,8 +745,6 @@ if __name__ == "__main__":
               #write bus.config even if name is not yet available by DNS
               nameToWrite = addr
             f.writelines(nameToWrite)
-            #break after writing first entry. it is not yet safe to use secondary interface
-            break
         f.close()
 
       #FU should have one instance assigned, BUs can have multiple

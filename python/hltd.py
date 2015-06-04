@@ -1060,7 +1060,7 @@ class OnlineResource:
         self.runnumber = runnumber
         logger.info("calling start of run on "+self.cpu[0])
         try:
-            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset)
+            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
             connection.request("GET",'cgi-bin/start_cgi.py?run='+str(runnumber))
             response = connection.getresponse()
             #do something intelligent with the response code
@@ -1073,7 +1073,7 @@ class OnlineResource:
 
     def NotifyShutdown(self):
         try:
-            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - self.cgi_instance_port_offset)
+            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - self.cgi_instance_port_offset,timeout=5)
             connection.request("GET",'cgi-bin/stop_cgi.py?run='+str(self.runnumber))
             time.sleep(0.05)
             response = connection.getresponse()
@@ -2476,7 +2476,7 @@ class RunRanger:
                         age = current_time - os.path.getmtime(boxdir+name)
                         logger.info('found box '+name+' with keepalive age '+str(age))
                         if age < 20:
-                            connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset)
+                            connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
                             time.sleep(0.05)
                             connection.request("GET",'cgi-bin/herod_cgi.py')
                             time.sleep(0.1)

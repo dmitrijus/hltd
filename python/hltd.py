@@ -802,7 +802,7 @@ class system_monitor(threading.Thread):
                         try:
                             lastFURuns.append(edata['activeRuns'][-1])
                         except:pass
-                    if len(stale_machines):
+                    if len(stale_machines) and counter==1:
                         logger.warning("detected stale box resources: "+str(stale_machines))
                     fuRuns = sorted(list(set(lastFURuns)))
                     if len(fuRuns)>0:

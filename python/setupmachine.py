@@ -542,10 +542,12 @@ if __name__ == "__main__":
     
     if cluster == 'daq2val':
         runindex_name = 'dv'
+        auto_clear_quarantined = 'True'
     elif cluster == 'daq2':
         runindex_name = 'cdaq'
         if myhost in minidaq_list:
             runindex_name = 'minidaq'
+            auto_clear_quarantined = 'True'
         if myhost in dqm_list or myhost in ed_list:
 
             use_elasticsearch = 'False'

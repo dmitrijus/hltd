@@ -606,6 +606,7 @@ if __name__ == "__main__":
         buName='es-tribe'
 
     print "running configuration for machine",cnhostname,"of type",type,"in cluster",cluster,"; appliance bu is:",buName
+    if buName==None: buName=""
 
     clusterName='appliance_'+buName
 

@@ -495,14 +495,17 @@ def submount_size(basedir):
     except:pass
     return loop_size
 
-def cleanup_bu_disks():
-    outdirPath = conf.watch_directory[:conf.watch_directory.find(conf.ramdisk_subdirectory)]+conf.output_subdirectory
-    if conf.watch_directory.startswith('/fff') and conf.ramdisk_subdirectory in conf.watch_directory:
+def cleanup_bu_disks(run=None,cleanRamdisk=True,cleanOutput=True):
+    if cleanRamdisk:
+      if conf.watch_directory.startswith('/fff') and conf.ramdisk_subdirectory in conf.watch_directory:
         logger.info('cleanup BU disks: deleting runs in ramdisk ...')
         tries = 10
         while tries > 0:
             tries-=1
-            p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run*',shell=True)
+            if run==None:
+                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run*',shell=True)
+            else:
+                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run'+str(run),shell=True)
             p.wait()
             if p.returncode==0:
                 logger.info('Ramdisk cleanup performed')
@@ -510,14 +513,19 @@ def cleanup_bu_disks():
             else:
                 logger.info('Failed ramdisk cleanup (return code:'+str(p.returncode)+') in attempt'+str(10-tries))
 
-    logger.info('outdirPath:'+ outdirPath + ' '+conf.output_subdirectory)
-    if outdirPath.startswith('/fff') and conf.output_subdirectory in outdirPath:
+    if cleanOutput:
+      outdirPath = conf.watch_directory[:conf.watch_directory.find(conf.ramdisk_subdirectory)]+conf.output_subdirectory
+      logger.info('outdirPath:'+ outdirPath + ' '+conf.output_subdirectory)
 
+      if outdirPath.startswith('/fff') and conf.output_subdirectory in outdirPath:
         logger.info('cleanup BU disks: deleting runs in output disk ...')
         tries = 10
         while tries > 0:
             tries-=1
-            p = subprocess.Popen("rm -rf " + outdirPath+'/run*',shell=True)
+            if run==None:
+                p = subprocess.Popen("rm -rf " + outdirPath+'/run*',shell=True)
+            else:
+                p = subprocess.Popen("rm -rf " + outdirPath+'/run'+str(run),shell=True)
             p.wait()
             if p.returncode==0:
                 logger.info('Output cleanup performed')
@@ -2442,7 +2450,7 @@ class RunRanger:
                               +' which is NOT a run number - this should '
                               +'*never* happen')
 
-        elif dirname.startswith('herod'):
+        elif dirname.startswith('herod') or dirname.startswith('tsunami'):
             os.remove(fullpath)
             if conf.role == 'fu':
                 logger.info("killing all CMSSW child processes")
@@ -2463,7 +2471,9 @@ class RunRanger:
                     run.ShutdownBU()
 
                 #delete input and output BU directories
-                cleanup_bu_disks()
+                if dirname.startswith('tsunami'):
+                  logger.info('tsunami approaching: cleaning all ramdisk and output run data')
+                  cleanup_bu_disks(None,True,True)
 
                 #contact any FU that appears alive
                 boxdir = conf.resource_base +'/boxes/'
@@ -2485,6 +2495,35 @@ class RunRanger:
                 except Exception as ex:
                     logger.error("exception encountered in contacting resources")
                     logger.info(ex)
+
+        elif dirname.startswith('cleanoutput'):
+            os.remove(fullpath)
+            nlen = len('cleanoutput')
+            if len(dirname)==nlen:
+              logger.info('cleaning output (all run data)'+str(rn)) 
+              cleanup_bu_disks(None,False,True)
+            else:
+              try:
+                rn = int(dirname[nlen:])
+                logger.info('cleaning output (only for run '+str(rn)+')')
+                cleanup_bu_disks(rn,False,True)
+              except:
+                logger.error('Could not parse '+dirname)
+
+        elif dirname.startswith('cleanramdisk'):
+            os.remove(fullpath)
+            nlen = len('cleanramdisk')
+            if len(dirname)==nlen:
+              logger.info('cleaning ramdisk (all run data)'+str(rn)) 
+              cleanup_bu_disks(None,True,False)
+            else:
+              try:
+                rn = int(dirname[nlen:])
+                logger.info('cleaning ramdisk (only for run '+str(rn)+')')
+                cleanup_bu_disks(rn,True,False)
+              except:
+                logger.error('Could not parse '+dirname)
+                
         elif dirname.startswith('populationcontrol'):
             if len(runList.runs)>0:
                 logger.info("terminating all ongoing runs via cgi interface (populationcontrol): "+str(runList.getActiveRunNumbers()))

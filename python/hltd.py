@@ -1054,8 +1054,7 @@ class OnlineResource:
         self.processstate = None
         self.watchdog = None
         self.runnumber = None
-        self.associateddir = None
-        self.statefiledir = None
+        self.assigned_run_dir = None
         self.lock = lock
         self.retry_attempts = 0
         self.quarantined = []
@@ -1063,6 +1062,15 @@ class OnlineResource:
     def ping(self):
         if conf.role == 'bu':
             if not os.system("ping -c 1 "+self.cpu[0])==0: pass #self.hoststate = 0
+
+    def NotifyNewRunStart(self,runnumber):
+        self.runnumber = runnumber
+        self.notifyNewRunThread = threading.Thread(target = self.NotifyNewRun,args=[runnumber])
+        self.notifyNewRunThread.start()
+
+    def NotifyNewRunJoin(self):
+         self.notifyNewRunThread.join()
+         self.notifyNewRunThread=None
 
     def NotifyNewRun(self,runnumber):
         self.runnumber = runnumber
@@ -1214,41 +1222,21 @@ class ProcessWatchdog(threading.Thread):
         self.quarantined = False
     def run(self):
         try:
-            monfile = self.resource.associateddir+'/hltd.jsn'
-            logger.info('watchdog for process '+str(self.resource.process.pid))
+            logger.info('watchdog thread for process '+str(self.resource.process.pid) + ' on resource '+str(self.resource.cpu)+" for run "+str(self.resource.runnumber) + ' started ')
             self.resource.process.wait()
             returncode = self.resource.process.returncode
             pid = self.resource.process.pid
 
             #update json process monitoring file
             self.resource.processstate=returncode
-            logger.debug('ProcessWatchdog: acquire lock thread '+str(pid))
-            self.lock.acquire()
-            logger.debug('ProcessWatchdog: acquired lock thread '+str(pid))
 
-            try:
-                with open(monfile,"r+") as fp:
+            outdir = self.resource.assigned_run_dir
+            abortedmarker = os.path.join(outdir,Run.ABORTED)
+            stoppingmarker = os.path.join(outdir,Run.STOPPING)
+            abortcompletemarker = os.path.join(outdir,Run.ABORTCOMPLETE)
+            completemarker = os.path.join(outdir,Run.COMPLETE)
+            rnsuffix = str(self.resource.runnumber).zfill(conf.run_number_padding)
 
-                    stat=json.load(fp)
-
-                    stat=[[x[0],x[1],returncode]
-                          if x[0]==self.resource.cpu else [x[0],x[1],x[2]] for x in stat]
-                    fp.seek(0)
-                    fp.truncate()
-                    json.dump(stat,fp)
-
-                    fp.flush()
-            except IOError,ex:
-                logger.exception(ex)
-            except ValueError:
-                pass
-
-            logger.debug('ProcessWatchdog: release lock thread '+str(pid))
-            self.lock.release()
-            logger.debug('ProcessWatchdog: released lock thread '+str(pid))
-
-
-            abortedmarker = self.resource.statefiledir+'/'+Run.ABORTED
             if os.path.exists(abortedmarker):
                 resource_lock.acquire()
                 #release resources
@@ -1307,7 +1295,6 @@ class ProcessWatchdog(threading.Thread):
 
                 #generate crashed pid json file like: run000001_ls0000_crash_pid12345.jsn
                 oldpid = "pid"+str(pid).zfill(5)
-                outdir = self.resource.statefiledir
                 runnumber = "run"+str(self.resource.runnumber).zfill(conf.run_number_padding)
                 ls = "ls0000"
                 filename = "_".join([runnumber,ls,"crash",oldpid])+".jsn"
@@ -1357,41 +1344,51 @@ class ProcessWatchdog(threading.Thread):
 
                     #write quarantined marker for RunRanger
                     try:
-                        os.remove(conf.watch_directory+'/quarantined'+str(self.resource.runnumber).zfill(conf.run_number_padding))
-                    except:pass
+                        os.remove(conf.watch_directory+'/quarantined'+rnsuffix)
+                    except:
+                        pass
                     try:
-                        fp = open(conf.watch_directory+'/quarantined'+str(self.resource.runnumber).zfill(conf.run_number_padding),'w+')
-                        fp.close()
+                        with open(conf.watch_directory+'/quarantined'+rnsuffix,'w+') as fp:
+                            pass
                     except Exception as ex:
                         logger.exception(ex)
 
             #successful end= release resource (TODO:maybe should mark aborted for non-0 error codes)
             elif returncode == 0 or returncode == None:
-                logger.info('releasing resource, exit 0 meaning end of run '+str(self.resource.cpu))
+                logger.info('pid '+str(pid)+' exit 0 from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
 
                 # generate an end-of-run marker if it isn't already there - it will be picked up by the RunRanger
-                endmarker = conf.watch_directory+'/end'+str(self.resource.runnumber).zfill(conf.run_number_padding)
-                stoppingmarker = self.resource.statefiledir+'/'+Run.STOPPING
-                completemarker = self.resource.statefiledir+'/'+Run.COMPLETE
+                endmarker = conf.watch_directory+'/end'+rnsuffix
                 if not os.path.exists(endmarker):
-                    fp = open(endmarker,'w+')
-                    fp.close()
+                    with open(endmarker,'w+') as fp:
+                        pass
+
+                count=0
                 # wait until the request to end has been handled
                 while not os.path.exists(stoppingmarker):
-                    if os.path.exists(completemarker): break
+                    if os.path.exists(completemarker): 
+                        break
+                    if os.path.exists(abortedmarker) or os.path.exists(abortcompletemarker):
+                        logger.warning('quitting watchdog thread because run ' + str(self.resource.runnumber) + ' has been aborted ( pid' + str(pid) + ' resource' + str(self.resource.cpu) + ')')
+                        break
+                    if not os.path.exists(outdir):
+                        logger.warning('quitting watchdog thread because run directory ' + outdir  + ' has disappeared ( pid' + str(pid) + ' resource' + str(self.resource.cpu) + ')')
+                        break
                     time.sleep(.1)
+                    count+=1
+                    if count>=100 and count%100==0:
+                      logger.warning("still waiting for complete marker for run "+str(self.resource.runnumber) + ' in watchdog for resource '+str(self.resource.cpu))
+
                 # move back the resource now that it's safe since the run is marked as ended
                 resource_lock.acquire()
                 for cpu in self.resource.cpu:
                   try:
                       os.rename(used+cpu,idles+cpu)
                   except Exception as ex:
-                      logger.warning('problem moving core from used to idle:'+str(ex))
+                      logger.warning('problem moving core ' + cpu + ' from used to idle:'+str(ex))
                 resource_lock.release()
 
-                #self.resource.process=None
-
-            #        logger.info('exiting thread '+str(self.resource.process.pid))
+            #logger.info('exiting watchdog thread for '+str(self.resource.cpu))
 
         except Exception as ex:
             logger.info("OnlineResource watchdog: exception")
@@ -1708,19 +1705,32 @@ class Run:
 
     def Start(self):
         self.is_ongoing_run = True
-        for resource in self.online_resource_list:
-            logger.info('start run '+str(self.runnumber)+' on cpu(s) '+str(resource.cpu))
-            if conf.role == 'fu':
+        #create mon subdirectory before starting
+        try:
+            os.makedirs(os.path.join(self.dirname,'mon'))
+        except OSError:
+            pass
+        #start/notify run for each resource
+        if conf.role == 'fu':
+            for resource in self.online_resource_list:
+                logger.info('start run '+str(self.runnumber)+' on cpu(s) '+str(resource.cpu))
                 self.StartOnResource(resource)
-            else:
-                resource.NotifyNewRun(self.runnumber)
-                #update begin time to after notifying FUs
-                self.beginTime = datetime.datetime.now()
-        if conf.role == 'fu' and conf.dqm_machine==False:
-            self.changeMarkerMaybe(Run.ACTIVE)
-            #start safeguard monitoring of anelastic.py
-            self.startAnelasticWatchdog()
+
+            if conf.dqm_machine==False:
+                self.changeMarkerMaybe(Run.ACTIVE)
+                #start safeguard monitoring of anelastic.py
+                self.startAnelasticWatchdog()
+ 
         elif conf.role == 'bu':
+            for resource in self.online_resource_list:
+                logger.info('start run '+str(self.runnumber)+' on resources '+str(resource.cpu))
+                resource.NotifyNewRunStart(self.runnumber)
+            #update begin time at this point
+            self.beginTime = datetime.datetime.now()
+            for resource in self.online_resource_list:
+                resource.NotifyNewRunJoin(self.runnumber)
+            logger.info('sent start run '+str(self.runnumber)+' notification to all resources')
+
             self.startElasticBUWatchdog()
             self.startCompletedChecker()
 
@@ -1755,9 +1765,7 @@ class Run:
 
     def StartOnResource(self, resource):
         logger.debug("StartOnResource called")
-        resource.statefiledir=conf.watch_directory+'/run'+str(self.runnumber).zfill(conf.run_number_padding)
-        mondir = os.path.join(resource.statefiledir,'mon')
-        resource.associateddir=mondir
+        resource.assigned_run_dir=conf.watch_directory+'/run'+str(self.runnumber).zfill(conf.run_number_padding)
         resource.StartNewProcess(self.runnumber,
                                  self.online_resource_list.index(resource),
                                  self.arch,
@@ -1767,65 +1775,7 @@ class Run:
                                  int(round((len(resource.cpu)*float(nthreads)/nstreams))),
                                  len(resource.cpu))
         logger.debug("StartOnResource process started")
-        #logger.debug("StartOnResource going to acquire lock")
-        #self.lock.acquire()
-        #logger.debug("StartOnResource lock acquired")
-        try:
-            os.makedirs(mondir)
-        except OSError:
-            pass
-        monfile = mondir+'/hltd.jsn'
 
-        fp=None
-        stat = []
-        if not os.path.exists(monfile):
-            logger.debug("No log file "+monfile+" found, creating one")
-            fp=open(monfile,'w+')
-            attempts=0
-            while True:
-                try:
-                    stat.append([resource.cpu,resource.process.pid,resource.processstate])
-                    break
-                except:
-                    if attempts<5:
-                        attempts+=1
-                        continue
-                    else:
-                        logger.error("could not retrieve process parameters")
-                        logger.exception(ex)
-                        break
-
-        else:
-            logger.debug("Updating existing log file "+monfile)
-            fp=open(monfile,'r+')
-            stat=json.load(fp)
-            attempts=0
-            while True:
-                try:
-                    me = filter(lambda x: x[0]==resource.cpu, stat)
-                    if me:
-                        me[0][1]=resource.process.pid
-                        me[0][2]=resource.processstate
-                    else:
-                        stat.append([resource.cpu,resource.process.pid,resource.processstate])
-                    break
-                except Exception as ex:
-                    if attempts<5:
-                        attempts+=1
-                        time.sleep(.05)
-                        continue
-                    else:
-                        logger.error("could not retrieve process parameters")
-                        logger.exception(ex)
-                        break
-        fp.seek(0)
-        fp.truncate()
-        json.dump(stat,fp)
-
-        fp.flush()
-        fp.close()
-        #self.lock.release()
-        #logger.debug("StartOnResource lock released")
 
     def Stop(self):
         #used to gracefully stop CMSSW and finish scripts
@@ -1989,7 +1939,7 @@ class Run:
             for resource in self.online_resource_list:
                 resource.disableRestart()
             for resource in self.online_resource_list:
-                if resource.processstate is not None:#was:100
+                if resource.processstate is not None:
                     if resource.process is not None and resource.process.pid is not None: ppid = resource.process.pid
                     else: ppid="None"
                     logger.info('waiting for process '+str(ppid)+
@@ -2864,7 +2814,7 @@ class ResourceRanger:
 
                 run = runList.getLastOngoingRun()
                 if run is not None:
-                    logger.info("ResourceRanger: found active run "+str(run.runnumber))
+                    logger.info("ResourceRanger: found active run "+str(run.runnumber)+ " when received inotify MOVED event for "+event.fullpath)
                     """grab resources that become available
                     #@@EM implement threaded acquisition of resources here
                     """

@@ -1611,17 +1611,29 @@ class Run:
               os.rename(idles+resourcename,used+resourcename)
               self.n_used+=1
             #TODO:fix core pairing with resource.cpu list (otherwise - restarting will not work properly)
-            if not filter(lambda x: x.cpu==resourcenames,self.online_resource_list):
+            if not filter(lambda x: sorted(x.cpu)==sorted(resourcenames),self.online_resource_list):
                 logger.debug("resource(s) "+str(resourcenames)
                               +" not found in online_resource_list, creating new")
                 self.online_resource_list.append(OnlineResource(self,resourcenames,self.lock))
                 return self.online_resource_list[-1]
             logger.debug("resource(s) "+str(resourcenames)
                           +" found in online_resource_list")
-            return filter(lambda x: x.cpu==resourcenames,self.online_resource_list)[0]
+            return filter(lambda x: sorted(x.cpu)==sorted(resourcenames),self.online_resource_list)[0]
         except Exception as ex:
             logger.info("exception encountered in looking for resources")
             logger.info(ex)
+
+    def MatchResource(self,resourcenames):
+        for res in self.online_resource_list:
+            #first resource in the list is the one that triggered inotify event
+            if resourcenames[0] in res.cpu:
+                found_all = True
+                for name in res.cpu:
+                    if name not in resourcenames:
+                        found_all = False
+            if found_all:
+                return res.cpu
+        return None
 
     def ContactResource(self,resourcename):
         self.online_resource_list.append(OnlineResource(self,resourcename,self.lock))
@@ -2839,17 +2851,27 @@ class ResourceRanger:
                         resource_lock.release()
                         return
                     #acquire sufficient cores for a multithreaded process start
-                    resourcenames = []
-                    for resname in reslist:
-                        if len(resourcenames) < nstreams:
-                            resourcenames.append(resname)
-                        else:
-                            break
 
-                    acquired_sufficient = False
-                    if len(resourcenames) == nstreams:
+                    #returns whether it can be matched to existing online resource or not
+                    matchedList = run.MatchResource(reslist)
+
+                    if matchedList:
+                        #matched with previous resource (restarting process)
                         acquired_sufficient = True
-                        res = run.AcquireResource(resourcenames,resourcestate)
+                        res = run.AcquireResource(matchedList,resourcestate)
+
+                    else:
+                        resourcenames = []
+                        for resname in reslist:
+                            if len(resourcenames) < nstreams:
+                                resourcenames.append(resname)
+                            else:
+                                break
+
+                        acquired_sufficient = False
+                        if len(resourcenames) == nstreams:
+                            acquired_sufficient = True
+                            res = run.AcquireResource(resourcenames,resourcestate)
 
                     if acquired_sufficient:
                         logger.info("ResourceRanger: acquired resource(s) "+str(res.cpu))

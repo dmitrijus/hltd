@@ -8,13 +8,11 @@ import time
 
 
 
-runDiscoveryUrl=None
 
-logThreshold=1 #INFO
+logThreshold=2 #WARNING
 repeatsMax=100
-connurl='http://localhost:9200'
 termWhite=True
-quit=False
+quit=True
 printHelp=True
 light=False
 
@@ -28,9 +26,9 @@ if len(sys.argv)>1:
             quit=True
             printHelp=True
 
-        elif arg.startswith('-c='):
-            connurl=arg[3:]
-            if not connurl.startswith('http://'): connurl = 'http://'+connurl
+        #elif arg.startswith('-c='):
+        #    connurl=arg[3:]
+        #    if not connurl.startswith('http://'): connurl = 'http://'+connurl
 
         elif arg.startswith('-l='):
             if   arg[3:]=="DEBUG":logThreshold=0
@@ -44,27 +42,36 @@ if len(sys.argv)>1:
         elif arg=='--black':
             termWhite=False
         elif arg.startswith('--mode'):
+            quit=False
             dmode = arg[arg.find('=')+1:].strip()
-            if dmode=='daq2':
-                runDiscoveryUrl='http://es-cdaq.cms:9200/runindex_prod/run/_search?size=2'
+            if dmode=='cdaq':
+                runDiscoveryUrl='http://es-cdaq.cms:9200/runindex_cdaq_read/run/_search?size=2'
+                connurl='http://es-tribe.cms:9200'
             elif dmode=='daq2val':
-                runDiscoveryUrl='http://es-cdaq.cms:9200/runindex/run/_search?size=2'
-            connurl='http://es-tribe.cms:9200'
+                runDiscoveryUrl='http://es-cdaq.cms:9200/runindex_dv_read/run/_search?size=2'
+                connurl='http://es-tribe.cms:9200'
+            elif dmode=='minidaq':
+                runDiscoveryUrl='http://es-cdaq.cms:9200/runindex_minidaq_read/run/_search?size=2'
+                connurl='http://es-tribe.cms:9200'
+            elif dmode=='vm2':
+                runDiscoveryUrl='http://es-vm-cdaq:9200/runindex_cdaq_read/run/_search?size=2'
+                connurl='http://es-vm-tribe.cern.ch:9200'
 
 if printHelp==True:
     print "Usage: . logprint.py -c=%URL -l=%[DEBUG,INFO,WARNING,ERROR,FATAL] -r=%[-1,0,...] --black --light"
-    print " -c: connection URL (default: http://localhost:9200)"
+    print " --mode:cdaq,daq2val,minidaq,vm2. discovery of runs the central index (MANDATORY)"
     print " -l: log level threshold (default: INFO)"
     print " -r: DEBUG/INFO repeat suppression threshold (default: 100, disable: -1)"
     print " --black: color scheme for black background terminal (default: disabled)"
     print " --light: your terminal background color (default: white)"
-    print " --mode: daq2 or daqval. will discover runs from the es-cdaq index (default: off)"
     print " --help: print this info and quit"
 
 if quit:
     sys.exit(0)
 elif printHelp==True:
     print "\n Starting logger using default values..."
+
+print "connecting through",connurl
 
 #url =  'http://localhost:9200/run*/cmsswlog/_search'
 urlend='/cmsswlog/_search'
@@ -121,9 +128,9 @@ qdoc = {
 #          }
 #        }
 #      }
-    },
+    }
+  },
   "sort": { "_timestamp": { "order": "asc" }}
-  }
 }
 
 if logThreshold==0:
@@ -140,20 +147,27 @@ sleept = 0.5
 
 init = True
 
-#2 seconds delay to allow indexing to be done for requested intervals
+#timezone difference
+tzdeltaSec = int(time.time() -  time.mktime(time.gmtime()))
+
+#1 seconds delay to allow indexing to be done for requested intervals
 tnow =  datetime.datetime.utcnow().isoformat()
-time.sleep(sleept)
-tfuture =  datetime.datetime.utcnow().isoformat()
-time.sleep(sleept)
-tfuture2 =  datetime.datetime.utcnow().isoformat()
-time.sleep(sleept)
-tfuture3 =  datetime.datetime.utcnow().isoformat()
+t_now = time.time()
+#tfuture3 =  datetime.datetime.utcnow().isoformat()
+timetest = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S %Z')
+tfuture3 =  datetime.datetime.fromtimestamp(t_now-tzdeltaSec).isoformat()
+tfuture2 =  datetime.datetime.fromtimestamp(t_now-sleept-tzdeltaSec).isoformat()
+tfuture =  datetime.datetime.fromtimestamp(t_now-2*sleept-tzdeltaSec).isoformat()
+tnow =  datetime.datetime.fromtimestamp(t_now-3*sleept-tzdeltaSec).isoformat()
 time.sleep(sleept)
 lastEmpty=True
 
 counter=0
 
+print "current UTC time is",datetime.datetime.fromtimestamp(t_now-tzdeltaSec).strftime('%Y-%m-%d %H:%M:%S %Z')
 print "loop start...."
+
+
 
 while True:
 
@@ -165,13 +179,12 @@ while True:
         chits = json.loads(cdaqr.content)['hits']['hits']
 	for i,c in enumerate(chits):
 	    if i==0:
-	        runs_string+='run' + str(c['_source']['runNumber'])
+	        runs_string+='run' + str(c['_source']['runNumber']+'*')
 	    else:
-	        runs_string+=',run' + str(c['_source']['runNumber'])
+	        runs_string+=',run' + str(c['_source']['runNumber']+'*')
 	
 	if runs_string=='':runs_string='run*'
         urlcustom =  urlbegin+runs_string+urlend
-        
 
     counter+=1
     tbefore = tnow
@@ -185,6 +198,8 @@ while True:
 
     time.sleep(sleept)
 
+    #hack
+    #tbefore2 =  datetime.datetime.fromtimestamp(t_now-tzdeltaSec-3600).isoformat()
     if useFilters2:
         qdoc['query']['filtered']['filter']['and'][0]['range']['_timestamp']['from']=tbefore
         qdoc['query']['filtered']['filter']['and'][0]['range']['_timestamp']['to']=tnow
@@ -193,9 +208,14 @@ while True:
         qdoc['query']['filtered']['filter']['range']['_timestamp']['to']=tnow
     q = json.dumps(qdoc)
 
-
     resp = requests.post(urlcustom, q)
+
+    if resp.status_code!=200:
+        print "query",urlcustom,q,"returned with status code",resp.status_code
+        sys.exit(2)
+
     data = json.loads(resp.content)
+
     lastEmpty==True
     maxhostlen=0
    

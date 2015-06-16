@@ -536,7 +536,7 @@ class CMSSWLogESWriter(threading.Thread):
                 if self.doStop == False and self.abort == False:
                     self.threadEvent.wait(2)
                 else: break
-                count+=1
+                counter+=1
                 if counter%60==0:
                   try:
                     #if local run directory is gone, run logging is finished

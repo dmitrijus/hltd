@@ -71,6 +71,7 @@ boxdoc_version = 1
 logCollector = None
 
 q_list = []
+num_excluded=0
 
 dqm_globalrun_filepattern = '.run{0}.global'
 
@@ -130,7 +131,8 @@ def cleanup_resources():
             os.rename(quarantined+cpu,idles+cpu)
         dirlist = os.listdir(idles)
         #quarantine files beyond use fraction limit (rounded to closest integer)
-        num_excluded = round(len(dirlist)*(1.-conf.resource_use_fraction))
+        global num_excluded
+        num_excluded = int(round(len(dirlist)*(1.-conf.resource_use_fraction)))
         for i in range(0,int(num_excluded)):
             os.rename(idles+dirlist[i],quarantined+dirlist[i])
         return True
@@ -349,7 +351,7 @@ def cleanup_mountpoints(remount=True):
                         break
                     else:
                         p_end = datetime.datetime.now()
-                        logger.warn('unable to ping '+mountaddr)
+                        logger.warning('unable to ping '+mountaddr)
                         dt = p_end - p_begin
                         if dt.seconds < 10:
                             time.sleep(10-dt.seconds)
@@ -407,7 +409,7 @@ def cleanup_mountpoints(remount=True):
                         break
                     else:
                         p_end = datetime.datetime.now()
-                        logger.warn('unable to ping '+line.strip())
+                        logger.warning('unable to ping '+line.strip())
                         dt = p_end - p_begin
                         if dt.seconds < 10:
                             time.sleep(10-dt.seconds)
@@ -749,6 +751,7 @@ class system_monitor(threading.Thread):
                     resource_count_idle = 0
                     resource_count_used = 0
                     resource_count_broken = 0
+                    resource_count_quarantined = 0
                     resource_count_stale = 0
                     resource_count_pending = 0
                     resource_count_activeRun = 0
@@ -798,6 +801,7 @@ class system_monitor(threading.Thread):
                                 active_addition+=edata['used']
                                 resource_count_used+=edata['used']
                                 resource_count_broken+=edata['broken']
+                                resource_count_quarantined+=edata['quarantined']
 
                                 #active resources reported to BU if cloud state is off
                                 if edata['cloudState'] == "off":
@@ -840,6 +844,7 @@ class system_monitor(threading.Thread):
                                 "idle":resource_count_idle,
                                 "used":resource_count_used,
                                 "broken":resource_count_broken,
+                                "quarantined":resource_count_quarantined,
                                 "stale_resources":resource_count_stale,
                                 "cloud":cloud_count,
                                 "pending_resources":resource_count_pending,
@@ -897,7 +902,9 @@ class system_monitor(threading.Thread):
                             n_used = len(usedlist)
                             n_broken = len(brokenlist)
                             n_cloud = len(os.listdir(cloud))
-                            n_quarantined = len(os.listdir(quarantined))
+                            global num_excluded
+                            n_quarantined = len(os.listdir(quarantined))-num_excluded
+                            if n_quarantined<0: n_quarantined=0
                             numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
 
                             cloud_state = "off"
@@ -1436,6 +1443,7 @@ class Run:
         self.anelasticWatchdog = None
         self.elasticBUWatchdog = None
         self.completedChecker = None
+        self.runShutdown = None
         self.threadEvent = threading.Event()
         self.stopThreads = False
 
@@ -1485,7 +1493,10 @@ class Run:
 
             else:
                 if readMenuAttempts>50:
-                    logger.error("FFF parameter or HLT menu files not found in ramdisk")
+                    if not os.path.exists(bu_dir):
+                        logger.info("FFF parameter or HLT menu files not found in ramdisk - BU run directory is gone")
+                    else:
+                        logger.error("FFF parameter or HLT menu files not found in ramdisk")
                     break
             readMenuAttempts+=1
             time.sleep(.1)
@@ -1497,7 +1508,7 @@ class Run:
             self.menu_path = conf.test_hlt_config1
             self.transfermode = 'null'
             if conf.role=='fu':
-                logger.warn("Using default values for run " + str(self.runnumber) + ": " + self.version + " (" + self.arch + ") with " + self.menu_path)
+                logger.warning("Using default values for run " + str(self.runnumber) + ": " + self.version + " (" + self.arch + ") with " + self.menu_path)
 
         #give this command line parameter quoted in case it is empty
         if len(self.transfermode)==0:
@@ -1509,7 +1520,7 @@ class Run:
                 hltTargetName = 'HltConfig.py_run'+str(self.runnumber)+'_'+self.arch+'_'+self.version+'_'+self.transfermode
                 shutil.copy(self.menu_path,os.path.join(conf.log_dir,'pid',hltTargetName))
             except:
-                logger.warn('Unable to backup HLT menu')
+                logger.warning('Unable to backup HLT menu')
 
         self.rawinputdir = None
         #
@@ -1534,7 +1545,7 @@ class Run:
                     os.stat(self.rawinputdir)
                     self.inputdir_exists = True
                 except:
-                    logger.error("unable to stat raw input directory for run "+str(self.runnumber))
+                    logger.warning("unable to stat raw input directory for run "+str(self.runnumber))
                     return
             else:
                 self.inputdir_exists = True
@@ -1587,6 +1598,9 @@ class Run:
                 self.elasticBUWatchdog.join()
             except RuntimeError:
                 pass
+        if self.runShutdown:
+            self.joinShutdown()
+
         logger.info('Run '+ str(self.runnumber) +' object __del__ has completed')
 
     def countOwnedResourcesFrom(self,resourcelist):
@@ -1744,7 +1758,7 @@ class Run:
             #update begin time at this point
             self.beginTime = datetime.datetime.now()
             for resource in self.online_resource_list:
-                resource.NotifyNewRunJoin(self.runnumber)
+                resource.NotifyNewRunJoin()
             logger.info('sent start run '+str(self.runnumber)+' notification to all resources')
 
             self.startElasticBUWatchdog()
@@ -1813,10 +1827,20 @@ class Run:
           os.rename(os.path.join(self.dirname,"temp_CMSSW_STOP"),os.path.join(self.dirname,"CMSSW_STOP"))
         except:pass
 
+    def startShutdown(self,killJobs=False,killScripts=False):
+        self.runShutdown = threading.Thread(target = self.Shutdown,args=[killJobs,killScripts])
+        self.runShutdown.start()
+
+    def joinShutdown(self):
+        if self.runShutdown:
+            try:
+                self.runShutdown.join()
+            except:
+                return
 
     def Shutdown(self,killJobs=False,killScripts=False):
         #herod mode sends sigkill to all process, however waits for all scripts to finish
-        logger.debug("run:Shutdown called")
+        logger.info("run"+str(self.runnumber)+": Shutdown called")
         self.pending_shutdown=False
         self.is_ongoing_run = False
 
@@ -1842,23 +1866,26 @@ class Run:
                     logger.info('process '+str(resource.process.pid)+' terminated')
                     time.sleep(.1) 
                     logger.info(' releasing resource(s) '+str(resource.cpu))
-                    resource_lock.acquire()
-                    q_clear_condition = (not self.checkQuarantinedLimit()) or conf.auto_clear_quarantined
-                    cleared_q = resource.clearQuarantined(doLock=False,restore=q_clear_condition)
-                    for cpu in resource.cpu:
-                        if cpu not in cleared_q:
-                            try:
-                                os.rename(used+cpu,idles+cpu)
-                                self.n_used-=1
-                            except OSError:
-                                #@SM:can happen if it was quarantined
-                                logger.warning('Unable to find resource '+used+cpu)
-                            except Exception as ex:
-                                resource_lock.release()
-                                raise(ex)
-                    resource_lock.release()
-                    resource.process=None
 
+            resource_lock.acquire()
+            q_clear_condition = (not self.checkQuarantinedLimit()) or conf.auto_clear_quarantined
+            for resource in self.online_resource_list:
+                cleared_q = resource.clearQuarantined(doLock=False,restore=q_clear_condition)
+                for cpu in resource.cpu:
+                    if cpu not in cleared_q:
+                        try:
+                            os.rename(used+cpu,idles+cpu)
+                            self.n_used-=1
+                        except OSError:
+                            #@SM:can happen if it was quarantined
+                            logger.warning('Unable to find resource '+used+cpu)
+                        except Exception as ex:
+                            resource_lock.release()
+                            raise(ex)
+                resource.process=None
+            resource_lock.release()
+            logger.info('completed clearing resource list')
+             
             self.online_resource_list = []
             try:
                 self.changeMarkerMaybe(Run.ABORTCOMPLETE)
@@ -2066,7 +2093,7 @@ class Run:
             if self.is_ongoing_run == True:
                 #abort the run
                 self.anelasticWatchdog=None
-                logger.warning("Premature end of anelastic.py")
+                logger.warning("Premature end of anelastic.py for run "+str(self.runnumber))
                 self.Shutdown(killJobs=True,killScripts=True)
         except:
             pass
@@ -2090,11 +2117,11 @@ class Run:
     def startCompletedChecker(self):
 
         try:
-            logger.info('start checking completition of run '+str(self.runnumber))
+            logger.info('start checking completion of run '+str(self.runnumber))
             self.completedChecker = threading.Thread(target = self.runCompletedChecker)
             self.completedChecker.start()
         except Exception,ex:
-            logger.error('failure to start run completition checker:')
+            logger.error('failure to start run completion checker:')
             logger.exception(ex)
 
     def runCompletedChecker(self):
@@ -2287,7 +2314,7 @@ class RunRanger:
                         #terminate quarantined runs     
                         for run in runList.getQuarantinedRuns():
                             #run shutdown waiting for scripts to finish
-                            run.Shutdown(True,False)
+                            run.startShutdown(True,False)
                             time.sleep(.1)
 
                         resources_blocked_flag=False
@@ -2413,7 +2440,7 @@ class RunRanger:
         elif dirname.startswith('herod') or dirname.startswith('tsunami'):
             os.remove(fullpath)
             if conf.role == 'fu':
-                logger.info("killing all CMSSW child processes")
+                logger.info("killing all CMSSW child processes. quarantined list:"+str(q_list))
                 for run in runList.getActiveRuns():
                     run.Shutdown(True,False)
                 time.sleep(.2)
@@ -2424,6 +2451,7 @@ class RunRanger:
                         os.rename(quarantined+cpu,idles+cpu)
                     except:
                         logger.info('Quarantined resource was already cleared: '+cpu)
+                q_list=[]
 
             elif conf.role == 'bu':
                 for run in runList.getActiveRuns():
@@ -2520,9 +2548,11 @@ class RunRanger:
                         run = runList.getRun(nr)
                         if run.checkQuarantinedLimit():
                             if runList.isLatestRun(run):
+                                logger.info('reached quarantined limit - pending Shutdown for run:'+str(nr))
                                 run.pending_shutdown=True
                             else:
-                                run.Shutdown(True,False)
+                                logger.info('reached quarantined limit - initiating Shutdown for run:'+str(nr))
+                                run.startShutdown(True,False)
                     except Exception as ex:
                         logger.exception(ex)
 

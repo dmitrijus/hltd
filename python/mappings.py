@@ -147,7 +147,8 @@ central_runindex_mapping = {
                 'properties' : {
                     'fm_date'       :{'type':'date'},
                     'id'            :{'type':'string'}, #run+appliance+stream+ls
-                    'appliance'     :{'type':'string'},
+                    'appliance'     :{'type':'string'}, #wrong mapping:not analyzed
+                    'host'          :{'type':'string','index' : 'not_analyzed'},
                     'stream'        :{'type':'string','index' : 'not_analyzed'},
                     'ls'            :{'type':'integer'},
                     'processed'     :{'type':'integer'},
@@ -232,6 +233,7 @@ central_boxinfo_mapping = {
               "active_resources" :           { "type" : "integer" },
               "active_resources_activeRun" : { "type" : "integer" },
               "broken" :                     { "type" : "integer" },
+              "quarantined" :                { "type" : "integer" },
               "cloud" :                      { "type" : "integer" },
               "fu_workdir_used_quota" :      { "type" : "float" },
               "idle" :                       { "type" : "integer" },

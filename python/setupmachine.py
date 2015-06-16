@@ -657,8 +657,8 @@ if __name__ == "__main__":
                 else:
                     escfg.reg('discovery.zen.ping.unicast.hosts',"[\"" + buName + ".cms" + "\"]")
                 escfg.reg('indices.fielddata.cache.size', '50%')
-                #escfg.reg('indices.fielddata.cache.expire','60m')
-                #escfg.reg('index.cache.field.expire','60m')
+                escfg.reg('indices.fielddata.cache.expire','600m')
+                escfg.reg('index.cache.field.expire','600m')
                 escfg.reg('bootstrap.mlockall','true')
                 escfg.reg('node.master','false')
                 escfg.reg('node.data','true')

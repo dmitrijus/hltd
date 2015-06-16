@@ -1109,6 +1109,7 @@ class OnlineResource:
         IFF it is necessary, it should address "any" number of mounts, not just 2
         """
         input_disk = bu_disk_list_ramdisk_instance[startindex%len(bu_disk_list_ramdisk_instance)]
+        inputdirpath = os.path.join(input_disk,'run'+str(runnumber).zfill(conf.run_number_padding))
         #run_dir = input_disk + '/run' + str(self.runnumber).zfill(conf.run_number_padding)
         logger.info("starting process with "+version+" and run number "+str(runnumber)+ ' threads:'+str(num_threads)+' streams:'+str(num_streams))
 
@@ -1164,17 +1165,21 @@ class OnlineResource:
                                             preexec_fn=preexec_function,
                                             close_fds=True
                                             )
-            self.processstate = 100
             logger.info("arg array "+str(new_run_args).translate(None, "'")+' started with pid '+str(self.process.pid))
 #            time.sleep(1.)
             if self.watchdog==None:
-                self.watchdog = ProcessWatchdog(self,self.lock)
+                self.processstate = 100
+                self.watchdog = ProcessWatchdog(self,self.lock,inputdirpath)
                 self.watchdog.start()
                 logger.debug("watchdog thread for "+str(self.process.pid)+" is alive "
                              + str(self.watchdog.is_alive()))
             else:
+                #release lock while joining thread to let it complete
+                resource_lock.release()
                 self.watchdog.join()
-                self.watchdog = ProcessWatchdog(self,self.lock)
+                resource_lock.acquire()
+                self.processstate = 100
+                self.watchdog = ProcessWatchdog(self,self.lock,inputdirpath)
                 self.watchdog.start()
                 logger.debug("watchdog thread restarted for "+str(self.process.pid)+" is alive "
                               + str(self.watchdog.is_alive()))
@@ -1185,11 +1190,6 @@ class OnlineResource:
     def join(self):
         logger.debug('calling join on thread ' +self.watchdog.name)
         self.watchdog.join()
-
-    def disableRestart(self):
-        logger.debug("OnlineResource "+str(self.cpu)+" restart is now disabled")
-        if self.watchdog:
-            self.watchdog.disableRestart()
 
     def clearQuarantined(self,doLock=True,restore=True):
         global q_list
@@ -1212,13 +1212,13 @@ class OnlineResource:
         return retq
 
 class ProcessWatchdog(threading.Thread):
-    def __init__(self,resource,lock):
+    def __init__(self,resource,lock,inputdirpath):
         threading.Thread.__init__(self)
         self.resource = resource
         self.lock = lock
+        self.inputdirpath=inputdirpath
         self.retry_limit = conf.process_restart_limit
         self.retry_delay = conf.process_restart_delay_sec
-        self.retry_enabled = True
         self.quarantined = False
     def run(self):
         try:
@@ -1251,8 +1251,11 @@ class ProcessWatchdog(threading.Thread):
                 resource_lock.release()
                 return
 
+            #input dir check if cmsRun can not find the input
+            configuration_reachable = False if conf.dqm_machine==False and returncode==90 and not os.path.exists(self.inputdirpath) else True
+
             #cleanup actions- remove process from list and attempt restart on same resource
-            if returncode != 0 and returncode!=None:
+            if returncode != 0 and returncode!=None and configuration_reachable:
 
                 #bump error count in active_runs_errors which is logged in the box file
                 self.resource.parent.num_errors+=1
@@ -1263,8 +1266,6 @@ class ProcessWatchdog(threading.Thread):
                               +" on resource(s) " + str(self.resource.cpu)
                               +" exited with signal "
                               +str(returncode)
-                              +" restart is enabled ? "
-                              +str(self.retry_enabled)
                               )
                 else:
                     logger.error("process "+str(pid)
@@ -1272,8 +1273,6 @@ class ProcessWatchdog(threading.Thread):
                               +" on resource(s) " + str(self.resource.cpu)
                               +" exited with code "
                               +str(returncode)
-                              +" restart is enabled ? "
-                              +str(self.retry_enabled)
                               )
                 #quit codes (configuration errors):
                 quit_codes = [127,90,73]
@@ -1284,6 +1283,7 @@ class ProcessWatchdog(threading.Thread):
                 #dqm mode will treat configuration error as a crash and eventually move to quarantined
                 if conf.dqm_machine==False and returncode in quit_codes:
                     if self.resource.retry_attempts < self.retry_limit:
+
                         logger.warning('for this type of error, restarting this process is disabled')
                         self.resource.retry_attempts=self.retry_limit
                     if returncode==127:
@@ -1355,7 +1355,12 @@ class ProcessWatchdog(threading.Thread):
 
             #successful end= release resource (TODO:maybe should mark aborted for non-0 error codes)
             elif returncode == 0 or returncode == None:
-                logger.info('pid '+str(pid)+' exit 0 from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
+
+                if not configuration_reachable:
+                  logger.info('pid '+str(pid)+' exit 90 (input directory and menu missing) from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
+
+                else:
+                  logger.info('pid '+str(pid)+' exit 0 from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
 
                 # generate an end-of-run marker if it isn't already there - it will be picked up by the RunRanger
                 endmarker = conf.watch_directory+'/end'+rnsuffix
@@ -1397,8 +1402,6 @@ class ProcessWatchdog(threading.Thread):
             except:pass
         return
 
-    def disableRestart(self):
-        self.retry_enabled = False
 
 class Run:
 
@@ -1607,6 +1610,7 @@ class Run:
             for resourcename in resourcenames:
               os.rename(idles+resourcename,used+resourcename)
               self.n_used+=1
+            #TODO:fix core pairing with resource.cpu list (otherwise - restarting will not work properly)
             if not filter(lambda x: x.cpu==resourcenames,self.online_resource_list):
                 logger.debug("resource(s) "+str(resourcenames)
                               +" not found in online_resource_list, creating new")
@@ -1796,7 +1800,7 @@ class Run:
         try:
           os.rename(os.path.join(self.dirname,"temp_CMSSW_STOP"),os.path.join(self.dirname,"CMSSW_STOP"))
         except:pass
-        
+
 
     def Shutdown(self,killJobs=False,killScripts=False):
         #herod mode sends sigkill to all process, however waits for all scripts to finish
@@ -1809,24 +1813,21 @@ class Run:
         except OSError as ex:
             pass
 
+        time.sleep(.1)
         try:
             for resource in self.online_resource_list:
-                resource.disableRestart()
-            time.sleep(.1)
-            for resource in self.online_resource_list:
-                if conf.role == 'fu':
-                    if resource.processstate==100:
-                        logger.info('terminating process '+str(resource.process.pid)+
-                                     ' in state '+str(resource.processstate)+' owning '+str(resource.cpu))
+                if resource.processstate==100:
+                    logger.info('terminating process '+str(resource.process.pid)+
+                                 ' in state '+str(resource.processstate)+' owning '+str(resource.cpu))
 
-                        if killJobs:resource.process.kill()
-                        else:resource.process.terminate()
-                        if resource.watchdog!=None and resource.watchdog.is_alive():
-                            try:
-                                resource.join()
-                            except:
-                                pass
-                        logger.info('process '+str(resource.process.pid)+' terminated')
+                    if killJobs:resource.process.kill()
+                    else:resource.process.terminate()
+                    if resource.watchdog!=None and resource.watchdog.is_alive():
+                        try:
+                            resource.join()
+                        except:
+                            pass
+                    logger.info('process '+str(resource.process.pid)+' terminated')
                     time.sleep(.1) 
                     logger.info(' releasing resource(s) '+str(resource.cpu))
                     resource_lock.acquire()
@@ -1896,7 +1897,6 @@ class Run:
         logger.info('Shutdown of run '+str(self.runnumber).zfill(conf.run_number_padding)+' completed')
 
     def ShutdownBU(self):
-
         self.is_ongoing_run = False
         try:
             if self.elastic_monitor:
@@ -1936,8 +1936,6 @@ class Run:
         global entering_cloud_mode
         global abort_cloud_mode
         try:
-            for resource in self.online_resource_list:
-                resource.disableRestart()
             for resource in self.online_resource_list:
                 if resource.processstate is not None:
                     if resource.process is not None and resource.process.pid is not None: ppid = resource.process.pid

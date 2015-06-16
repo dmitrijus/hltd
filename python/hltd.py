@@ -1645,8 +1645,8 @@ class Run:
                 for name in res.cpu:
                     if name not in resourcenames:
                         found_all = False
-            if found_all:
-                return res.cpu
+                if found_all:
+                    return res.cpu
         return None
 
     def ContactResource(self,resourcename):
@@ -2440,7 +2440,8 @@ class RunRanger:
         elif dirname.startswith('herod') or dirname.startswith('tsunami'):
             os.remove(fullpath)
             if conf.role == 'fu':
-                logger.info("killing all CMSSW child processes. quarantined list:"+str(q_list))
+                global q_list
+                logger.info("killing all CMSSW child processes")
                 for run in runList.getActiveRuns():
                     run.Shutdown(True,False)
                 time.sleep(.2)

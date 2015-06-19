@@ -295,11 +295,17 @@ class elasticBandBU:
         data.insert(0,infile.ls[2:])
         
         values = [int(f) if f.isdigit() else str(f) for f in data]
-        keys = ["ls","fm_date","NEvents","NFiles","TotalEvents","NLostEvents"]
-        document = dict(zip(keys, values))
+        try:
+            keys = ["ls","fm_date","NEvents","NFiles","TotalEvents","NLostEvents","NBytes"]
+            document = dict(zip(keys, values))
+        except:
+            #try without NBytes
+            keys = ["ls","fm_date","NEvents","NFiles","TotalEvents","NLostEvents"]
+            document = dict(zip(keys, values))
 
-        document['id'] = infile.name+"_"+os.uname()[1]
+        document['id'] = infile.name+"_"+self.host
         document['_parent']= self.runnumber
+        document['appliance']=self.host
         documents = [document]
         self.index_documents('eols',documents)
 

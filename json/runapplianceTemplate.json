@@ -175,6 +175,9 @@
           "properties": {
             "out": {
               "type": "integer"
+            },
+            "size": {
+              "type" : "long"
             }
           }
         },
@@ -197,11 +200,15 @@
         },
         "process": {
           "type": "integer"
+        },
+        "fm_date": {
+          "type": "date"
         }
       },
       "_timestamp": {
         "enabled": true,
-        "store": "yes"
+        "store": "yes",
+        "path": "fm_date"
       }
     },
     "fu-out": {

@@ -1722,7 +1722,7 @@ class Run:
                     if doc['detectedStaleHandle']==True:
                         return True
             except:
-                logger.warning('can not parse ' + rfile)
+                logger.warning('can not parse ' + str(resourcepath))
         return False
 
     def CheckTemplate(self):

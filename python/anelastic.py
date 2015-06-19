@@ -591,7 +591,7 @@ class LumiSectionHandler():
                     outfile.esCopy()
                     outfile.moveFile(remotePath, createDestinationDir=True, missingDirAlert=True)
                 self.emptyLumiStreams.append(stream)
-                if len(self.emptyLumiStreams)==len(self.activeStreams):
+                if len(self.emptyLumiStreams)==len(self.activeStreams)+1:
                   self.closed.set()
                   if self.EOLS:
                       self.EOLS.esCopy()

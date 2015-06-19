@@ -548,7 +548,7 @@ class fileHandler(object):
                 retries = 5
                 while True:
                     try:
-                        shutil.copy(self.filepath,newpathTemp)
+                        shutil.copy2(self.filepath,newpathTemp)
                         break
                     except (OSError,IOError),e:
                         retries-=1

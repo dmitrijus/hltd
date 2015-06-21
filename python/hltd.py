@@ -2475,11 +2475,15 @@ class RunRanger:
                         age = current_time - os.path.getmtime(boxdir+name)
                         logger.info('found box '+name+' with keepalive age '+str(age))
                         if age < 20:
-                            connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
-                            time.sleep(0.05)
-                            connection.request("GET",'cgi-bin/herod_cgi.py')
-                            time.sleep(0.1)
-                            response = connection.getresponse()
+                            try:
+                                connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
+                                time.sleep(0.05)
+                                connection.request("GET",'cgi-bin/herod_cgi.py')
+                                time.sleep(0.1)
+                                response = connection.getresponse()
+                            except Exception as ex:
+                                logger.error("exception encountered in contacting resource "+str(name))
+                                logger.exception(ex)
                     logger.info("sent herod to all child FUs")
                 except Exception as ex:
                     logger.error("exception encountered in contacting resources")

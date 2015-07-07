@@ -439,7 +439,10 @@ class fileHandler(object):
 
           except (OSError,IOError),e:
               if silent==False:
-                  self.logger.exception(e)
+                  if isinstance(e, IOError) and e.errno==2:
+                      self.logger.warning("Error in attempt to copy/move file to destination " + newpath + ":" + str(e))
+                  else:
+                      self.logger.exception(e)
               retries-=1
               if retries == 0:
                   if silent==False:
@@ -462,7 +465,10 @@ class fileHandler(object):
                 break
             except (OSError,IOError),e:
                 if silent==False:
-                    self.logger.exception(e)
+                  if isinstance(e, IOError) and e.errno==2:
+                      self.logger.warning("Error encountered in attempt to copy/move file to destination " + newpath + ":" + str(e))
+                  else:
+                      self.logger.exception(e)
                 retries-=1
                 if retries == 0:
                     if silent==False:

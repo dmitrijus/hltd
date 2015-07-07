@@ -157,13 +157,14 @@ def calculateLexicalId(string):
 
 class CMSSWLogEvent(object):
 
-    def __init__(self,pid,type,severity,firstLine):
+    def __init__(self,pid,type,severity,firstLine,inject_central_idx):
 
         self.pid = pid
         self.type = type
         self.severity = severity
         self.document = {}
         self.message = [firstLine]
+        self.inject_central_index=inject_central_idx
       
     def append(self,line):
         #line limit
@@ -186,7 +187,7 @@ class CMSSWLogEvent(object):
 class CMSSWLogEventML(CMSSWLogEvent):
 
     def __init__(self,pid,severity,firstLine):
-        CMSSWLogEvent.__init__(self,pid,MLMSG,severity,firstLine)
+        CMSSWLogEvent.__init__(self,pid,MLMSG,severity,firstLine,False)
 
     def parseSubInfo(self):
         if self.info1.startswith('(NoMod'):
@@ -267,8 +268,8 @@ class CMSSWLogEventML(CMSSWLogEvent):
 
 class CMSSWLogEventException(CMSSWLogEvent):
 
-    def __init__(self,pid,firstLine):
-        CMSSWLogEvent.__init__(self,pid,EXCEPTION,FATALLEVEL,firstLine)
+    def __init__(self,pid,firstLine,inject_central):
+        CMSSWLogEvent.__init__(self,pid,EXCEPTION,FATALLEVEL,firstLine,inject_central)
         self.documentclass = 'cmssw'
 
     def decode(self):
@@ -309,8 +310,8 @@ class CMSSWLogEventException(CMSSWLogEvent):
 
 class CMSSWLogEventStackTrace(CMSSWLogEvent):
 
-    def __init__(self,pid,firstLine):
-        CMSSWLogEvent.__init__(self,pid,STACKTRACE,FATALLEVEL,firstLine)
+    def __init__(self,pid,firstLine,inject_central):
+        CMSSWLogEvent.__init__(self,pid,STACKTRACE,FATALLEVEL,firstLine,inject_central)
 
     def decode(self):
         CMSSWLogEvent.fillCommon(self)
@@ -329,7 +330,7 @@ class CMSSWLogParser(threading.Thread):
     def __init__(self,path,pid,queue):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.es = ElasticSearch('http://'+conf.es_local+':9200')
+        self.es = ElasticSearch('http://'+conf.es_local+':9200',timeout=5)
         self.path = path
         self.pid = pid
         self.mainQueue = queue
@@ -340,6 +341,7 @@ class CMSSWLogParser(threading.Thread):
         self.threadEvent = threading.Event()
 
         self.historyFIFO = collections.deque(history*[0], history)
+        self.central_left=5
 
     def run(self):
         #decode run number and pid from file name
@@ -386,7 +388,7 @@ class CMSSWLogParser(threading.Thread):
                 if len(buf[pos])==0:
                     pass
                 elif buf[pos].startswith('----- Begin Processing'):
-                    self.putInQueue(CMSSWLogEvent(self.pid,EVENTLOG,DEBUGLEVEL,buf[pos]))
+                    self.putInQueue(CMSSWLogEvent(self.pid,EVENTLOG,DEBUGLEVEL,buf[pos],False))
                 elif buf[pos].startswith('Current states'):#FastMonitoringService
                     pass
                 elif buf[pos].startswith('%MSG-d'):
@@ -406,7 +408,8 @@ class CMSSWLogParser(threading.Thread):
                     self.currentEvent = CMSSWLogEventML(self.pid,DEBUGLEVEL,buf[pos])
 
                 elif buf[pos].startswith('----- Begin Fatal Exception'):
-                    self.currentEvent = CMSSWLogEventException(self.pid,buf[pos])
+                    self.currentEvent = CMSSWLogEventException(self.pid,buf[pos],self.central_left>0)
+                    self.central_left-=1
 
                 #signals not caught as exception (and libc assertion)
                 elif buf[pos].startswith('There was a crash.') \
@@ -429,11 +432,12 @@ class CMSSWLogParser(threading.Thread):
                     #or buf[pos].startswith('I/O possible') #29
                     #or buf[pos].startswith('Power failure') #30
 
-                    self.currentEvent = CMSSWLogEventStackTrace(self.pid,buf[pos])
+                    self.currentEvent = CMSSWLogEventStackTrace(self.pid,buf[pos],self.central_left>0)
+                    self.central_left-=1
                 elif buf[pos]=='\n':
                     pass
                 else:
-                    self.putInQueue(CMSSWLogEvent(self.pid,UNFORMATTED,DEBUGLEVEL,buf[pos]))
+                    self.putInQueue(CMSSWLogEvent(self.pid,UNFORMATTED,DEBUGLEVEL,buf[pos],False))
                 pos+=1
             else:
                 if self.currentEvent.type == MLMSG and (buf[pos]=='%MSG' or buf[pos]=='%MSG\n') :
@@ -514,6 +518,9 @@ class CMSSWLogESWriter(threading.Thread):
                         evt = self.queue.get(False)
                         if self.contextualCounter.check(evt):
                             documents.append(evt.document)
+                            #check if this entry should be inserted into the central index
+                            if evt.severity>=FATALLEVEL and evt.inject_central_index:
+                                hlc.esHandler.elasticize_cmsswlog(evt.document)
                     except Queue.Empty:
                         break
                 if len(documents)>0:
@@ -527,6 +534,9 @@ class CMSSWLogESWriter(threading.Thread):
                             evt = self.queue.get(False)
                             try:
                                 if self.contextualCounter.check(evt):
+                                    #check if this entry should be inserted into the central index
+                                    if evt.severity>=FATALLEVEL and evt.inject_central_index:
+                                        hlc.esHandler.elasticize_cmsswlog(evt.document)
                                     self.eb.es.index(self.eb.indexName,'cmsswlog',evt.document)
                             except Exception,ex: 
                                 self.logger.error("es index:"+str(ex))
@@ -752,7 +762,7 @@ class HLTDLogIndex():
             try:
                 self.logger.info('writing to elastic index '+self.index_name)
                 ip_url=getURLwithIP(es_server_url)
-                self.es = ElasticSearch(ip_url)
+                self.es = ElasticSearch(ip_url,timeout=5)
                 #update in case of new documents added to mapping definition
                 self.updateMappingMaybe(ip_url)
                 break
@@ -795,8 +805,20 @@ class HLTDLogIndex():
             try:
                 #retry with new ip adddress in case of a problem
                 ip_url=getURLwithIP(self.es_server_url)
-                self.es = ElasticSearch(ip_url)
+                self.es = ElasticSearch(ip_url,timeout=5)
                 self.es.index(self.index_name,'hltdlog',document)
+            except Exception as ex:
+                logger.warning('failed connection attempts to ' + self.es_server_url + ' : '+str(ex))
+
+    def elasticize_cmsswlog(self,document):
+        try:
+            self.es.index(self.index_name,'cmsswlog',document)
+        except:
+            try:
+                #retry with new ip adddress in case of a problem
+                ip_url=getURLwithIP(self.es_server_url)
+                self.es = ElasticSearch(ip_url,timeout=5)
+                self.es.index(self.index_name,'cmsswlog',document)
             except Exception as ex:
                 logger.warning('failed connection attempts to ' + self.es_server_url + ' : '+str(ex))
 
@@ -1029,7 +1051,9 @@ if __name__ == "__main__":
 
     mask = inotify.IN_CREATE
     logger.info("starting CMSSW log collector for "+cmsswlogdir)
+
     clc = None
+    hlc = None
 
     if cmsswloglevel>=0:
       try:
@@ -1043,7 +1067,6 @@ if __name__ == "__main__":
     else:
         logger.info('CMSSW log collection is disabled')
 
-    hlc=None
     if hltdloglevel==0:
         logger.info('hltd log collection is disabled')
 

@@ -1272,14 +1272,14 @@ class ProcessWatchdog(threading.Thread):
                               +" for run "+str(self.resource.runnumber)
                               +" on resource(s) " + str(self.resource.cpu)
                               +" exited with signal "
-                              +str(returncode)
+                              +str(returncode) + ', retries left: '+str(self.retry_limit-self.resource.retry_attempts)
                               )
                 else:
                     logger.error("process "+str(pid)
                               +" for run "+str(self.resource.runnumber)
                               +" on resource(s) " + str(self.resource.cpu)
                               +" exited with code "
-                              +str(returncode)
+                              +str(returncode) +', retries left: '+str(self.retry_limit-self.resource.retry_attempts)
                               )
                 #quit codes (configuration errors):
                 quit_codes = [127,90,73]
@@ -1336,7 +1336,7 @@ class ProcessWatchdog(threading.Thread):
                     logger.debug("resource(s) " +str(self.resource.cpu)+
                                   " successfully moved to except")
                 elif self.resource.retry_attempts >= self.retry_limit:
-                    logger.error("process for run "
+                    logger.info("process for run "
                                   +str(self.resource.runnumber)
                                   +" on resources " + str(self.resource.cpu)
                                   +" reached max retry limit "

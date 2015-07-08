@@ -341,7 +341,7 @@ class CMSSWLogParser(threading.Thread):
         self.threadEvent = threading.Event()
 
         self.historyFIFO = collections.deque(history*[0], history)
-        self.central_left=5
+        self.central_left=3 #max central-es injections per pid
 
     def run(self):
         #decode run number and pid from file name

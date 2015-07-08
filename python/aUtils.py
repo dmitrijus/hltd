@@ -467,6 +467,8 @@ class fileHandler(object):
                 if silent==False:
                   if isinstance(e, IOError) and e.errno==2:
                       self.logger.warning("Error encountered in attempt to copy/move file to destination " + newpath + ":" + str(e))
+                  elif isinstance(e, OSError) and e.errno==18:
+                      self.logger.error("failed attempt to rename " + newpath_tmp + " to " + newpath + " error: "+ str(e))
                   else:
                       self.logger.exception(e)
                 retries-=1

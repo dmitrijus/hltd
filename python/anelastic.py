@@ -190,11 +190,17 @@ class LumiSectionRanger():
                 self.mr.notifyLumi(ls_num,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
 
                 for lskey in self.LSHandlerList:
-                    #if any previous open lumisection still didn't get EoLS notification, assume missing due to crashes and triggering EoLS to allow error event accounting
+                    #if any previous open lumisection still didn't get EoLS notification, assume missing due to crashes and create EoLS to allow error event accounting
                     if self.LSHandlerList[lskey].ls_num < ls_num and not self.LSHandlerList[lskey].EOLS:
                       self.makeEoLSFile(self.LSHandlerList[lskey].ls)
 
             if key not in self.LSHandlerList:
+                if filetype == INDEX:
+                    for lskey in self.LSHandlerList:
+                        #same as when receiving EoLS type (and index file from a new LS), check if earlier lumisections can be closed
+                        if self.LSHandlerList[lskey].ls_num < ls_num and not self.LSHandlerList[lskey].EOLS:
+                            self.makeEoLSFile(self.LSHandlerList[lskey].ls)
+
                 if ls_num in self.ClosedEmptyLSList:
                     if filetype in [STREAM]:
                         self.cleanStreamFiles()
@@ -452,8 +458,9 @@ class LumiSectionRanger():
             logger.warning(str(ex))
 
     def makeEoLSFile(self, ls):
-        eols_file = run + "_" + ls + "_EoLS.jsn"
-        eols_path =  os.path.join(self.outdir,run,eols_file)
+        thisrun = "run"+self.run_number.zfill(conf.run_number_padding)
+        eols_file = thisrun + "_" + ls + "_EoLS.jsn"
+        eols_path =  os.path.join(self.tempdir,eols_file)
         with open(eols_path,"w") as fi:
             self.logger.info("Created missing EoLS file "+eols_path)
 

@@ -1083,7 +1083,7 @@ class OnlineResource:
         self.runnumber = runnumber
         logger.info("calling start of run on "+self.cpu[0])
         try:
-            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
+            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)
             connection.request("GET",'cgi-bin/start_cgi.py?run='+str(runnumber))
             response = connection.getresponse()
             #do something intelligent with the response code

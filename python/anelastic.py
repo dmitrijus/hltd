@@ -974,8 +974,7 @@ class DQMMerger(threading.Thread):
 
        filesize=0
        hasError=False
-       exitCodes =  outfile.getFieldByName('ReturnCodeMask')
-       if numFiles>=0:
+       if numFiles>0:
            p = subprocess.Popen(command_args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
            p.wait()
            if p.returncode!=0:
@@ -1001,7 +1000,7 @@ class DQMMerger(threading.Thread):
            errorEvents+=processedEvents
            processedEvents=0
            acceptedEvents=0
-           fullOutputPath=""
+           outputName=""
            filesize=0
 
        #correct for the missing event count in input file (when we have a crash)

@@ -9,7 +9,6 @@ import logging
 
 from aUtils import *
 
-
 class elasticBand():
 
 
@@ -171,7 +170,7 @@ class elasticBand():
         try:document.pop('definition')
 	except:pass
         #self.prcinBuffer.setdefault(ls,[]).append(document)
-        self.es.index(self.indexName,'prc-in',document)
+        self.tryIndex('prc-in',document)
 
     def elasticize_queue_status(self,infile):
         document,ret = self.imbue_jsn(infile,silent=True)

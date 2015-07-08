@@ -51,6 +51,7 @@ class LumiSectionRanger():
         self.iniReceived=False
         self.flush = None
         self.allowEmptyLs=False
+        self.logged_early_crash_warning=False
 
     def join(self, stop=False, timeout=None):
         if stop: self.stop()
@@ -147,7 +148,9 @@ class LumiSectionRanger():
         if not self.receivedEoLS.isSet():
             if filetype == CRASH:
                 #TODO: this relies on a file flag that signals at least one cmsRun job has reached event processing stage
-                self.logger.fatal("Detected cmsRun job crash before event processing was started!")
+                if not self.logged_early_crash_warning:
+                    self.logger.fatal("Detected cmsRun job crash before event processing was started!")
+                    self.logged_early_crash_warning=True
             if filetype == INDEX:
                 self.logger.info('buffering index file '+self.infile.filepath)
                 self.initBuffer.append(self.infile)

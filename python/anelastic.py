@@ -1008,8 +1008,10 @@ class DQMMerger(threading.Thread):
        filesize=0
        hasError=False
        if numFiles>0:
+           time_start = time.time()
            p = subprocess.Popen(command_args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
            p.wait()
+           time_delta = time.time()-time_start
            if p.returncode!=0:
                self.logger.error('fastHadd returned with exit code '+str(p.returncode)+' and response: ' + str(p.communicate()) + '. Merging parameters given:'+str(command_args) +' ,file sizes(B):'+str(inFileSizes))
                #DQM more verbose debugging
@@ -1020,6 +1022,8 @@ class DQMMerger(threading.Thread):
                    pass
                outfile.setFieldByName('ReturnCodeMask', str(p.returncode))
                hasError=True
+           else:
+               self.logger.info('fastHadd merging of ' + str(len(inFileSizes)) + ' files took ' + str(time_delta) + ' seconds')
 
            for f in command_args[4:]:
                try:

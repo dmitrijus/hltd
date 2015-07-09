@@ -29,7 +29,7 @@ class LumiSectionRanger():
         self.stoprequest = threading.Event()
         self.emptyQueue = threading.Event()  
         self.errIniFile = threading.Event()  
-        self.receivedEoLS = threading.Event()
+        self.receivedFirstLumiFiles = threading.Event()
         self.initBuffer = []
         self.LSHandlerList = {}  # {(run,ls): LumiSectionHandler()}
         self.ClosedEmptyLSList = set() #empty LS set with metadata fully copied to output
@@ -49,9 +49,11 @@ class LumiSectionRanger():
         self.maxReceivedEoLS=0
         self.maxClosedLumi=0
         self.iniReceived=False
+        self.indexReceived=False
         self.flush = None
         self.allowEmptyLs=False
         self.logged_early_crash_warning=False
+        self.EOLS_list = []
 
     def join(self, stop=False, timeout=None):
         if stop: self.stop()
@@ -132,7 +134,7 @@ class LumiSectionRanger():
         #send the fileEvent to the proper LShandlerand remove closed LSs, or process INI and EOR files
 
     def flushBuffer(self):
-        self.receivedEoLS.set()
+        self.receivedFirstLumiFiles.set()
         for self.infile in self.initBuffer:
             self.process()
         self.initBuffer=[]
@@ -145,15 +147,22 @@ class LumiSectionRanger():
         if filetype == PROCESSING:
             self.allowEmptyLs=True
 
-        if not self.receivedEoLS.isSet():
+        if not self.receivedFirstLumiFiles.isSet():
             if filetype == CRASH:
-                #TODO: this relies on a file flag that signals at least one cmsRun job has reached event processing stage
-                if not self.logged_early_crash_warning:
-                    self.logger.fatal("Detected cmsRun job crash before event processing was started!")
-                    self.logged_early_crash_warning=True
+                    #handle condition where crash happens immediately after opening data
+                    if self.indexReceived:
+                        self.logger.warning("detected crash on first data - flushing buffers so that error event accounting can be done properly")
+                        self.initBuffer.append(self.infile)
+                        self.flushBuffer()
+                        return
+                    elif not self.logged_early_crash_warning:
+                        self.logged_early_crash_warning=True
+                        self.logger.fatal("Detected cmsRun job crash before event processing was started!")
+
             if filetype == INDEX:
                 self.logger.info('buffering index file '+self.infile.filepath)
                 self.initBuffer.append(self.infile)
+                self.indexReceived=True
                 return
             elif filetype in [EOLS,EOR,COMPLETE,PROCESSING]:
                 self.logger.info("PROCESSING")
@@ -162,8 +171,8 @@ class LumiSectionRanger():
                 self.flushBuffer()
                 return
 
-        #problem: crash file can be received before buffers flushed if processes crash on early events
-        if not self.receivedEoLS.isSet() and filetype in [STREAM,STREAMDQMHISTOUTPUT,DAT,PB]:
+        #this should not happen unless there is neither index not EoLS file present for the lumisection
+        if not self.receivedFirstLumiFiles.isSet() and filetype in [STREAM,STREAMDQMHISTOUTPUT,DAT,PB]:
             self.logger.fatal("received output file earlier than expected. This should never happen!")
             return
 
@@ -172,10 +181,26 @@ class LumiSectionRanger():
             key = (run,ls)
             ls_num=int(ls[2:])
             if filetype == EOLS :
+                if ls_num in self.EOLS_list:
+                    self.logger.warning("EoLS file for this lumisection has already been received before")
+                    return
+                self.EOLS_list.append(ls_num)
                 if self.maxReceivedEoLS<ls_num:
                     self.maxReceivedEoLS=ls_num
                 self.mr.notifyLumi(ls_num,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
+
+                for lskey in self.LSHandlerList:
+                    #if any previous open lumisection still didn't get EoLS notification, assume missing due to crashes and create EoLS to allow error event accounting
+                    if self.LSHandlerList[lskey].ls_num < ls_num and not self.LSHandlerList[lskey].EOLS:
+                      self.makeEoLSFile(self.LSHandlerList[lskey].ls)
+
             if key not in self.LSHandlerList:
+                if filetype == INDEX:
+                    for lskey in self.LSHandlerList:
+                        #same as when receiving EoLS type (and index file from a new LS), check if earlier lumisections can be closed
+                        if self.LSHandlerList[lskey].ls_num < ls_num and not self.LSHandlerList[lskey].EOLS:
+                            self.makeEoLSFile(self.LSHandlerList[lskey].ls)
+
                 if ls_num in self.ClosedEmptyLSList:
                     if filetype in [STREAM]:
                         self.cleanStreamFiles()
@@ -431,6 +456,14 @@ class LumiSectionRanger():
                     pass
         except Exception as ex:
             logger.warning(str(ex))
+
+    def makeEoLSFile(self, ls):
+        thisrun = "run"+self.run_number.zfill(conf.run_number_padding)
+        eols_file = thisrun + "_" + ls + "_EoLS.jsn"
+        eols_path =  os.path.join(self.tempdir,eols_file)
+        with open(eols_path,"w") as fi:
+            self.logger.info("Created missing EoLS file "+eols_path)
+
 
 
 class LumiSectionHandler():

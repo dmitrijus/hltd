@@ -186,7 +186,7 @@ def getBUAddr(parentTag,hostname):
                 ha.eqset_id=hn.eqset_id AND \
                 hn.eqset_id=d.eqset_id AND \
                 ha.host_id = hn.host_id AND \
-                ha.attr_name like 'myBU%' AND \
+		ha.attr_name like 'myBU!_%' escape '!' AND \
                 hn.nic_id = d.nic_id AND \
                 d.dnsname = '" + hostname + "' \
                 AND d.eqset_id = (select eqset_id from DAQ_EQCFG_EQSET \
@@ -201,7 +201,7 @@ def getBUAddr(parentTag,hostname):
                 ha.eqset_id=hn.eqset_id AND \
                 hn.eqset_id=d.eqset_id AND \
                 ha.host_id = hn.host_id AND \
-                ha.attr_name like 'myBU%' AND \
+		ha.attr_name like 'myBU!_%' escape '!' AND \
                 hn.nic_id = d.nic_id AND \
                 d.dnsname = '" + hostname + "' \
                 AND d.eqset_id = (select child.eqset_id from DAQ_EQCFG_EQSET child, DAQ_EQCFG_EQSET \
@@ -255,7 +255,7 @@ def getAllBU(requireFU=False):
 	                ha.eqset_id=hn.eqset_id AND            \
 			hn.eqset_id=d.eqset_id AND              \
 			ha.host_id = hn.host_id AND              \
-			ha.attr_name like 'myBU%' AND             \
+			ha.attr_name like 'myBU!_%' escape '!' AND \
 			hn.nic_id = d.nic_id AND                   \
 			d.dnsname like 'fu-%'                       \
 			AND d.eqset_id = (select eqset_id from DAQ_EQCFG_EQSET \

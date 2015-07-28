@@ -552,19 +552,19 @@ def calculate_threadnumber():
     expected_processes = idlecount/nstreams
 
 
-def updateBlacklist():
+def updateBlacklist(blfile):
     black_list=[]
     active_black_list=[]
     #TODO:this will be updated to read blacklist from database
     if conf.role=='bu':
         try:
-            if os.stat('/etc/appliance/blacklist').st_size>0:
-                with open('/etc/appliance/blacklist','r') as fi:
+            if os.stat(blfile).st_size>0:
+                with open(blfile,'r') as fi:
                     try:
                         static_black_list = json.load(fi)
                         for item in static_black_list:
                             black_list.append(item)
-                        logger.info("found these resources in /etc/appliance/blacklist: "+str(black_list))
+                        logger.info("found these resources in " + blfile + " : " + str(black_list))
                     except ValueError:
                         logger.error("error parsing /etc/appliance/blacklist")
         except:
@@ -1672,11 +1672,20 @@ class Run:
         #self.lock.acquire()
 
         global machine_blacklist
+        bldir = os.path.join(self.dirname,'hlt')
+        blpath = os.path.join(self.dirname,'hlt','blacklist')
         if conf.role=='bu':
-            update_success,machine_blacklist=updateBlacklist()
-            if update_success==False:
-                logger.fatal("unable to check blacklist: giving up on run start")
-                return False
+            attempts=100
+            while not os.path.exists(bldir) and attempts>0:
+                time.sleep(0.05)
+                attempts-=1
+                if attempts<=0:
+                    logger.error('Timeout waiting for directory '+ bldir)
+                    break
+            if os.path.exists(blpath):
+              update_success,machine_blacklist=updateBlacklist(blpath)
+            else:
+                logger.error("unable to find blacklist file in "+bldir)
 
         for cpu in dirlist:
             #skip self
@@ -3242,7 +3251,8 @@ class hltd(Daemon2,object):
  
         if conf.role == 'bu':
             global machine_blacklist
-            update_success,machine_blacklist=updateBlacklist()
+            #update_success,machine_blacklist=updateBlacklist()
+            machine_blacklist=[]
             global ramdisk_submount_size
             if self.instance == 'main':
                 #if there are other instance mountpoints in ramdisk, they will be subtracted from size estimate

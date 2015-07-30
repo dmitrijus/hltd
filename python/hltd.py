@@ -1361,7 +1361,7 @@ class ProcessWatchdog(threading.Thread):
                         logger.exception(ex)
 
             #successful end= release resource (TODO:maybe should mark aborted for non-0 error codes)
-            elif returncode == 0 or returncode == None:
+            elif returncode == 0 or returncode == None or not configuration_reachable:
 
                 if not configuration_reachable:
                   logger.info('pid '+str(pid)+' exit 90 (input directory and menu missing) from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))

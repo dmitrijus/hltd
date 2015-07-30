@@ -531,7 +531,7 @@ class fileHandler(object):
         return os.path.exists(self.filepath)
 
         #write self.outputData in json self.filepath
-    def writeout(self,empty=False):
+    def writeout(self,empty=False,verbose=True):
         filepath = self.filepath
         outputData = self.data
         self.logger.info(filepath)
@@ -541,7 +541,10 @@ class fileHandler(object):
                 if empty==False:
                     json.dump(outputData,fi)
         except Exception,e:
-            self.logger.exception(e)
+            if verbose:
+              self.logger.exception(e)
+            else:
+              self.logger.warning('unable to writeout ' + filepath)
             return False
         return True
 

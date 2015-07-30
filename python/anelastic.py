@@ -265,8 +265,8 @@ class LumiSectionRanger():
         filepath = os.path.join(self.outdir,runname,filename)
         infile = fileHandler(filepath)
         infile.data = ""
-        infile.writeout(True)
-        self.errIniFile.set()
+        if infile.writeout(empty=True,verbose=False):
+            self.errIniFile.set()
 
         self.logger.info("created error ini file")
 

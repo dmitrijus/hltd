@@ -71,6 +71,7 @@ boxdoc_version = 1
 logCollector = None
 
 q_list = []
+num_excluded=0
 
 dqm_globalrun_filepattern = '.run{0}.global'
 
@@ -130,7 +131,8 @@ def cleanup_resources():
             os.rename(quarantined+cpu,idles+cpu)
         dirlist = os.listdir(idles)
         #quarantine files beyond use fraction limit (rounded to closest integer)
-        num_excluded = round(len(dirlist)*(1.-conf.resource_use_fraction))
+        global num_excluded
+        num_excluded = int(round(len(dirlist)*(1.-conf.resource_use_fraction)))
         for i in range(0,int(num_excluded)):
             os.rename(idles+dirlist[i],quarantined+dirlist[i])
         return True
@@ -349,7 +351,7 @@ def cleanup_mountpoints(remount=True):
                         break
                     else:
                         p_end = datetime.datetime.now()
-                        logger.warn('unable to ping '+mountaddr)
+                        logger.warning('unable to ping '+mountaddr)
                         dt = p_end - p_begin
                         if dt.seconds < 10:
                             time.sleep(10-dt.seconds)
@@ -407,7 +409,7 @@ def cleanup_mountpoints(remount=True):
                         break
                     else:
                         p_end = datetime.datetime.now()
-                        logger.warn('unable to ping '+line.strip())
+                        logger.warning('unable to ping '+line.strip())
                         dt = p_end - p_begin
                         if dt.seconds < 10:
                             time.sleep(10-dt.seconds)
@@ -495,14 +497,17 @@ def submount_size(basedir):
     except:pass
     return loop_size
 
-def cleanup_bu_disks():
-    outdirPath = conf.watch_directory[:conf.watch_directory.find(conf.ramdisk_subdirectory)]+conf.output_subdirectory
-    if conf.watch_directory.startswith('/fff') and conf.ramdisk_subdirectory in conf.watch_directory:
+def cleanup_bu_disks(run=None,cleanRamdisk=True,cleanOutput=True):
+    if cleanRamdisk:
+      if conf.watch_directory.startswith('/fff') and conf.ramdisk_subdirectory in conf.watch_directory:
         logger.info('cleanup BU disks: deleting runs in ramdisk ...')
         tries = 10
         while tries > 0:
             tries-=1
-            p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run*',shell=True)
+            if run==None:
+                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run*',shell=True)
+            else:
+                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run'+str(run),shell=True)
             p.wait()
             if p.returncode==0:
                 logger.info('Ramdisk cleanup performed')
@@ -510,14 +515,19 @@ def cleanup_bu_disks():
             else:
                 logger.info('Failed ramdisk cleanup (return code:'+str(p.returncode)+') in attempt'+str(10-tries))
 
-    logger.info('outdirPath:'+ outdirPath + ' '+conf.output_subdirectory)
-    if outdirPath.startswith('/fff') and conf.output_subdirectory in outdirPath:
+    if cleanOutput:
+      outdirPath = conf.watch_directory[:conf.watch_directory.find(conf.ramdisk_subdirectory)]+conf.output_subdirectory
+      logger.info('outdirPath:'+ outdirPath + ' '+conf.output_subdirectory)
 
+      if outdirPath.startswith('/fff') and conf.output_subdirectory in outdirPath:
         logger.info('cleanup BU disks: deleting runs in output disk ...')
         tries = 10
         while tries > 0:
             tries-=1
-            p = subprocess.Popen("rm -rf " + outdirPath+'/run*',shell=True)
+            if run==None:
+                p = subprocess.Popen("rm -rf " + outdirPath+'/run*',shell=True)
+            else:
+                p = subprocess.Popen("rm -rf " + outdirPath+'/run'+str(run),shell=True)
             p.wait()
             if p.returncode==0:
                 logger.info('Output cleanup performed')
@@ -741,6 +751,7 @@ class system_monitor(threading.Thread):
                     resource_count_idle = 0
                     resource_count_used = 0
                     resource_count_broken = 0
+                    resource_count_quarantined = 0
                     resource_count_stale = 0
                     resource_count_pending = 0
                     resource_count_activeRun = 0
@@ -790,6 +801,7 @@ class system_monitor(threading.Thread):
                                 active_addition+=edata['used']
                                 resource_count_used+=edata['used']
                                 resource_count_broken+=edata['broken']
+                                resource_count_quarantined+=edata['quarantined']
 
                                 #active resources reported to BU if cloud state is off
                                 if edata['cloudState'] == "off":
@@ -802,7 +814,7 @@ class system_monitor(threading.Thread):
                         try:
                             lastFURuns.append(edata['activeRuns'][-1])
                         except:pass
-                    if len(stale_machines):
+                    if len(stale_machines) and counter==1:
                         logger.warning("detected stale box resources: "+str(stale_machines))
                     fuRuns = sorted(list(set(lastFURuns)))
                     if len(fuRuns)>0:
@@ -832,6 +844,7 @@ class system_monitor(threading.Thread):
                                 "idle":resource_count_idle,
                                 "used":resource_count_used,
                                 "broken":resource_count_broken,
+                                "quarantined":resource_count_quarantined,
                                 "stale_resources":resource_count_stale,
                                 "cloud":cloud_count,
                                 "pending_resources":resource_count_pending,
@@ -889,7 +902,9 @@ class system_monitor(threading.Thread):
                             n_used = len(usedlist)
                             n_broken = len(brokenlist)
                             n_cloud = len(os.listdir(cloud))
-                            n_quarantined = len(os.listdir(quarantined))
+                            global num_excluded
+                            n_quarantined = len(os.listdir(quarantined))-num_excluded
+                            if n_quarantined<0: n_quarantined=0
                             numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
 
                             cloud_state = "off"
@@ -1046,8 +1061,7 @@ class OnlineResource:
         self.processstate = None
         self.watchdog = None
         self.runnumber = None
-        self.associateddir = None
-        self.statefiledir = None
+        self.assigned_run_dir = None
         self.lock = lock
         self.retry_attempts = 0
         self.quarantined = []
@@ -1056,11 +1070,20 @@ class OnlineResource:
         if conf.role == 'bu':
             if not os.system("ping -c 1 "+self.cpu[0])==0: pass #self.hoststate = 0
 
+    def NotifyNewRunStart(self,runnumber):
+        self.runnumber = runnumber
+        self.notifyNewRunThread = threading.Thread(target = self.NotifyNewRun,args=[runnumber])
+        self.notifyNewRunThread.start()
+
+    def NotifyNewRunJoin(self):
+         self.notifyNewRunThread.join()
+         self.notifyNewRunThread=None
+
     def NotifyNewRun(self,runnumber):
         self.runnumber = runnumber
         logger.info("calling start of run on "+self.cpu[0])
         try:
-            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset)
+            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)
             connection.request("GET",'cgi-bin/start_cgi.py?run='+str(runnumber))
             response = connection.getresponse()
             #do something intelligent with the response code
@@ -1073,7 +1096,7 @@ class OnlineResource:
 
     def NotifyShutdown(self):
         try:
-            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - self.cgi_instance_port_offset)
+            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - self.cgi_instance_port_offset,timeout=5)
             connection.request("GET",'cgi-bin/stop_cgi.py?run='+str(self.runnumber))
             time.sleep(0.05)
             response = connection.getresponse()
@@ -1093,6 +1116,7 @@ class OnlineResource:
         IFF it is necessary, it should address "any" number of mounts, not just 2
         """
         input_disk = bu_disk_list_ramdisk_instance[startindex%len(bu_disk_list_ramdisk_instance)]
+        inputdirpath = os.path.join(input_disk,'run'+str(runnumber).zfill(conf.run_number_padding))
         #run_dir = input_disk + '/run' + str(self.runnumber).zfill(conf.run_number_padding)
         logger.info("starting process with "+version+" and run number "+str(runnumber)+ ' threads:'+str(num_threads)+' streams:'+str(num_streams))
 
@@ -1148,17 +1172,21 @@ class OnlineResource:
                                             preexec_fn=preexec_function,
                                             close_fds=True
                                             )
-            self.processstate = 100
             logger.info("arg array "+str(new_run_args).translate(None, "'")+' started with pid '+str(self.process.pid))
 #            time.sleep(1.)
             if self.watchdog==None:
-                self.watchdog = ProcessWatchdog(self,self.lock)
+                self.processstate = 100
+                self.watchdog = ProcessWatchdog(self,self.lock,inputdirpath)
                 self.watchdog.start()
                 logger.debug("watchdog thread for "+str(self.process.pid)+" is alive "
                              + str(self.watchdog.is_alive()))
             else:
+                #release lock while joining thread to let it complete
+                resource_lock.release()
                 self.watchdog.join()
-                self.watchdog = ProcessWatchdog(self,self.lock)
+                resource_lock.acquire()
+                self.processstate = 100
+                self.watchdog = ProcessWatchdog(self,self.lock,inputdirpath)
                 self.watchdog.start()
                 logger.debug("watchdog thread restarted for "+str(self.process.pid)+" is alive "
                               + str(self.watchdog.is_alive()))
@@ -1169,11 +1197,6 @@ class OnlineResource:
     def join(self):
         logger.debug('calling join on thread ' +self.watchdog.name)
         self.watchdog.join()
-
-    def disableRestart(self):
-        logger.debug("OnlineResource "+str(self.cpu)+" restart is now disabled")
-        if self.watchdog:
-            self.watchdog.disableRestart()
 
     def clearQuarantined(self,doLock=True,restore=True):
         global q_list
@@ -1196,51 +1219,31 @@ class OnlineResource:
         return retq
 
 class ProcessWatchdog(threading.Thread):
-    def __init__(self,resource,lock):
+    def __init__(self,resource,lock,inputdirpath):
         threading.Thread.__init__(self)
         self.resource = resource
         self.lock = lock
+        self.inputdirpath=inputdirpath
         self.retry_limit = conf.process_restart_limit
         self.retry_delay = conf.process_restart_delay_sec
-        self.retry_enabled = True
         self.quarantined = False
     def run(self):
         try:
-            monfile = self.resource.associateddir+'/hltd.jsn'
-            logger.info('watchdog for process '+str(self.resource.process.pid))
+            logger.info('watchdog thread for process '+str(self.resource.process.pid) + ' on resource '+str(self.resource.cpu)+" for run "+str(self.resource.runnumber) + ' started ')
             self.resource.process.wait()
             returncode = self.resource.process.returncode
             pid = self.resource.process.pid
 
             #update json process monitoring file
             self.resource.processstate=returncode
-            logger.debug('ProcessWatchdog: acquire lock thread '+str(pid))
-            self.lock.acquire()
-            logger.debug('ProcessWatchdog: acquired lock thread '+str(pid))
 
-            try:
-                with open(monfile,"r+") as fp:
+            outdir = self.resource.assigned_run_dir
+            abortedmarker = os.path.join(outdir,Run.ABORTED)
+            stoppingmarker = os.path.join(outdir,Run.STOPPING)
+            abortcompletemarker = os.path.join(outdir,Run.ABORTCOMPLETE)
+            completemarker = os.path.join(outdir,Run.COMPLETE)
+            rnsuffix = str(self.resource.runnumber).zfill(conf.run_number_padding)
 
-                    stat=json.load(fp)
-
-                    stat=[[x[0],x[1],returncode]
-                          if x[0]==self.resource.cpu else [x[0],x[1],x[2]] for x in stat]
-                    fp.seek(0)
-                    fp.truncate()
-                    json.dump(stat,fp)
-
-                    fp.flush()
-            except IOError,ex:
-                logger.exception(ex)
-            except ValueError:
-                pass
-
-            logger.debug('ProcessWatchdog: release lock thread '+str(pid))
-            self.lock.release()
-            logger.debug('ProcessWatchdog: released lock thread '+str(pid))
-
-
-            abortedmarker = self.resource.statefiledir+'/'+Run.ABORTED
             if os.path.exists(abortedmarker):
                 resource_lock.acquire()
                 #release resources
@@ -1255,8 +1258,11 @@ class ProcessWatchdog(threading.Thread):
                 resource_lock.release()
                 return
 
+            #input dir check if cmsRun can not find the input
+            configuration_reachable = False if conf.dqm_machine==False and returncode==90 and not os.path.exists(self.inputdirpath) else True
+
             #cleanup actions- remove process from list and attempt restart on same resource
-            if returncode != 0 and returncode!=None:
+            if returncode != 0 and returncode!=None and configuration_reachable:
 
                 #bump error count in active_runs_errors which is logged in the box file
                 self.resource.parent.num_errors+=1
@@ -1266,18 +1272,14 @@ class ProcessWatchdog(threading.Thread):
                               +" for run "+str(self.resource.runnumber)
                               +" on resource(s) " + str(self.resource.cpu)
                               +" exited with signal "
-                              +str(returncode)
-                              +" restart is enabled ? "
-                              +str(self.retry_enabled)
+                              +str(returncode) + ', retries left: '+str(self.retry_limit-self.resource.retry_attempts)
                               )
                 else:
                     logger.error("process "+str(pid)
                               +" for run "+str(self.resource.runnumber)
                               +" on resource(s) " + str(self.resource.cpu)
                               +" exited with code "
-                              +str(returncode)
-                              +" restart is enabled ? "
-                              +str(self.retry_enabled)
+                              +str(returncode) +', retries left: '+str(self.retry_limit-self.resource.retry_attempts)
                               )
                 #quit codes (configuration errors):
                 quit_codes = [127,90,73]
@@ -1288,6 +1290,7 @@ class ProcessWatchdog(threading.Thread):
                 #dqm mode will treat configuration error as a crash and eventually move to quarantined
                 if conf.dqm_machine==False and returncode in quit_codes:
                     if self.resource.retry_attempts < self.retry_limit:
+
                         logger.warning('for this type of error, restarting this process is disabled')
                         self.resource.retry_attempts=self.retry_limit
                     if returncode==127:
@@ -1299,7 +1302,6 @@ class ProcessWatchdog(threading.Thread):
 
                 #generate crashed pid json file like: run000001_ls0000_crash_pid12345.jsn
                 oldpid = "pid"+str(pid).zfill(5)
-                outdir = self.resource.statefiledir
                 runnumber = "run"+str(self.resource.runnumber).zfill(conf.run_number_padding)
                 ls = "ls0000"
                 filename = "_".join([runnumber,ls,"crash",oldpid])+".jsn"
@@ -1334,7 +1336,7 @@ class ProcessWatchdog(threading.Thread):
                     logger.debug("resource(s) " +str(self.resource.cpu)+
                                   " successfully moved to except")
                 elif self.resource.retry_attempts >= self.retry_limit:
-                    logger.error("process for run "
+                    logger.info("process for run "
                                   +str(self.resource.runnumber)
                                   +" on resources " + str(self.resource.cpu)
                                   +" reached max retry limit "
@@ -1349,41 +1351,56 @@ class ProcessWatchdog(threading.Thread):
 
                     #write quarantined marker for RunRanger
                     try:
-                        os.remove(conf.watch_directory+'/quarantined'+str(self.resource.runnumber).zfill(conf.run_number_padding))
-                    except:pass
+                        os.remove(conf.watch_directory+'/quarantined'+rnsuffix)
+                    except:
+                        pass
                     try:
-                        fp = open(conf.watch_directory+'/quarantined'+str(self.resource.runnumber).zfill(conf.run_number_padding),'w+')
-                        fp.close()
+                        with open(conf.watch_directory+'/quarantined'+rnsuffix,'w+') as fp:
+                            pass
                     except Exception as ex:
                         logger.exception(ex)
 
             #successful end= release resource (TODO:maybe should mark aborted for non-0 error codes)
             elif returncode == 0 or returncode == None:
-                logger.info('releasing resource, exit 0 meaning end of run '+str(self.resource.cpu))
+
+                if not configuration_reachable:
+                  logger.info('pid '+str(pid)+' exit 90 (input directory and menu missing) from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
+
+                else:
+                  logger.info('pid '+str(pid)+' exit 0 from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
 
                 # generate an end-of-run marker if it isn't already there - it will be picked up by the RunRanger
-                endmarker = conf.watch_directory+'/end'+str(self.resource.runnumber).zfill(conf.run_number_padding)
-                stoppingmarker = self.resource.statefiledir+'/'+Run.STOPPING
-                completemarker = self.resource.statefiledir+'/'+Run.COMPLETE
+                endmarker = conf.watch_directory+'/end'+rnsuffix
                 if not os.path.exists(endmarker):
-                    fp = open(endmarker,'w+')
-                    fp.close()
+                    with open(endmarker,'w+') as fp:
+                        pass
+
+                count=0
                 # wait until the request to end has been handled
                 while not os.path.exists(stoppingmarker):
-                    if os.path.exists(completemarker): break
+                    if os.path.exists(completemarker): 
+                        break
+                    if os.path.exists(abortedmarker) or os.path.exists(abortcompletemarker):
+                        logger.warning('quitting watchdog thread because run ' + str(self.resource.runnumber) + ' has been aborted ( pid' + str(pid) + ' resource' + str(self.resource.cpu) + ')')
+                        break
+                    if not os.path.exists(outdir):
+                        logger.warning('quitting watchdog thread because run directory ' + outdir  + ' has disappeared ( pid' + str(pid) + ' resource' + str(self.resource.cpu) + ')')
+                        break
                     time.sleep(.1)
+                    count+=1
+                    if count>=100 and count%100==0:
+                      logger.warning("still waiting for complete marker for run "+str(self.resource.runnumber) + ' in watchdog for resource '+str(self.resource.cpu))
+
                 # move back the resource now that it's safe since the run is marked as ended
                 resource_lock.acquire()
                 for cpu in self.resource.cpu:
                   try:
                       os.rename(used+cpu,idles+cpu)
                   except Exception as ex:
-                      logger.warning('problem moving core from used to idle:'+str(ex))
+                      logger.warning('problem moving core ' + cpu + ' from used to idle:'+str(ex))
                 resource_lock.release()
 
-                #self.resource.process=None
-
-            #        logger.info('exiting thread '+str(self.resource.process.pid))
+            #logger.info('exiting watchdog thread for '+str(self.resource.cpu))
 
         except Exception as ex:
             logger.info("OnlineResource watchdog: exception")
@@ -1392,8 +1409,6 @@ class ProcessWatchdog(threading.Thread):
             except:pass
         return
 
-    def disableRestart(self):
-        self.retry_enabled = False
 
 class Run:
 
@@ -1428,6 +1443,7 @@ class Run:
         self.anelasticWatchdog = None
         self.elasticBUWatchdog = None
         self.completedChecker = None
+        self.runShutdown = None
         self.threadEvent = threading.Event()
         self.stopThreads = False
 
@@ -1477,7 +1493,10 @@ class Run:
 
             else:
                 if readMenuAttempts>50:
-                    logger.error("FFF parameter or HLT menu files not found in ramdisk")
+                    if not os.path.exists(bu_dir):
+                        logger.info("FFF parameter or HLT menu files not found in ramdisk - BU run directory is gone")
+                    else:
+                        logger.error("FFF parameter or HLT menu files not found in ramdisk")
                     break
             readMenuAttempts+=1
             time.sleep(.1)
@@ -1489,7 +1508,7 @@ class Run:
             self.menu_path = conf.test_hlt_config1
             self.transfermode = 'null'
             if conf.role=='fu':
-                logger.warn("Using default values for run " + str(self.runnumber) + ": " + self.version + " (" + self.arch + ") with " + self.menu_path)
+                logger.warning("Using default values for run " + str(self.runnumber) + ": " + self.version + " (" + self.arch + ") with " + self.menu_path)
 
         #give this command line parameter quoted in case it is empty
         if len(self.transfermode)==0:
@@ -1501,7 +1520,7 @@ class Run:
                 hltTargetName = 'HltConfig.py_run'+str(self.runnumber)+'_'+self.arch+'_'+self.version+'_'+self.transfermode
                 shutil.copy(self.menu_path,os.path.join(conf.log_dir,'pid',hltTargetName))
             except:
-                logger.warn('Unable to backup HLT menu')
+                logger.warning('Unable to backup HLT menu')
 
         self.rawinputdir = None
         #
@@ -1526,7 +1545,7 @@ class Run:
                     os.stat(self.rawinputdir)
                     self.inputdir_exists = True
                 except:
-                    logger.error("unable to stat raw input directory for run "+str(self.runnumber))
+                    logger.warning("unable to stat raw input directory for run "+str(self.runnumber))
                     return
             else:
                 self.inputdir_exists = True
@@ -1579,6 +1598,9 @@ class Run:
                 self.elasticBUWatchdog.join()
             except RuntimeError:
                 pass
+        if self.runShutdown:
+            self.joinShutdown()
+
         logger.info('Run '+ str(self.runnumber) +' object __del__ has completed')
 
     def countOwnedResourcesFrom(self,resourcelist):
@@ -1602,17 +1624,30 @@ class Run:
             for resourcename in resourcenames:
               os.rename(idles+resourcename,used+resourcename)
               self.n_used+=1
-            if not filter(lambda x: x.cpu==resourcenames,self.online_resource_list):
+            #TODO:fix core pairing with resource.cpu list (otherwise - restarting will not work properly)
+            if not filter(lambda x: sorted(x.cpu)==sorted(resourcenames),self.online_resource_list):
                 logger.debug("resource(s) "+str(resourcenames)
                               +" not found in online_resource_list, creating new")
                 self.online_resource_list.append(OnlineResource(self,resourcenames,self.lock))
                 return self.online_resource_list[-1]
             logger.debug("resource(s) "+str(resourcenames)
                           +" found in online_resource_list")
-            return filter(lambda x: x.cpu==resourcenames,self.online_resource_list)[0]
+            return filter(lambda x: sorted(x.cpu)==sorted(resourcenames),self.online_resource_list)[0]
         except Exception as ex:
             logger.info("exception encountered in looking for resources")
             logger.info(ex)
+
+    def MatchResource(self,resourcenames):
+        for res in self.online_resource_list:
+            #first resource in the list is the one that triggered inotify event
+            if resourcenames[0] in res.cpu:
+                found_all = True
+                for name in res.cpu:
+                    if name not in resourcenames:
+                        found_all = False
+                if found_all:
+                    return res.cpu
+        return None
 
     def ContactResource(self,resourcename):
         self.online_resource_list.append(OnlineResource(self,resourcename,self.lock))
@@ -1687,7 +1722,7 @@ class Run:
                     if doc['detectedStaleHandle']==True:
                         return True
             except:
-                logger.warning('can not parse ' + rfile)
+                logger.warning('can not parse ' + str(resourcepath))
         return False
 
     def CheckTemplate(self):
@@ -1700,19 +1735,32 @@ class Run:
 
     def Start(self):
         self.is_ongoing_run = True
-        for resource in self.online_resource_list:
-            logger.info('start run '+str(self.runnumber)+' on cpu(s) '+str(resource.cpu))
-            if conf.role == 'fu':
+        #create mon subdirectory before starting
+        try:
+            os.makedirs(os.path.join(self.dirname,'mon'))
+        except OSError:
+            pass
+        #start/notify run for each resource
+        if conf.role == 'fu':
+            for resource in self.online_resource_list:
+                logger.info('start run '+str(self.runnumber)+' on cpu(s) '+str(resource.cpu))
                 self.StartOnResource(resource)
-            else:
-                resource.NotifyNewRun(self.runnumber)
-                #update begin time to after notifying FUs
-                self.beginTime = datetime.datetime.now()
-        if conf.role == 'fu' and conf.dqm_machine==False:
-            self.changeMarkerMaybe(Run.ACTIVE)
-            #start safeguard monitoring of anelastic.py
-            self.startAnelasticWatchdog()
+
+            if conf.dqm_machine==False:
+                self.changeMarkerMaybe(Run.ACTIVE)
+                #start safeguard monitoring of anelastic.py
+                self.startAnelasticWatchdog()
+ 
         elif conf.role == 'bu':
+            for resource in self.online_resource_list:
+                logger.info('start run '+str(self.runnumber)+' on resources '+str(resource.cpu))
+                resource.NotifyNewRunStart(self.runnumber)
+            #update begin time at this point
+            self.beginTime = datetime.datetime.now()
+            for resource in self.online_resource_list:
+                resource.NotifyNewRunJoin()
+            logger.info('sent start run '+str(self.runnumber)+' notification to all resources')
+
             self.startElasticBUWatchdog()
             self.startCompletedChecker()
 
@@ -1747,9 +1795,7 @@ class Run:
 
     def StartOnResource(self, resource):
         logger.debug("StartOnResource called")
-        resource.statefiledir=conf.watch_directory+'/run'+str(self.runnumber).zfill(conf.run_number_padding)
-        mondir = os.path.join(resource.statefiledir,'mon')
-        resource.associateddir=mondir
+        resource.assigned_run_dir=conf.watch_directory+'/run'+str(self.runnumber).zfill(conf.run_number_padding)
         resource.StartNewProcess(self.runnumber,
                                  self.online_resource_list.index(resource),
                                  self.arch,
@@ -1759,65 +1805,7 @@ class Run:
                                  int(round((len(resource.cpu)*float(nthreads)/nstreams))),
                                  len(resource.cpu))
         logger.debug("StartOnResource process started")
-        #logger.debug("StartOnResource going to acquire lock")
-        #self.lock.acquire()
-        #logger.debug("StartOnResource lock acquired")
-        try:
-            os.makedirs(mondir)
-        except OSError:
-            pass
-        monfile = mondir+'/hltd.jsn'
 
-        fp=None
-        stat = []
-        if not os.path.exists(monfile):
-            logger.debug("No log file "+monfile+" found, creating one")
-            fp=open(monfile,'w+')
-            attempts=0
-            while True:
-                try:
-                    stat.append([resource.cpu,resource.process.pid,resource.processstate])
-                    break
-                except:
-                    if attempts<5:
-                        attempts+=1
-                        continue
-                    else:
-                        logger.error("could not retrieve process parameters")
-                        logger.exception(ex)
-                        break
-
-        else:
-            logger.debug("Updating existing log file "+monfile)
-            fp=open(monfile,'r+')
-            stat=json.load(fp)
-            attempts=0
-            while True:
-                try:
-                    me = filter(lambda x: x[0]==resource.cpu, stat)
-                    if me:
-                        me[0][1]=resource.process.pid
-                        me[0][2]=resource.processstate
-                    else:
-                        stat.append([resource.cpu,resource.process.pid,resource.processstate])
-                    break
-                except Exception as ex:
-                    if attempts<5:
-                        attempts+=1
-                        time.sleep(.05)
-                        continue
-                    else:
-                        logger.error("could not retrieve process parameters")
-                        logger.exception(ex)
-                        break
-        fp.seek(0)
-        fp.truncate()
-        json.dump(stat,fp)
-
-        fp.flush()
-        fp.close()
-        #self.lock.release()
-        #logger.debug("StartOnResource lock released")
 
     def Stop(self):
         #used to gracefully stop CMSSW and finish scripts
@@ -1838,11 +1826,21 @@ class Run:
         try:
           os.rename(os.path.join(self.dirname,"temp_CMSSW_STOP"),os.path.join(self.dirname,"CMSSW_STOP"))
         except:pass
-        
+
+    def startShutdown(self,killJobs=False,killScripts=False):
+        self.runShutdown = threading.Thread(target = self.Shutdown,args=[killJobs,killScripts])
+        self.runShutdown.start()
+
+    def joinShutdown(self):
+        if self.runShutdown:
+            try:
+                self.runShutdown.join()
+            except:
+                return
 
     def Shutdown(self,killJobs=False,killScripts=False):
         #herod mode sends sigkill to all process, however waits for all scripts to finish
-        logger.debug("run:Shutdown called")
+        logger.info("run"+str(self.runnumber)+": Shutdown called")
         self.pending_shutdown=False
         self.is_ongoing_run = False
 
@@ -1851,43 +1849,43 @@ class Run:
         except OSError as ex:
             pass
 
+        time.sleep(.1)
         try:
             for resource in self.online_resource_list:
-                resource.disableRestart()
-            time.sleep(.1)
-            for resource in self.online_resource_list:
-                if conf.role == 'fu':
-                    if resource.processstate==100:
-                        logger.info('terminating process '+str(resource.process.pid)+
-                                     ' in state '+str(resource.processstate)+' owning '+str(resource.cpu))
+                if resource.processstate==100:
+                    logger.info('terminating process '+str(resource.process.pid)+
+                                 ' in state '+str(resource.processstate)+' owning '+str(resource.cpu))
 
-                        if killJobs:resource.process.kill()
-                        else:resource.process.terminate()
-                        if resource.watchdog!=None and resource.watchdog.is_alive():
-                            try:
-                                resource.join()
-                            except:
-                                pass
-                        logger.info('process '+str(resource.process.pid)+' terminated')
+                    if killJobs:resource.process.kill()
+                    else:resource.process.terminate()
+                    if resource.watchdog!=None and resource.watchdog.is_alive():
+                        try:
+                            resource.join()
+                        except:
+                            pass
+                    logger.info('process '+str(resource.process.pid)+' terminated')
                     time.sleep(.1) 
                     logger.info(' releasing resource(s) '+str(resource.cpu))
-                    resource_lock.acquire()
-                    q_clear_condition = (not self.checkQuarantinedLimit()) or conf.auto_clear_quarantined
-                    cleared_q = resource.clearQuarantined(doLock=False,restore=q_clear_condition)
-                    for cpu in resource.cpu:
-                        if cpu not in cleared_q:
-                            try:
-                                os.rename(used+cpu,idles+cpu)
-                                self.n_used-=1
-                            except OSError:
-                                #@SM:can happen if it was quarantined
-                                logger.warning('Unable to find resource '+used+cpu)
-                            except Exception as ex:
-                                resource_lock.release()
-                                raise(ex)
-                    resource_lock.release()
-                    resource.process=None
 
+            resource_lock.acquire()
+            q_clear_condition = (not self.checkQuarantinedLimit()) or conf.auto_clear_quarantined
+            for resource in self.online_resource_list:
+                cleared_q = resource.clearQuarantined(doLock=False,restore=q_clear_condition)
+                for cpu in resource.cpu:
+                    if cpu not in cleared_q:
+                        try:
+                            os.rename(used+cpu,idles+cpu)
+                            self.n_used-=1
+                        except OSError:
+                            #@SM:can happen if it was quarantined
+                            logger.warning('Unable to find resource '+used+cpu)
+                        except Exception as ex:
+                            resource_lock.release()
+                            raise(ex)
+                resource.process=None
+            resource_lock.release()
+            logger.info('completed clearing resource list')
+             
             self.online_resource_list = []
             try:
                 self.changeMarkerMaybe(Run.ABORTCOMPLETE)
@@ -1938,7 +1936,6 @@ class Run:
         logger.info('Shutdown of run '+str(self.runnumber).zfill(conf.run_number_padding)+' completed')
 
     def ShutdownBU(self):
-
         self.is_ongoing_run = False
         try:
             if self.elastic_monitor:
@@ -1979,9 +1976,7 @@ class Run:
         global abort_cloud_mode
         try:
             for resource in self.online_resource_list:
-                resource.disableRestart()
-            for resource in self.online_resource_list:
-                if resource.processstate is not None:#was:100
+                if resource.processstate is not None:
                     if resource.process is not None and resource.process.pid is not None: ppid = resource.process.pid
                     else: ppid="None"
                     logger.info('waiting for process '+str(ppid)+
@@ -2098,7 +2093,7 @@ class Run:
             if self.is_ongoing_run == True:
                 #abort the run
                 self.anelasticWatchdog=None
-                logger.warning("Premature end of anelastic.py")
+                logger.warning("Premature end of anelastic.py for run "+str(self.runnumber))
                 self.Shutdown(killJobs=True,killScripts=True)
         except:
             pass
@@ -2122,11 +2117,11 @@ class Run:
     def startCompletedChecker(self):
 
         try:
-            logger.info('start checking completition of run '+str(self.runnumber))
+            logger.info('start checking completion of run '+str(self.runnumber))
             self.completedChecker = threading.Thread(target = self.runCompletedChecker)
             self.completedChecker.start()
         except Exception,ex:
-            logger.error('failure to start run completition checker:')
+            logger.error('failure to start run completion checker:')
             logger.exception(ex)
 
     def runCompletedChecker(self):
@@ -2319,7 +2314,7 @@ class RunRanger:
                         #terminate quarantined runs     
                         for run in runList.getQuarantinedRuns():
                             #run shutdown waiting for scripts to finish
-                            run.Shutdown(True,False)
+                            run.startShutdown(True,False)
                             time.sleep(.1)
 
                         resources_blocked_flag=False
@@ -2361,8 +2356,8 @@ class RunRanger:
                         resource_lock.acquire()
                         runList.add(run)
                         try:
-                            if not entering_cloud_mode and not has_active_resources():
-                                logger.error('trying to start a run '+str(run.runnumber)+ ' without any available resources - this required manual intervention !')
+                            if conf.role=='fu' and not entering_cloud_mode and not has_active_resources():
+                                logger.error('trying to start a run '+str(run.runnumber)+ ' without any available resources - this requires manual intervention !')
                         except Exception,ex:
                             logger.exception(ex)
 
@@ -2442,9 +2437,10 @@ class RunRanger:
                               +' which is NOT a run number - this should '
                               +'*never* happen')
 
-        elif dirname.startswith('herod'):
+        elif dirname.startswith('herod') or dirname.startswith('tsunami'):
             os.remove(fullpath)
             if conf.role == 'fu':
+                global q_list
                 logger.info("killing all CMSSW child processes")
                 for run in runList.getActiveRuns():
                     run.Shutdown(True,False)
@@ -2456,6 +2452,7 @@ class RunRanger:
                         os.rename(quarantined+cpu,idles+cpu)
                     except:
                         logger.info('Quarantined resource was already cleared: '+cpu)
+                q_list=[]
 
             elif conf.role == 'bu':
                 for run in runList.getActiveRuns():
@@ -2463,7 +2460,9 @@ class RunRanger:
                     run.ShutdownBU()
 
                 #delete input and output BU directories
-                cleanup_bu_disks()
+                if dirname.startswith('tsunami'):
+                  logger.info('tsunami approaching: cleaning all ramdisk and output run data')
+                  cleanup_bu_disks(None,True,True)
 
                 #contact any FU that appears alive
                 boxdir = conf.resource_base +'/boxes/'
@@ -2476,15 +2475,48 @@ class RunRanger:
                         age = current_time - os.path.getmtime(boxdir+name)
                         logger.info('found box '+name+' with keepalive age '+str(age))
                         if age < 20:
-                            connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset)
-                            time.sleep(0.05)
-                            connection.request("GET",'cgi-bin/herod_cgi.py')
-                            time.sleep(0.1)
-                            response = connection.getresponse()
+                            try:
+                                connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
+                                time.sleep(0.05)
+                                connection.request("GET",'cgi-bin/herod_cgi.py')
+                                time.sleep(0.1)
+                                response = connection.getresponse()
+                            except Exception as ex:
+                                logger.error("exception encountered in contacting resource "+str(name))
+                                logger.exception(ex)
                     logger.info("sent herod to all child FUs")
                 except Exception as ex:
                     logger.error("exception encountered in contacting resources")
                     logger.info(ex)
+
+        elif dirname.startswith('cleanoutput'):
+            os.remove(fullpath)
+            nlen = len('cleanoutput')
+            if len(dirname)==nlen:
+              logger.info('cleaning output (all run data)'+str(rn)) 
+              cleanup_bu_disks(None,False,True)
+            else:
+              try:
+                rn = int(dirname[nlen:])
+                logger.info('cleaning output (only for run '+str(rn)+')')
+                cleanup_bu_disks(rn,False,True)
+              except:
+                logger.error('Could not parse '+dirname)
+
+        elif dirname.startswith('cleanramdisk'):
+            os.remove(fullpath)
+            nlen = len('cleanramdisk')
+            if len(dirname)==nlen:
+              logger.info('cleaning ramdisk (all run data)'+str(rn)) 
+              cleanup_bu_disks(None,True,False)
+            else:
+              try:
+                rn = int(dirname[nlen:])
+                logger.info('cleaning ramdisk (only for run '+str(rn)+')')
+                cleanup_bu_disks(rn,True,False)
+              except:
+                logger.error('Could not parse '+dirname)
+                
         elif dirname.startswith('populationcontrol'):
             if len(runList.runs)>0:
                 logger.info("terminating all ongoing runs via cgi interface (populationcontrol): "+str(runList.getActiveRunNumbers()))
@@ -2521,9 +2553,11 @@ class RunRanger:
                         run = runList.getRun(nr)
                         if run.checkQuarantinedLimit():
                             if runList.isLatestRun(run):
+                                logger.info('reached quarantined limit - pending Shutdown for run:'+str(nr))
                                 run.pending_shutdown=True
                             else:
-                                run.Shutdown(True,False)
+                                logger.info('reached quarantined limit - initiating Shutdown for run:'+str(nr))
+                                run.startShutdown(True,False)
                     except Exception as ex:
                         logger.exception(ex)
 
@@ -2825,7 +2859,7 @@ class ResourceRanger:
 
                 run = runList.getLastOngoingRun()
                 if run is not None:
-                    logger.info("ResourceRanger: found active run "+str(run.runnumber))
+                    logger.info("ResourceRanger: found active run "+str(run.runnumber)+ " when received inotify MOVED event for "+event.fullpath)
                     """grab resources that become available
                     #@@EM implement threaded acquisition of resources here
                     """
@@ -2852,17 +2886,27 @@ class ResourceRanger:
                         resource_lock.release()
                         return
                     #acquire sufficient cores for a multithreaded process start
-                    resourcenames = []
-                    for resname in reslist:
-                        if len(resourcenames) < nstreams:
-                            resourcenames.append(resname)
-                        else:
-                            break
 
-                    acquired_sufficient = False
-                    if len(resourcenames) == nstreams:
+                    #returns whether it can be matched to existing online resource or not
+                    matchedList = run.MatchResource(reslist)
+
+                    if matchedList:
+                        #matched with previous resource (restarting process)
                         acquired_sufficient = True
-                        res = run.AcquireResource(resourcenames,resourcestate)
+                        res = run.AcquireResource(matchedList,resourcestate)
+
+                    else:
+                        resourcenames = []
+                        for resname in reslist:
+                            if len(resourcenames) < nstreams:
+                                resourcenames.append(resname)
+                            else:
+                                break
+
+                        acquired_sufficient = False
+                        if len(resourcenames) == nstreams:
+                            acquired_sufficient = True
+                            res = run.AcquireResource(resourcenames,resourcestate)
 
                     if acquired_sufficient:
                         logger.info("ResourceRanger: acquired resource(s) "+str(res.cpu))

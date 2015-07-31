@@ -133,7 +133,9 @@ central_runindex_mapping = {
                     'NEvents'       :{'type':'integer'},
                     'NFiles'        :{'type':'integer'},
                     'TotalEvents'   :{'type':'integer'},
-                    'NLostEvents'   :{'type':'integer'}
+                    'NLostEvents'   :{'type':'integer'},
+                    'NBytes'        :{'type':'long'},
+                    'appliance'     :{'type':'string','index' : 'not_analyzed'}
                     },
                 '_timestamp' : { 
                     'enabled'   : True,
@@ -147,7 +149,8 @@ central_runindex_mapping = {
                 'properties' : {
                     'fm_date'       :{'type':'date'},
                     'id'            :{'type':'string'}, #run+appliance+stream+ls
-                    'appliance'     :{'type':'string'},
+                    'appliance'     :{'type':'string'}, #wrong mapping:not analyzed
+                    'host'          :{'type':'string','index' : 'not_analyzed'},
                     'stream'        :{'type':'string','index' : 'not_analyzed'},
                     'ls'            :{'type':'integer'},
                     'processed'     :{'type':'integer'},
@@ -232,6 +235,7 @@ central_boxinfo_mapping = {
               "active_resources" :           { "type" : "integer" },
               "active_resources_activeRun" : { "type" : "integer" },
               "broken" :                     { "type" : "integer" },
+              "quarantined" :                { "type" : "integer" },
               "cloud" :                      { "type" : "integer" },
               "fu_workdir_used_quota" :      { "type" : "float" },
               "idle" :                       { "type" : "integer" },
@@ -267,7 +271,76 @@ central_hltdlogs_mapping = {
                     'lexicalId' : {'type' : 'string',"index" : "not_analyzed"},
                     'msgtime' : {'type' : 'date','format':'YYYY-mm-dd HH:mm:ss'},
                  }
+            },
+
+            "cmsswlog": {
+                    "_timestamp": {
+                            "enabled": True,
+                            "store": "yes"
+                    },
+                    "properties": {
+                            "host": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                            },
+                            "pid": {
+                                    "type": "integer"
+                            },
+                            "type": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                            },
+                            "severity": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                            },
+                            "severityVal": {
+                                    "type": "integer"
+                            },
+                            "category": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                            },
+                            "fwkState": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                            },
+
+                            "module": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                            },
+                            "moduleInstance": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                            },
+                            "moduleCall": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                            },
+                            "lumi": {
+                                    "type": "integer"
+                            },
+                            "eventInPrc": {
+                                    "type": "long"
+                            },
+                            "message": {
+                                    "type": "string"
+                            },
+                            "lexicalId": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                            },
+                            "msgtime": {
+                                    "type": "date",
+                                    "format": "dd-MMM-YYYY HH:mm:ss"
+                            },
+                            "msgtimezone": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                            }
+                    }
             }
-        }
+}
 
 

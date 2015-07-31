@@ -51,6 +51,7 @@ class LumiSectionRanger():
         self.iniReceived=False
         self.flush = None
         self.allowEmptyLs=False
+        self.logged_early_crash_warning=False
 
     def join(self, stop=False, timeout=None):
         if stop: self.stop()
@@ -122,7 +123,10 @@ class LumiSectionRanger():
         self.createOutputEoR()
 
         self.logger.info("joining DQM merger thread")
-        self.dqmHandler.waitFinish()
+        try:
+            self.dqmHandler.waitFinish()
+        except:
+            pass
         self.logger.info("Stop main loop")
 
         #send the fileEvent to the proper LShandlerand remove closed LSs, or process INI and EOR files
@@ -144,7 +148,9 @@ class LumiSectionRanger():
         if not self.receivedEoLS.isSet():
             if filetype == CRASH:
                 #TODO: this relies on a file flag that signals at least one cmsRun job has reached event processing stage
-                self.logger.fatal("Detected cmsRun job crash before event processing was started!")
+                if not self.logged_early_crash_warning:
+                    self.logger.fatal("Detected cmsRun job crash before event processing was started!")
+                    self.logged_early_crash_warning=True
             if filetype == INDEX:
                 self.logger.info('buffering index file '+self.infile.filepath)
                 self.initBuffer.append(self.infile)
@@ -588,7 +594,7 @@ class LumiSectionHandler():
                     outfile.esCopy()
                     outfile.moveFile(remotePath, createDestinationDir=True, missingDirAlert=True)
                 self.emptyLumiStreams.append(stream)
-                if len(self.emptyLumiStreams)==len(self.activeStreams):
+                if len(self.emptyLumiStreams)==len(self.activeStreams)+1:
                   self.closed.set()
                   if self.EOLS:
                       self.EOLS.esCopy()
@@ -848,6 +854,12 @@ class LumiSectionHandler():
             errfile.setFieldByName("TransferDestination","ErrorArea",warning=False)
             errfile.writeout()
             newfilepath = os.path.join(self.outdir,errfile.run,errfile.basename)
+            #store in ES if there were any errors
+            try:
+                if numErr>0:
+                    errfile.esCopy()
+            except Exception,ex:
+                self.logger.exception(ex)
             errfile.moveFile(newfilepath,createDestinationDir=False)
 
     def outputBoLSFile(self,stream):
@@ -962,10 +974,11 @@ class DQMMerger(threading.Thread):
 
        filesize=0
        hasError=False
-       exitCodes =  outfile.getFieldByName('ReturnCodeMask')
-       if numFiles>=0:
+       if numFiles>0:
+           time_start = time.time()
            p = subprocess.Popen(command_args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
            p.wait()
+           time_delta = time.time()-time_start
            if p.returncode!=0:
                self.logger.error('fastHadd returned with exit code '+str(p.returncode)+' and response: ' + str(p.communicate()) + '. Merging parameters given:'+str(command_args) +' ,file sizes(B):'+str(inFileSizes))
                #DQM more verbose debugging
@@ -976,6 +989,8 @@ class DQMMerger(threading.Thread):
                    pass
                outfile.setFieldByName('ReturnCodeMask', str(p.returncode))
                hasError=True
+           else:
+               self.logger.info('fastHadd merging of ' + str(len(inFileSizes)) + ' files took ' + str(time_delta) + ' seconds')
 
            for f in command_args[4:]:
                try:
@@ -989,7 +1004,7 @@ class DQMMerger(threading.Thread):
            errorEvents+=processedEvents
            processedEvents=0
            acceptedEvents=0
-           fullOutputPath=""
+           outputName=""
            filesize=0
 
        #correct for the missing event count in input file (when we have a crash)

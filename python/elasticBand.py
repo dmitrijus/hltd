@@ -9,7 +9,6 @@ import logging
 
 from aUtils import *
 
-
 class elasticBand():
 
 
@@ -157,16 +156,21 @@ class elasticBand():
         prc=infile.pid
 
         document['data'] = [int(f) if f.isdigit() else str(f) for f in document['data']]
-        datadict = {'out':document['data'][0]}
+        try:
+          data_size=document['data'][1]
+        except:
+          data_size=0
+        datadict = {'out':document['data'][0],'size':data_size}
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['index']=int(index[5:])
         document['dest']=self.hostname
         document['process']=int(prc[3:])
+        document['fm_date']=str(infile.mtime)
         try:document.pop('definition')
 	except:pass
-        self.prcinBuffer.setdefault(ls,[]).append(document)
-        #self.es.index(self.indexName,'prc-in',document)
+        #self.prcinBuffer.setdefault(ls,[]).append(document)
+        self.tryIndex('prc-in',document)
 
     def elasticize_queue_status(self,infile):
         document,ret = self.imbue_jsn(infile,silent=True)

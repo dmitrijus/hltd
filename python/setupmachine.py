@@ -74,6 +74,7 @@ def getmachinetype():
     if   myhost.startswith('dvrubu-') or myhost.startswith('dvfu-') : return 'daq2val','fu'
     elif myhost.startswith('dvbu-') : return 'daq2val','bu'
     elif myhost.startswith('fu-') : return 'daq2','fu'
+    elif myhost.startswith('hilton-') : return 'hilton','fu'
     elif myhost.startswith('bu-') : return 'daq2','bu'
     elif myhost.startswith('srv-') :
         try:
@@ -537,13 +538,16 @@ if __name__ == "__main__":
     dqmmachine = 'False'
     execdir = '/opt/hltd'
     resourcefract = '0.5'
-
+    auto_clear_quarantined = 'False'
+    
     if cluster == 'daq2val':
         runindex_name = 'dv'
+        auto_clear_quarantined = 'True'
     elif cluster == 'daq2':
         runindex_name = 'cdaq'
         if myhost in minidaq_list:
             runindex_name = 'minidaq'
+            auto_clear_quarantined = 'True'
         if myhost in dqm_list or myhost in ed_list:
 
             use_elasticsearch = 'False'
@@ -553,6 +557,7 @@ if __name__ == "__main__":
             username = 'dqmpro'
             resourcefract = '1.0'
             cmssw_version = ''
+            auto_clear_quarantined = 'True'
             if type == 'fu':
                 cmsswloglevel = 'ERROR'
                 cmssw_base = '/home/dqmprolocal'
@@ -564,6 +569,10 @@ if __name__ == "__main__":
                 cmsswloglevel = 'ERROR'
                 cmssw_base = '/home/dqmdevlocal'
                 execdir = '/home/dqmdevlocal/output' ##not yet 
+    elif cluster == 'hilton':
+        runindex_name = 'dv'
+        use_elasticsearch = 'False'
+        elastic_host = 'http://localhost:9200'
 
     buName = None
     buDataAddr=[]
@@ -581,6 +590,8 @@ if __name__ == "__main__":
             if buName == None or len(buDataAddr)==0:
                 print "no BU found for this FU in the dabatase"
                 sys.exit(-1)
+      elif cluster == 'hilton':
+          pass
       else:
           print "FU configuration in cluster",cluster,"not supported yet !!"
           sys.exit(-2)
@@ -595,8 +606,13 @@ if __name__ == "__main__":
         buName='es-tribe'
 
     print "running configuration for machine",cnhostname,"of type",type,"in cluster",cluster,"; appliance bu is:",buName
+    if buName==None: buName=""
 
     clusterName='appliance_'+buName
+
+    if cluster=='hilton':
+        clusterName='appliance_hilton'
+
     if 'elasticsearch' in selection:
 
         if env=="vm":
@@ -622,10 +638,10 @@ if __name__ == "__main__":
             essyscfg.reg('MAX_LOCKED_MEMORY','unlimited')
             essyscfg.reg('ES_USE_GC_LOGGING','true')
             if type == 'fu':
-              if myhost.startswith('fu-c2d'):#Megware FU racks
+              #if myhost.startswith('fu-c2d'):#Megware FU racks
                 essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log -XX:NewSize=500m -XX:MaxNewSize=600m"')
-              else:
-                essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log"')
+              #else:
+              #  essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log"')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
@@ -641,8 +657,8 @@ if __name__ == "__main__":
                 else:
                     escfg.reg('discovery.zen.ping.unicast.hosts',"[\"" + buName + ".cms" + "\"]")
                 escfg.reg('indices.fielddata.cache.size', '50%')
-                #escfg.reg('indices.fielddata.cache.expire','60m')
-                #escfg.reg('index.cache.field.expire','60m')
+                escfg.reg('indices.fielddata.cache.expire','600m')
+                escfg.reg('index.cache.field.expire','600m')
                 escfg.reg('bootstrap.mlockall','true')
                 escfg.reg('node.master','false')
                 escfg.reg('node.data','true')
@@ -725,27 +741,27 @@ if __name__ == "__main__":
         try:os.remove(busconfig)
         except:pass
 
-      #write bu ip address
-        f = open(busconfig,'w+')
+        #write bu ip address
+        if cluster!='hilton': 
+            f = open(busconfig,'w+')
+            #swap entries based on name (only C6100 hosts with two data interfaces):
+            if len(buDataAddr)>1 and name_identifier()==1:
+                temp = buDataAddr[0]
+                buDataAddr[0]=buDataAddr[1]
+                buDataAddr[1]=temp
 
-        #swap entries based on name (only C6100 hosts with two data interfaces):
-        if len(buDataAddr)>1 and name_identifier()==1:
-            temp = buDataAddr[0]
-            buDataAddr[0]=buDataAddr[1]
-            buDataAddr[1]=temp
-
-        newline=False
-        for addr in buDataAddr:
-            if newline:f.writelines('\n')
-            newline=True
-            try:
-              nameToWrite = getIPs(addr)[0]
-            except Exception as ex:
-              print ex
-              #write bus.config even if name is not yet available by DNS
-              nameToWrite = addr
-            f.writelines(nameToWrite)
-        f.close()
+            newline=False
+            for addr in buDataAddr:
+                if newline:f.writelines('\n')
+                newline=True
+                try:
+                    nameToWrite = getIPs(addr)[0]
+                except Exception as ex:
+                    print ex
+                    #write bus.config even if name is not yet available by DNS
+                    nameToWrite = addr
+                f.writelines(nameToWrite)
+            f.close()
 
       #FU should have one instance assigned, BUs can have multiple
       watch_dir_bu = '/fff/ramdisk'
@@ -846,6 +862,8 @@ if __name__ == "__main__":
           hltdcfg.reg('user',username,'[General]')
           #FU can only have one instance (so we take instance[0] and ignore others)
           hltdcfg.reg('instance',instances[0],'[General]')
+          if cluster=='hilton':
+              hltdcfg.reg('bu_base_dir','/fff/BU0','[General]')
 
           hltdcfg.reg('exec_directory',execdir,'[General]') 
           hltdcfg.reg('watch_directory','/fff/data','[General]')
@@ -858,6 +876,7 @@ if __name__ == "__main__":
           hltdcfg.reg('elastic_runindex_name',runindex_name,'[Monitoring]')
           hltdcfg.reg('use_elasticsearch',use_elasticsearch,'[Monitoring]')
           hltdcfg.reg('dqm_machine',dqmmachine,'[DQM]')
+          hltdcfg.reg('auto_clear_quarantined',auto_clear_quarantined,'[Recovery]')
           hltdcfg.reg('cmssw_base',cmssw_base,'[CMSSW]')
           hltdcfg.reg('cmssw_default_version',cmssw_version,'[CMSSW]')
           hltdcfg.reg('cmssw_threads',nthreads,'[CMSSW]')

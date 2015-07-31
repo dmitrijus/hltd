@@ -252,13 +252,13 @@ class fileHandler(object):
             if STREAMDQMHISTNAME.upper() in name and "_PID" not in name: return STREAMDQMHISTOUTPUT
             if "_STREAM" in name and "_PID" not in name: return OUTPUT
             if name.startswith("QUEUE_STATUS"): return QSTATUS
+            if name.startswith("SLOWMONI"): return SLOW
         if ext==".pb":
             if "_PID" not in name: return PB
             else: return PIDPB
         if ext == ".ini" and "/mon" in filepath: return INI
         if name.endswith("COMPLETE"): return COMPLETE
         if ext == ".fast" in filename: return FAST
-        if ext == ".slow" in filename: return SLOW
         if ext == ".leg" and "MICROSTATELEGEND" in name: return MODULELEGEND
         if ext == ".leg" and "PATHLEGEND" in name: return PATHLEGEND
         if "boxes" in filepath : return BOX
@@ -272,7 +272,7 @@ class fileHandler(object):
         name,ext = self.name,self.ext
         splitname = name.split("_")
         if filetype in [STREAM,INI,PDAT,PJSNDATA,PIDPB,CRASH]: self.run,self.ls,self.stream,self.pid = splitname
-        elif filetype == SLOW: self.run,self.ls,self.pid = splitname #this is wrong
+        elif filetype == SLOW: slowname,self.ls,self.pid = splitname #this is wrong
         elif filetype == FAST: self.run,self.pid = splitname
         elif filetype in [DAT,PB,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT]: self.run,self.ls,self.stream,self.host = splitname
         elif filetype == INDEX: self.run,self.ls,self.index,self.pid = splitname
@@ -439,7 +439,10 @@ class fileHandler(object):
 
           except (OSError,IOError),e:
               if silent==False:
-                  self.logger.exception(e)
+                  if isinstance(e, IOError) and e.errno==2:
+                      self.logger.warning("Error in attempt to copy/move file to destination " + newpath + ":" + str(e))
+                  else:
+                      self.logger.exception(e)
               retries-=1
               if retries == 0:
                   if silent==False:
@@ -462,7 +465,10 @@ class fileHandler(object):
                 break
             except (OSError,IOError),e:
                 if silent==False:
-                    self.logger.exception(e)
+                  if isinstance(e, IOError) and e.errno==2:
+                      self.logger.warning("Error encountered in attempt to copy/move file to destination " + newpath + ":" + str(e))
+                  else:
+                      self.logger.exception(e)
                 retries-=1
                 if retries == 0:
                     if silent==False:
@@ -548,7 +554,7 @@ class fileHandler(object):
                 retries = 5
                 while True:
                     try:
-                        shutil.copy(self.filepath,newpathTemp)
+                        shutil.copy2(self.filepath,newpathTemp)
                         break
                     except (OSError,IOError),e:
                         retries-=1

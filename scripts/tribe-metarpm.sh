@@ -110,7 +110,7 @@ cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta-tribe.spec <<EOF
 Name: $PACKAGENAME
-Version: 1.6.0
+Version: 1.7.5
 Release: 0
 Summary: hlt daemon
 License: gpl
@@ -120,7 +120,7 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires:elasticsearch >= 1.4.2, cx_Oracle >= 5.1.2, java-1.7.0-openjdk, httpd >= 2.2.15, php >= 5.3.3, php-oci8 >= 1.4.9 
+Requires:elasticsearch >= 1.4.5, cx_Oracle >= 5.1.2, java-1.7.0-openjdk, httpd >= 2.2.15, php >= 5.3.3, php-oci8 >= 1.4.9 
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/setupmachine.py

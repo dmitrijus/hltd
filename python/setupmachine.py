@@ -682,19 +682,6 @@ if __name__ == "__main__":
             escfg.reg('discovery.zen.ping.multicast.enabled','false')
             #escfg.reg('discovery.zen.ping.unicast.hosts','['+','.join(buDataAddr)+']')
             escfg.reg('transport.tcp.compress','true')
-            bustring = "["
-            for bu in buDataAddr:
-                if bu in tribe_ignore_list:continue
-
-                try:
-                    socket.gethostbyname_ex(bu+'.cms')
-                except:
-                    print "skipping",bu," - unable to lookup IP address"
-                    continue
-                if bustring!="[":bustring+=','
-                bustring+='"'+bu+'.cms'+'"'
-            bustring += "]"
-            escfg.reg('discovery.zen.ping.unicast.hosts',bustring)
 
             escfg.reg('tribe','')
             i=1;
@@ -708,7 +695,8 @@ if __name__ == "__main__":
                     continue
 
                 escfg.reg('    t'+str(i),'')
-                #escfg.reg('         discovery.zen.ping.unicast.hosts', '["'+bu+'.cms"]')
+                escfg.reg('         discovery.zen.ping.multicast.enabled','false')
+                escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'.cms'+'"'+']')
                 escfg.reg('         cluster.name', 'appliance_'+bu)
                 i=i+1
             escfg.commit()

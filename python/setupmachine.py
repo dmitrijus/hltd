@@ -41,11 +41,15 @@ equipmentSet = 'latest'
 minidaq_list = ["bu-c2f13-21-01","bu-c2f13-23-01","bu-c2f13-25-01","bu-c2f13-27-01",
                 "fu-c2f13-17-01","fu-c2f13-17-02","fu-c2f13-17-03","fu-c2f13-17-04",
                 "fu-c2f13-19-01","fu-c2f13-19-02","fu-c2f13-19-03","fu-c2f13-19-04"]
-dqm_list = ["bu-c2f13-31-01","fu-c2f13-39-01","fu-c2f13-39-02",
-            "fu-c2f13-39-03","fu-c2f13-39-04"]
-ed_list = ["bu-c2f13-29-01","fu-c2f13-41-01","fu-c2f13-41-02",
-           "fu-c2f13-41-03","fu-c2f13-41-04"]
-
+dqm_list     = ["bu-c2f13-31-01","bu-c2f11-09-01",
+                "fu-c2f13-39-01","fu-c2f13-39-02","fu-c2f13-39-03","fu-c2f13-39-04",
+                "fu-c2f11-11-01","fu-c2f11-11-02","fu-c2f11-11-03","fu-c2f11-11-04"]
+dqmtest_list = ["bu-c2f13-29-01","bu-c2f11-13-01",
+                "fu-c2f13-41-01","fu-c2f13-41-02","fu-c2f13-41-03","fu-c2f13-41-04",
+                "fu-c2f11-15-01","fu-c2f11-15-02","fu-c2f11-15-03","fu-c2f11-15-04"]
+detdqm_list  = ["bu-c2f11-19-01",
+                "fu-c2f11-21-01","fu-c2f11-21-02","fu-c2f11-21-03","fu-c2f11-21-04",
+                "fu-c2f11-23-01","fu-c2f11-23-02","fu-c2f11-23-03","fu-c2f11-23-04"]
 #es_cdaq_list = ["srv-c2a11-07-01","srv-c2a11-08-01","srv-c2a11-09-01","srv-c2a11-10-01",
 #                "srv-c2a11-11-01","srv-c2a11-14-01","srv-c2a11-15-01","srv-c2a11-16-01",
 #                "srv-c2a11-17-01","srv-c2a11-18-01","srv-c2a11-19-01","srv-c2a11-20-01",
@@ -56,7 +60,7 @@ ed_list = ["bu-c2f13-29-01","fu-c2f13-41-01","fu-c2f13-41-02",
 #                "srv-c2a11-35-01","srv-c2a11-38-01","srv-c2a11-39-01","srv-c2a11-40-01",
 #                "srv-c2a11-41-01","srv-c2a11-42-01"]
 
-tribe_ignore_list = ['bu-c2f13-29-01','bu-c2f13-31-01']
+tribe_ignore_list = ['bu-c2f13-29-01','bu-c2f13-31-01','bu-c2f11-09-01','bu-c2f11-13-01','bu-c2f11-19-01']
 
 myhost = os.uname()[1]
 
@@ -186,7 +190,7 @@ def getBUAddr(parentTag,hostname):
                 ha.eqset_id=hn.eqset_id AND \
                 hn.eqset_id=d.eqset_id AND \
                 ha.host_id = hn.host_id AND \
-                ha.attr_name like 'myBU%' AND \
+		ha.attr_name like 'myBU%' AND \
                 hn.nic_id = d.nic_id AND \
                 d.dnsname = '" + hostname + "' \
                 AND d.eqset_id = (select eqset_id from DAQ_EQCFG_EQSET \
@@ -201,7 +205,7 @@ def getBUAddr(parentTag,hostname):
                 ha.eqset_id=hn.eqset_id AND \
                 hn.eqset_id=d.eqset_id AND \
                 ha.host_id = hn.host_id AND \
-                ha.attr_name like 'myBU%' AND \
+		ha.attr_name like 'myBU%' AND \
                 hn.nic_id = d.nic_id AND \
                 d.dnsname = '" + hostname + "' \
                 AND d.eqset_id = (select child.eqset_id from DAQ_EQCFG_EQSET child, DAQ_EQCFG_EQSET \
@@ -548,8 +552,7 @@ if __name__ == "__main__":
         if myhost in minidaq_list:
             runindex_name = 'minidaq'
             auto_clear_quarantined = 'True'
-        if myhost in dqm_list or myhost in ed_list:
-
+        if myhost in dqm_list or myhost in dqmtest_list or myhost in detdqm_list:
             use_elasticsearch = 'False'
             runindex_name = 'dqm'
             cmsswloglevel = 'DISABLED'
@@ -562,8 +565,9 @@ if __name__ == "__main__":
                 cmsswloglevel = 'ERROR'
                 cmssw_base = '/home/dqmprolocal'
                 execdir = '/home/dqmprolocal/output' ##not yet
-        if myhost in ed_list:
-            runindex_name = 'ed'
+        if myhost in dqmtest_list:
+            auto_clear_quarantined = 'False'
+            runindex_name = 'dqmtest'
             username = 'dqmdev'
             if type == 'fu':
                 cmsswloglevel = 'ERROR'
@@ -820,7 +824,7 @@ if __name__ == "__main__":
 
           soap2file_port='0'
  
-          if myhost in dqm_list or myhost in ed_list or cluster == 'daq2val' or env=='vm':
+          if myhost in dqm_list or myhost in dqmtest_list or myhost in detdqm_list or cluster == 'daq2val' or env=='vm':
               soap2file_port='8010'
 
           hltdcfg = FileManager(cfile,'=',hltdEdited,' ',' ')

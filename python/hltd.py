@@ -61,6 +61,7 @@ abort_cloud_mode=False
 cached_pending_run = None
 resources_blocked_flag=False
 disabled_resource_allocation=False
+masked_resources=False
 
 fu_watchdir_is_mountpoint=False
 ramdisk_submount_size=0
@@ -722,6 +723,7 @@ class system_monitor(threading.Thread):
             logger.debug('entered system monitor thread ')
             global suspended
             global ramdisk_submount_size
+            global masked_resources
             res_path_temp = os.path.join(conf.watch_directory,'appliance','resource_summary_temp')
             res_path = os.path.join(conf.watch_directory,'appliance','resource_summary')
             selfhost = os.uname()[1]
@@ -914,6 +916,8 @@ class system_monitor(threading.Thread):
                                 else: cloud_state="on"
                             elif resources_blocked_flag:
                               cloud_state = "resourcesReleased"
+                            elif masked_resources:
+                              cloud_state = "resourcesMasked"
                             else:
                               cloud_state = "off"
 
@@ -2291,6 +2295,7 @@ class RunRanger:
         global resources_blocked_flag
         global cached_pending_run
         global disabled_resource_allocation
+        global masked_resources
         fullpath = event.fullpath
         logger.info('RunRanger: event '+fullpath)
         dirname=fullpath[fullpath.rfind("/")+1:]
@@ -2666,6 +2671,7 @@ class RunRanger:
 
         elif dirname=='stop' and conf.role == 'fu':
             logger.fatal("Stopping all runs..")
+            masked_resources=True
             #make sure to not run inotify acquire while we are here
             resource_lock.acquire()
             disabled_resource_allocation=True
@@ -2750,8 +2756,7 @@ class RunRanger:
             os.remove(fullpath)
 
         elif dirname.startswith('include') and conf.role == 'fu':
-            #TODO: pick up latest ongoing run when activated ?
-            # even if this run was not active before on this FU? (problem with FU EoR in BU output event counting)
+            #masked_resources=False
             if cloud_mode==False:
                 logger.error('received notification to exit from cloud but machine is not in cloud mode!')
                 os.remove(fullpath)

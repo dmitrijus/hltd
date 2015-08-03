@@ -564,14 +564,10 @@ def updateBlacklist(blfile):
                     try:
                         static_black_list = json.load(fi)
                         for item in static_black_list:
-                            #.cms is not allowed in blacklist
-                            if item.endswith(".cms"):
-                              black_list.append(item.split(".")[0])
-                            else:
-                              black_list.append(item)
+                            black_list.append(item)
                         logger.info("found these resources in " + blfile + " : " + str(black_list))
                     except ValueError:
-                        logger.error("error parsing "+blfile)
+                        logger.error("error parsing /etc/appliance/blacklist")
         except:
                 #no blacklist file, this is ok
                 pass

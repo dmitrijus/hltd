@@ -50,15 +50,9 @@ dqmtest_list = ["bu-c2f13-29-01","bu-c2f11-13-01",
 detdqm_list  = ["bu-c2f11-19-01",
                 "fu-c2f11-21-01","fu-c2f11-21-02","fu-c2f11-21-03","fu-c2f11-21-04",
                 "fu-c2f11-23-01","fu-c2f11-23-02","fu-c2f11-23-03","fu-c2f11-23-04"]
-#es_cdaq_list = ["srv-c2a11-07-01","srv-c2a11-08-01","srv-c2a11-09-01","srv-c2a11-10-01",
-#                "srv-c2a11-11-01","srv-c2a11-14-01","srv-c2a11-15-01","srv-c2a11-16-01",
-#                "srv-c2a11-17-01","srv-c2a11-18-01","srv-c2a11-19-01","srv-c2a11-20-01",
-#                "srv-c2a11-21-01","srv-c2a11-22-01","srv-c2a11-23-01","srv-c2a11-26-01",
-#                "srv-c2a11-27-01","srv-c2a11-28-01","srv-c2a11-29-01","srv-c2a11-30-01"]
-#
-#es_tribe_list = ["srv-c2a11-31-01","srv-c2a11-32-01","srv-c2a11-33-01","srv-c2a11-34-01",
-#                "srv-c2a11-35-01","srv-c2a11-38-01","srv-c2a11-39-01","srv-c2a11-40-01",
-#                "srv-c2a11-41-01","srv-c2a11-42-01"]
+
+es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-13-03', 'ncsrv-c2e42-19-02', 'ncsrv-c2e42-21-02']
+es_tribe_list =[ 'ncsrv-c2e42-23-02', 'ncsrv-c2e42-23-03']
 
 tribe_ignore_list = ['bu-c2f13-29-01','bu-c2f13-31-01','bu-c2f11-09-01','bu-c2f11-13-01','bu-c2f11-19-01']
 
@@ -80,14 +74,14 @@ def getmachinetype():
     elif myhost.startswith('fu-') : return 'daq2','fu'
     elif myhost.startswith('hilton-') : return 'hilton','fu'
     elif myhost.startswith('bu-') : return 'daq2','bu'
-    elif myhost.startswith('srv-') :
+    elif myhost.startswith('srv-') or myhost.startswith('ncsrv-'):
         try:
-            es_cdaq_list = socket.gethostbyname_ex('es-cdaq')[2]
-            es_tribe_list = socket.gethostbyname_ex('es-tribe')[2]
+            es_cdaq_list_auto = socket.gethostbyname_ex('es-cdaq')[2]
+            es_tribe_list_auto = socket.gethostbyname_ex('es-tribe')[2]
             myaddr = socket.gethostbyname(myhost)
-            if myaddr in es_cdaq_list:
+            if myaddr in es_cdaq_list_auto or myaddr in es_cdaq_list:
                 return 'es','escdaq'
-            elif myaddr in es_tribe_list:
+            elif myaddr in es_tribe_list_auto or myaddr in es_tribe_list:
                 return 'es','tribe'
             else:
                 return 'unknown','unknown'
@@ -708,14 +702,14 @@ if __name__ == "__main__":
  
         if type == 'escdaq':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','10G')
+            essyscfg.reg('ES_HEAP_SIZE','24G')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('cluster.name','es-cdaq')
-            escfg.reg('discovery.zen.minimum_master_nodes','11')
-            escfg.reg('index.mapper.dynamic','false')
-            escfg.reg('action.auto_create_index','false')
+            escfg.reg('discovery.zen.minimum_master_nodes','4')
+            #escfg.reg('index.mapper.dynamic','false')
+            #escfg.reg('action.auto_create_index','false')
             escfg.reg('transport.tcp.compress','true')
             escfg.reg('node.master','true')
             escfg.reg('node.data','true')

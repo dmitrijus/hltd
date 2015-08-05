@@ -76,12 +76,23 @@ def getmachinetype():
     elif myhost.startswith('bu-') : return 'daq2','bu'
     elif myhost.startswith('srv-') or myhost.startswith('ncsrv-'):
         try:
-            es_cdaq_list_auto = socket.gethostbyname_ex('es-cdaq')[2]
-            es_tribe_list_auto = socket.gethostbyname_ex('es-tribe')[2]
+            es_cdaq_list_ip = socket.gethostbyname_ex('es-cdaq')[2]
+            es_tribe_list_ip = socket.gethostbyname_ex('es-tribe')[2]
+            for es in es_cdaq_list:
+              try:
+                  es_cdaq_list_ip.append(socket.gethostbyname_ex(es)[2][0])
+              except Exception as ex:
+                  print ex
+            for es in es_tribe_list:
+              try:
+                  es_tribe_list_ip.append(socket.gethostbyname_ex(es)[2][0])
+              except Exception as ex:
+                  print ex
+
             myaddr = socket.gethostbyname(myhost)
-            if myaddr in es_cdaq_list_auto or myaddr in es_cdaq_list:
+            if myaddr in es_cdaq_list_ip:
                 return 'es','escdaq'
-            elif myaddr in es_tribe_list_auto or myaddr in es_tribe_list:
+            elif myaddr in es_tribe_list_ip:
                 return 'es','tribe'
             else:
                 return 'unknown','unknown'
@@ -440,7 +451,7 @@ if __name__ == "__main__":
         if 'elasticsearch' in selection:
             restoreFileMaybe(elasticsysconf)
             restoreFileMaybe(elasticconf)
-            restoreFileMaybe(elasticlogconf)
+            #restoreFileMaybe(elasticlogconf)
 
         sys.exit(0)
 
@@ -668,7 +679,7 @@ if __name__ == "__main__":
 
         if type == 'tribe':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','12G')
+            essyscfg.reg('ES_HEAP_SIZE','24G')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
@@ -696,8 +707,8 @@ if __name__ == "__main__":
             escfg.commit()
 
             #modify logging.yml
-            eslogcfg = FileManager(eslogcfg,':',esEdited,'',' ')
-            eslogcfg.reg('es.logger.level','ERROR')
+            eslogcfg = FileManager(elasticlogconf,':',esEdited,'',' ')
+            eslogcfg.reg('es.logger.level','WARN')
             eslogcfg.commit()
  
         if type == 'escdaq':

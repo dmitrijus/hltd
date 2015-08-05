@@ -108,7 +108,7 @@ cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta-elastic.spec <<EOF
 Name: $PACKAGENAME
-Version: 1.7.5
+Version: 1.7.6
 Release: 0
 Summary: hlt daemon
 License: gpl
@@ -118,7 +118,7 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires:elasticsearch >= 1.4.5, cx_Oracle >= 5.1.2, java-1.7.0-openjdk, httpd >= 2.2.15, php >= 5.3.3, php-oci8 >= 1.4.9 
+Requires:elasticsearch = 1.4.5, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45 , php >= 5.3.3, php-oci8 >= 1.4.9 
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/setupmachine.py
@@ -213,10 +213,17 @@ chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
 
 chkconfig --del elasticsearch
 chkconfig --add elasticsearch
-chkconfig --add httpd
-#todo:kill java process if running to have clean restart
-/sbin/service elasticsearch start
-/sbin/service httpd restart || true
+#restart (should be re-enabled)
+if [ -d /elasticsearch ]
+then
+  if [ ! -d /elasticsearch/lib/elasticsearch ]
+  then
+      mkdir -p /elasticsearch/lib/elasticsearch
+      chown -R elasticsearch:elasticsearch /elasticsearch/lib/elasticsearch
+  fi
+fi
+        
+#/sbin/service elasticsearch start
 
 %preun
 
@@ -224,13 +231,11 @@ if [ \$1 == 0 ]; then
 
   chkconfig --del fffmeta
   chkconfig --del elasticsearch
-  chkconfig --del httpd
 
   /sbin/service elasticsearch stop || true
   /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname1 || true
   /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname2 || true
   /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname3 || true
-  /sbin/service httpd stop || true
 
 
   python2.6 /opt/fff/setupmachine.py restore,elasticsearch

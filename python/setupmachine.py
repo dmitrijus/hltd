@@ -51,8 +51,13 @@ detdqm_list  = ["bu-c2f11-19-01",
                 "fu-c2f11-21-01","fu-c2f11-21-02","fu-c2f11-21-03","fu-c2f11-21-04",
                 "fu-c2f11-23-01","fu-c2f11-23-02","fu-c2f11-23-03","fu-c2f11-23-04"]
 
-es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-13-03', 'ncsrv-c2e42-19-02', 'ncsrv-c2e42-21-02']
-es_tribe_list =[ 'ncsrv-c2e42-23-02', 'ncsrv-c2e42-23-03']
+#old machines
+old_es_cdaq_list = ['srv-c2a11-07-01','srv-c2a11-09-01','srv-c2a11-10-01','srv-c2a11-11-01','srv-c2a11-14-01','srv-c2a11-15-01',
+                 'srv-c2a11-16-01','srv-c2a11-17-01','srv-c2a11-18-01','srv-c2a11-19-01','srv-c2a11-20-01','srv-c2a11-21-01',
+                 'srv-c2a11-22-01','srv-c2a11-23-01','srv-c2a11-26-01','srv-c2a11-27-01','srv-c2a11-28-01','srv-c2a11-29-01','srv-c2a11-30-01']
+
+es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02', 'ncsrv-c2e42-21-02','ncsrv-c2e42-23-02']
+es_tribe_list =[ 'ncsrv-c2e42-13-03', 'ncsrv-c2e42-23-03']
 
 tribe_ignore_list = ['bu-c2f13-29-01','bu-c2f13-31-01','bu-c2f11-09-01','bu-c2f11-13-01','bu-c2f11-19-01']
 
@@ -76,12 +81,23 @@ def getmachinetype():
     elif myhost.startswith('bu-') : return 'daq2','bu'
     elif myhost.startswith('srv-') or myhost.startswith('ncsrv-'):
         try:
-            es_cdaq_list_auto = socket.gethostbyname_ex('es-cdaq')[2]
-            es_tribe_list_auto = socket.gethostbyname_ex('es-tribe')[2]
+            es_cdaq_list_ip = socket.gethostbyname_ex('es-cdaq')[2]
+            es_tribe_list_ip = socket.gethostbyname_ex('es-tribe')[2]
+            for es in es_cdaq_list:
+              try:
+                  es_cdaq_list_ip.append(socket.gethostbyname_ex(es)[2][0])
+              except Exception as ex:
+                  print ex
+            for es in es_tribe_list:
+              try:
+                  es_tribe_list_ip.append(socket.gethostbyname_ex(es)[2][0])
+              except Exception as ex:
+                  print ex
+
             myaddr = socket.gethostbyname(myhost)
-            if myaddr in es_cdaq_list_auto or myaddr in es_cdaq_list:
+            if myaddr in es_cdaq_list_ip:
                 return 'es','escdaq'
-            elif myaddr in es_tribe_list_auto or myaddr in es_tribe_list:
+            elif myaddr in es_tribe_list_ip:
                 return 'es','tribe'
             else:
                 return 'unknown','unknown'
@@ -440,7 +456,7 @@ if __name__ == "__main__":
         if 'elasticsearch' in selection:
             restoreFileMaybe(elasticsysconf)
             restoreFileMaybe(elasticconf)
-            restoreFileMaybe(elasticlogconf)
+            #restoreFileMaybe(elasticlogconf)
 
         sys.exit(0)
 
@@ -668,7 +684,7 @@ if __name__ == "__main__":
 
         if type == 'tribe':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','12G')
+            essyscfg.reg('ES_HEAP_SIZE','24G')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
@@ -696,20 +712,24 @@ if __name__ == "__main__":
             escfg.commit()
 
             #modify logging.yml
-            eslogcfg = FileManager(eslogcfg,':',esEdited,'',' ')
-            eslogcfg.reg('es.logger.level','ERROR')
+            eslogcfg = FileManager(elasticlogconf,':',esEdited,'',' ')
+            eslogcfg.reg('es.logger.level','WARN')
             eslogcfg.commit()
  
         if type == 'escdaq':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
             essyscfg.reg('ES_HEAP_SIZE','24G')
+            essyscfg.reg('DATA_DIR','/elasticsearch/lib/elasticsearch')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('cluster.name','es-cdaq')
+            #TODO:switch to multicast when complete with new node migration
+            escfg.reg('discovery.zen.ping.multicast.enabled','false')
+            escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_cdaq_list+old_es_cdaq_list))
             escfg.reg('discovery.zen.minimum_master_nodes','4')
             #escfg.reg('index.mapper.dynamic','false')
-            #escfg.reg('action.auto_create_index','false')
+            escfg.reg('action.auto_create_index','false')
             escfg.reg('transport.tcp.compress','true')
             escfg.reg('node.master','true')
             escfg.reg('node.data','true')

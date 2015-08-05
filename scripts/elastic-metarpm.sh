@@ -123,7 +123,7 @@ Requires:elasticsearch >= 1.4.5, cx_Oracle >= 5.1.2, java-1.7.0-openjdk, httpd >
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/setupmachine.py
 Provides:/etc/init.d/fffmeta
-Provides:/etc/init.d/metaelastic
+Provides:/etc/init.d/fff-es
 
 %description
 fffmeta configuration setup package
@@ -151,7 +151,7 @@ cp $BASEDIR/esplugins/$pluginfile2 %{buildroot}/opt/fff/esplugins/$pluginfile2
 cp $BASEDIR/esplugins/$pluginfile3 %{buildroot}/opt/fff/esplugins/$pluginfile3
 cp $BASEDIR/esplugins/install.sh %{buildroot}/opt/fff/esplugins/install.sh
 cp $BASEDIR/esplugins/uninstall.sh %{buildroot}/opt/fff/esplugins/uninstall.sh
-cp $BASEDIR/scripts/metaelastic %{buildroot}/etc/init.d/metaelastic
+cp $BASEDIR/scripts/fff-es %{buildroot}/etc/init.d/fff-es
 
 echo "#!/bin/bash"                       >> %{buildroot}/etc/init.d/fffmeta
 echo "#"                                 >> %{buildroot}/etc/init.d/fffmeta
@@ -179,7 +179,7 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 755 ,root, root) /opt/fff/setupmachine.pyo
 %attr( 700 ,root, root) /opt/fff/configurefff.sh
 %attr( 755 ,root, root) /etc/init.d/fffmeta
-%attr( 755 ,root, root) /etc/init.d/metaelastic
+%attr( 755 ,root, root) /etc/init.d/fff-es
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile1
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile2
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile3

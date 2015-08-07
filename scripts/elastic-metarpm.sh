@@ -194,7 +194,7 @@ chkconfig --add fffmeta
 
 %triggerin -- elasticsearch
 #echo "triggered on elasticsearch update or install"
-/sbin/service elasticsearch stop
+#/sbin/service elasticsearch stop
 python2.6 /opt/fff/setupmachine.py restore,elasticsearch
 python2.6 /opt/fff/setupmachine.py elasticsearch,web $params
 #update permissions in case new rpm changed uid/guid
@@ -232,7 +232,7 @@ if [ \$1 == 0 ]; then
   chkconfig --del fffmeta
   chkconfig --del elasticsearch
 
-  /sbin/service elasticsearch stop || true
+  #/sbin/service elasticsearch stop || true
   /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname1 || true
   /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname2 || true
   /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname3 || true

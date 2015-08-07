@@ -718,7 +718,7 @@ if __name__ == "__main__":
  
         if type == 'escdaq':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','24G')
+            essyscfg.reg('ES_HEAP_SIZE','30G')
             essyscfg.reg('DATA_DIR','/elasticsearch/lib/elasticsearch')
             essyscfg.commit()
 

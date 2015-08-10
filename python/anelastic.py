@@ -71,7 +71,7 @@ class LumiSectionRanger():
         self.source = source
 
     def run(self):
-        self.logger.info("Start main loop")
+        self.logger.info("Start main loop, watching: "+watchDir)
         open(os.path.join(watchDir,'flush'),'w').close()
         self.flush = fileHandler(os.path.join(watchDir,'flush'))
         endTimeout=-1
@@ -113,6 +113,18 @@ class LumiSectionRanger():
                 except:
                     pass
 
+        self.logger.info("joining DQM merger thread")
+        try:
+            #allow 10 min timeout in case of failure
+            self.dqmHandler.waitFinish(120.)
+        except:
+            pass
+        if self.dqmHandler.isAlive():
+            self.logger.warning("DQM thread has not terminated after waiting for 120 seconds")
+
+        self.logger.info("Stopping main loop, watching: "+watchDir)
+
+
         if self.checkClosure(checkEmpty=False)==False:
             self.logger.error('not all lumisections were closed on exit!')
             try:
@@ -124,12 +136,7 @@ class LumiSectionRanger():
         #generate and move EoR completition file
         self.createOutputEoR()
 
-        self.logger.info("joining DQM merger thread")
-        try:
-            self.dqmHandler.waitFinish()
-        except:
-            pass
-        self.logger.info("Stop main loop")
+        self.logger.info("Stopping main loop, watching: "+watchDir)
 
         #send the fileEvent to the proper LShandlerand remove closed LSs, or process INI and EOR files
 
@@ -1055,9 +1062,12 @@ class DQMMerger(threading.Thread):
     def waitCompletition(self):
         self.join()
 
-    def waitFinish(self):
+    def waitFinish(self,time=None):
         self.finish=True
-        self.join()
+        if time:
+            self.join(time)
+        else:
+            self.join()
 
     def abortMerging(self):
         self.abort = True

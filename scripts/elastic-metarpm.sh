@@ -118,7 +118,7 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires:elasticsearch = 1.4.5, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45 , php >= 5.3.3, php-oci8 >= 1.4.9 
+Requires:elasticsearch >= 1.4.5, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45 , php >= 5.3.3, php-oci8 >= 1.4.9 
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/setupmachine.py

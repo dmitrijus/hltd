@@ -664,6 +664,7 @@ if __name__ == "__main__":
             escfg.reg('discovery.zen.ping.multicast.enabled','false')
             escfg.reg('network.publish_host',es_publish_host)
             escfg.reg('transport.tcp.compress','true')
+            #escfg.reg('script.groovy.sandbox.enabled','true')
 
             if type == 'fu':
                 if env=="vm":
@@ -731,6 +732,7 @@ if __name__ == "__main__":
             #escfg.reg('index.mapper.dynamic','false')
             escfg.reg('action.auto_create_index','false')
             escfg.reg('transport.tcp.compress','true')
+            escfg.reg('script.groovy.sandbox.enabled','true')
             escfg.reg('node.master','true')
             escfg.reg('node.data','true')
             escfg.commit()

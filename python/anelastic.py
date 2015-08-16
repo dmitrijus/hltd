@@ -203,10 +203,14 @@ class LumiSectionRanger():
 
             if key not in self.LSHandlerList:
                 if filetype == INDEX:
+                    madeBoLS=False
                     for lskey in self.LSHandlerList:
                         #same as when receiving EoLS type (and index file from a new LS), check if earlier lumisections can be closed
                         if self.LSHandlerList[lskey].ls_num < ls_num and not self.LSHandlerList[lskey].EOLS:
                             self.makeEoLSFile(self.LSHandlerList[lskey].ls)
+                            if not madeBoLS:
+                                self.makeBoLSFile(ls_num)
+                                madeBoLS=True
 
                 if ls_num in self.ClosedEmptyLSList:
                     if filetype in [STREAM]:
@@ -470,6 +474,15 @@ class LumiSectionRanger():
         eols_path =  os.path.join(self.tempdir,eols_file)
         with open(eols_path,"w") as fi:
             self.logger.info("Created missing EoLS file "+eols_path)
+
+    def makeBoLSFile(self, ls):
+        thisrun = "run"+self.run_number.zfill(conf.run_number_padding)
+        bols_file = thisrun + "_" + ls + "_BoLS.jsn"
+        bols_path =  os.path.join(self.tempdir,bols_file)
+        with open(bols_path,"w") as fi:
+            self.logger.info("Created missing BoLS file "+bols_path)
+
+
 
 
 

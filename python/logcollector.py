@@ -52,7 +52,8 @@ logThreshold = 1 #(INFO)
 contextLogThreshold = 0 #(DEBUG)
 STRMAX=80
 line_limit=1000
-maxlogsize=4194304 #4GB in kbytes
+#maxlogsize=4194304 #4GB in kbytes
+maxlogsize=2097152 #2GB in kbytes
 #maxlogsize=33554432 #32GB in kbytes
 
 #cmssw date and time: "30-Apr-2014 16:50:32 CEST"

@@ -477,7 +477,7 @@ class LumiSectionRanger():
 
     def makeBoLSFile(self, ls):
         thisrun = "run"+self.run_number.zfill(conf.run_number_padding)
-        bols_file = thisrun + "_" + ls + "_BoLS.jsn"
+        bols_file = thisrun + "_ls" + str(ls).zfill(4) + "_BoLS.jsn"
         bols_path =  os.path.join(self.tempdir,bols_file)
         with open(bols_path,"w") as fi:
             self.logger.info("Created missing BoLS file "+bols_path)

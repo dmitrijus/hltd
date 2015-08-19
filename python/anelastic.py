@@ -190,6 +190,7 @@ class LumiSectionRanger():
             if filetype == EOLS :
                 if ls_num in self.EOLS_list:
                     self.logger.warning("EoLS file for this lumisection has already been received before")
+                    self.mr.notifyLumi(ls_num,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
                     return
                 self.EOLS_list.append(ls_num)
                 if self.maxReceivedEoLS<ls_num:

@@ -181,23 +181,54 @@ class elasticBandBU:
     def elasticize_modulelegend(self,fullpath):
 
         self.logger.info(os.path.basename(fullpath))
-        stub = self.read_line(fullpath)
         document = {}
         document['_parent']= self.runnumber
         document['id']= "microstatelegend_"+self.runnumber
-        document['names']= self.read_line(fullpath)
+        if fullpath.endswith('.jsn'):
+          try:
+            with open(fullpath,'r') as fp:
+              doc = json.load(fp)
+              document['stateNames'] = doc['names']
+              document['reserved'] = doc['reserved']
+              #put old name format value
+              nstring=""
+              cnt=0
+              for sname in doc['names']:
+                nstring+= str(cnt) + "=" + sname + " "
+                cnt+=1
+              document['names'] = nstring
+          except Exception as ex:
+            self.logger.warning("can not parse "+fullpath)
+        else:
+          stub = self.read_line(fullpath)
+          document['names']= self.read_line(fullpath)
         documents = [document]
         return self.index_documents('microstatelegend',documents)
 
 
     def elasticize_pathlegend(self,fullpath):
-
         self.logger.info(os.path.basename(fullpath))
-        stub = self.read_line(fullpath)
         document = {}
         document['_parent']= self.runnumber
         document['id']= "pathlegend_"+self.runnumber
-        document['names']= self.read_line(fullpath)
+        if fullpath.endswith('.jsn'):
+          try:
+            with open(fullpath,'r') as fp:
+              doc = json.load(fp)
+              document['stateNames'] = doc['names']
+              document['reserved'] = doc['reserved']
+              #put old name format value
+              nstring=""
+              cnt=0
+              for sname in doc['names']:
+                nstring+= str(cnt) + "=" + sname + " "
+                cnt+=1
+              document['names'] = nstring
+          except Exception as ex:
+            self.logger.warning("can not parse "+fullpath)
+        else:
+          stub = self.read_line(fullpath)
+          document['names']= self.read_line(fullpath)
         documents = [document]
         return self.index_documents('pathlegend',documents)
 

@@ -88,6 +88,12 @@ central_runindex_mapping = {
                     'names':{
                         'type':'string'
                         },
+                    'stateNames':{
+                        'type':'string','index':'not_analyzed'
+                        },
+                    'reserved':{
+                        'type':'integer'
+                        },
                     'id':{
                         'type':'string'
                         }
@@ -103,10 +109,15 @@ central_runindex_mapping = {
                     'names':{
                         'type':'string'
                         },
+                    'stateNames':{
+                        'type':'string','index':'not_analyzed'
+                        },
+                    'reserved':{
+                        'type':'integer'
+                        },
                     'id':{
                         'type':'string'
                         }
-
                     }
                 },
             'stream_label' : {

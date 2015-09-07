@@ -23,8 +23,8 @@ class elasticCollector():
         self.logger = logging.getLogger(self.__class__.__name__)
         self.esDirName = esDir
         self.inputMonDir = inMonDir
-        self.movedModuleLegend = False
-        self.movedPathLegend = False
+        #self.movedModuleLegend = False
+        #self.movedPathLegend = False
 
     def start(self):
         self.run()
@@ -75,22 +75,28 @@ class elasticCollector():
                 elif filetype == FLUSH:
                     self.logger.debug('FLUSH')
                     es.flushAllLS()
-            elif filetype in [MODULELEGEND] and self.movedModuleLegend == False:
+            elif filetype in [MODULELEGEND]:# and self.movedModuleLegend == False:
                 try:
+                  if not self.infile.basename.endswith(".jsn"):
                     if not os.path.exists(self.inputMonDir+'/microstatelegend.leg') and os.path.exists(self.inputMonDir):
                         self.infile.moveFile(self.inputMonDir+'/microstatelegend.leg',silent=True,createDestinationDir=False)
+                  else:
+                    if not os.path.exists(self.inputMonDir+'/microstatelegend.jsn') and os.path.exists(self.inputMonDir):
+                        self.infile.moveFile(self.inputMonDir+'/microstatelegend.jsn',silent=True,createDestinationDir=False)
                 except Exception,ex:
                     logger.error(ex)
                     pass
-                self.movedModuleLegend = True
-            elif filetype in [PATHLEGEND] and self.movedPathLegend == False:
+            elif filetype in [PATHLEGEND]:# and self.movedPathLegend == False:
                 try:
+                  if not self.infile.basename.endswith(".jsn"):
                     if not os.path.exists(self.inputMonDir+'/pathlegend.leg') and os.path.exists(self.inputMonDir):
                         self.infile.moveFile(self.inputMonDir+'/pathlegend.leg',silent=True,createDestinationDir=False)
+                  else:
+                    if not os.path.exists(self.inputMonDir+'/pathlegend.jsn') and os.path.exists(self.inputMonDir):
+                        self.infile.moveFile(self.inputMonDir+'/pathlegend.jsn',silent=True,createDestinationDir=False)
                 except Exception,ex:
                     logger.error(ex)
                     pass
-                self.movedPathLegend = True
             elif filetype == INI:
                 destname = os.path.join(self.inputMonDir,infile.run+'_'+infile.ls+'_'+infile.stream+'_mon.ini')
                 try:

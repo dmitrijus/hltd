@@ -259,8 +259,8 @@ class fileHandler(object):
         if ext == ".ini" and "/mon" in filepath: return INI
         if name.endswith("COMPLETE"): return COMPLETE
         if ext == ".fast" in filename: return FAST
-        if ext == ".leg" and "MICROSTATELEGEND" in name: return MODULELEGEND
-        if ext == ".leg" and "PATHLEGEND" in name: return PATHLEGEND
+        if name.startswith("MICROSTATELEGEND"): return MODULELEGEND
+        if name.startswith("PATHLEGEND"): return PATHLEGEND
         if "boxes" in filepath : return BOX
         if filename == 'flush': return FLUSH
         if filename == 'processing': return PROCESSING

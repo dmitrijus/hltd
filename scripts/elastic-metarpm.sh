@@ -102,14 +102,14 @@ pluginfile1="lukas-vlcek-bigdesk-v2.5.0-1-g505b32e-mod.zip"
 pluginname2="head"
 pluginfile2="head-master.zip"
 pluginname3="river-runriver"
-pluginfile3="river-runriver-1.3.3-plugin.zip"
+pluginfile3="river-runriver-1.3.4-plugin.zip"
 
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta-elastic.spec <<EOF
 Name: $PACKAGENAME
-Version: 1.7.6
-Release: 1
+Version: 1.7.8
+Release: 0
 Summary: hlt daemon
 License: gpl
 Group: DAQ
@@ -122,6 +122,7 @@ Requires:elasticsearch = 1.4.5, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/setupmachine.py
+Provides:/opt/fff/closeRunIndices.php
 Provides:/etc/init.d/fffmeta
 Provides:/etc/init.d/fff-es
 
@@ -153,6 +154,8 @@ cp $BASEDIR/esplugins/install.sh %{buildroot}/opt/fff/esplugins/install.sh
 cp $BASEDIR/esplugins/uninstall.sh %{buildroot}/opt/fff/esplugins/uninstall.sh
 cp $BASEDIR/scripts/fff-es %{buildroot}/etc/init.d/fff-es
 
+cp $BASEDIR/scripts/closeRunIndices.php %{buildroot}/opt/fff/closeRunIndices.php
+
 echo "#!/bin/bash"                       >> %{buildroot}/etc/init.d/fffmeta
 echo "#"                                 >> %{buildroot}/etc/init.d/fffmeta
 echo "# chkconfig:   2345 79 22"         >> %{buildroot}/etc/init.d/fffmeta
@@ -178,6 +181,7 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 755 ,root, root) /opt/fff/setupmachine.pyc
 %attr( 755 ,root, root) /opt/fff/setupmachine.pyo
 %attr( 700 ,root, root) /opt/fff/configurefff.sh
+%attr( 755 ,root, root) /opt/fff/closeRunIndices.php
 %attr( 755 ,root, root) /etc/init.d/fffmeta
 %attr( 755 ,root, root) /etc/init.d/fff-es
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile1

@@ -119,8 +119,11 @@ class LumiSectionRanger():
             self.dqmHandler.waitFinish(120.)
         except:
             pass
-        if self.dqmHandler.isAlive():
-            self.logger.warning("DQM thread has not terminated after waiting for 120 seconds")
+        try:
+            if self.dqmHandler.isAlive():
+                self.logger.warning("DQM thread has not terminated after waiting for 120 seconds")
+        except:
+            pass
 
         self.logger.info("Stopping main loop, watching: "+watchDir)
 

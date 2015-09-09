@@ -1263,7 +1263,13 @@ class ProcessWatchdog(threading.Thread):
                 return
 
             #input dir check if cmsRun can not find the input
-            configuration_reachable = False if conf.dqm_machine==False and returncode==90 and not os.path.exists(self.inputdirpath) else True
+            inputdir_exists = os.path.exists(self.inputdirpath)
+            configuration_reachable = False if conf.dqm_machine==False and returncode==90 and not inputdir_exists else True
+
+            if conf.dqm_machine==False and returncode==90 and inputdir_exists:
+                if not os.path.exists(os.path.join(self.inputdirpath,'hlt','HltConfig.py')):
+                    logger.error("input run dir exists, but " + str(os.path.join(self.inputdirpath,'hlt','HltConfig.py')) + " is not present (cmsRun exit code 90)")
+                    configuration_reachable=False
 
             #cleanup actions- remove process from list and attempt restart on same resource
             if returncode != 0 and returncode!=None and configuration_reachable:

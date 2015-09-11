@@ -1925,7 +1925,15 @@ class Run:
                     if self.elastic_monitor:
                         if killScripts:
                             self.elastic_monitor.terminate()
-                        self.elastic_monitor.wait()
+                        #allow monitoring thread to finish, but no more than 30 seconds after others
+                        killtimer = threading.Timer(30., self.elastic_monitor.kill)
+                        try:
+                            killtimer.start()
+                            self.elastic_monitor.wait()
+                        finally:
+                            killtimer.cancel()
+                        try:self.elastic_monitor=None
+                        except:pass
                 except OSError as ex:
                     if ex.errno==3:
                         logger.info("elastic.py for run " + str(self.runnumber) + " is not running")

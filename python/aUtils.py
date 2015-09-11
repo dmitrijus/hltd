@@ -532,61 +532,68 @@ class fileHandler(object):
         dirname = os.path.dirname(self.filepath)
         cccomb=1
         dst = None
-        adler32c=1
-        copy_size=0
+        adler32accum=1
         json_size=0
+        copy_size=0
         for input in self.inputs:
             nproc = input.data['nproc']
             nerr = input.data['nproc']
             ifile = input.data['Filelist']
             ifilecksum = input.data['FileAdler32']
             ifilesize = input.data['Filesize']
-            #no merging if n processed = 0
+
+            #no file to merge if n processed = 0
             if nproc==0:
                 continue
-            #if any of 'proper' files has checksum set
-            if ifilecksum == -1: ccomb = -1
+
+            #if any of 'proper' files has checksum set to -1, disable the check and substitute -1 in output json
+            if ifilecksum == -1:
+              ccomb = -1
+              doChecksum = False
+            if ccomb!=-1:
+              ccomb = zlibextras.adler32_combine(ccomb,ifilecksum,ifilesize)
+
             json_size+=ifilesize
 
             #if going to merge, open input file
             if dst == None:
-                dst = open(destinationpath)
+                dst = open(destinationpath,'wb')
 
             length=16*1024
+            adler32c=1
+            file_size=0
+            with open(os.path.join(dirname,ifile, 'rb')) as fsrc:
+                while 1:
+                    buf = fsrc.read(length)
+                    if not buf:
+                        break
+                    file_size+=len(buf)
+                    if doChecksum:
+                      adler32c=zlib.adler32(buf,1)
+                    fdst.write(buf)
+            copy_size += file_size
+            if doChecksum and ifilecksum != adler32c:
+              self.logger.fatal("Checksum mismatch detected while reading file " + ifile + ". expected:"+str(ifilechecksum)+" obtained:"+str(adler32c))
+            if file_size!=ifilesize:
+              self.logger.fatal("Size mismatch is detected while reading file " + ifile + ". expected:"+str(ifilesize)+" obtained:"+str(file_size))
             if doChecksum:
-                with open(os.path.join(dirname,ifile, 'rb')) as fsrc:
-                    while 1:
-                        buf = fsrc.read(length)
-                        if not buf:
-                            break
-                        adler32c=zlib.adler32(buf,adler32c)
-                        fdst.write(buf)
-            else:
-                with open(os.path.join(dirname,ifile, 'rb')) as fsrc:
-                    while 1:
-                        buf = fsrc.read(length)
-                        if not buf:
-                            break
-                        copy_size+=len(buf)
-                        fdst.write(buf)
-
-            if ccomb!=-1:
-              ccomb = zlibextras.adler32_combine(ccomb,ifilecksum,ifilesize)
+              adler32_accum = zlibextras.adler32_combine(adler32_accum,adler32c,ifilesize)
+                
         if dst:
             dst.close()
-        #check results
-        if doChecksum:
-          checks_pass = (ccomb == adler32c)
-          if not checks_pass:
-            self.logger.fatal("Checksum mismatch for output file" + destinationpath + ". Expected adler32:" + str(ccomb)+", got:" + str(adler32c))
-        else:
-          check_pass = (copy_size == json_size)
-          if not checks_pass:
-            self.logger.fatal("Checksum mismatch for output file" + destinationpath + ". Expected size:" + str(json_size) + ", got:" + str(copy_size))
+
+        #delete input files
+        for input in self.inputs:
+            ifile = input.data['Filelist']
+            if nproc==0:continue
+            try:os.remove(ifile)
+            except:pass
+
         self.data.setFieldByName("Filesize",json_size)
         self.data.setFieldByName("FileAdler32",ccomb)
-        return checks_pass
+        checks_pass = ( (ccomb == adler32accum) or (ccomb==-1) or (not doChecksum) ) and (copy_size == json_size)
 
+        return checks_pass
 
     def exists(self):
         return os.path.exists(self.filepath)

@@ -1,0 +1,42 @@
+About python-zlib-extras
+--------------------
+
+This is python-zlib-extras, a Python interface to checksum combination zlib library functions
+
+This package is *not* "official" python zlib bindings
+
+-------------------------------
+
+The official bindings does not contain interface to adler32_combine and crc32_combine,
+therefore this library includes them and some additional functions
+
+Building and using
+-------------------------------
+Run:
+rm -rf build;
+python setup.py build
+
+It will create a library file which needs to be copied to site-packages directory:
+sudo cp build/lib.linux-x86_64-2.6/zlibextras.so /usr/lib64/python2.6/site-packages/zlibextras.so
+(notice: in this version _zlibextras.so is created, this is just a special version to avoid library name clash)
+
+Now the library can be used in python, for example:
+>import zlibextras
+>print zlibextras.adler32_combine(1,2,3)
+
+Notice of copyright and license
+-------------------------------
+
+This library is free software; you can redistribute it and/or modify
+it under the terms of version 2.1 of the GNU Lesser General Public
+License as published by the Free Software Foundation.
+
+This library is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library, in the file named COPYING; if not,
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+Floor, Boston, MA 02110-1301 USA

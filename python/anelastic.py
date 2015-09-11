@@ -815,8 +815,24 @@ class LumiSectionHandler():
                 datfilelist = self.datfileList[:]
                 #no dat files in case of json data stream'
                 if outfile.isJsonDataStream()==False:
+                  foundDat=False
+
+                  def writeoutError(fobj,targetpath):
+                    procevts = int(fobj.getFieldByName("Processed"))
+                    errevts = int(fobj.getFieldByName("ErrorEvents"))
+                    fobj.setFieldByName("Processed","0")
+                    fobj.setFieldByName("Accepted","0")
+                    fobj.setFieldByName("ErrorEvents",str(procevts+errevts))
+                    fobj.setFieldByName("Filelist","")
+                    fobj.setFieldByName("Filesize","0")
+                    fobj.setFieldByName("FileAdler32","-1")
+                    fobj.writeout()
+                    try:os.remove(targetpath)
+                    except:pass
+
                   for datfile in datfilelist:
                     if datfile.stream == stream:
+                        foundDat=True
                         newfilepath = os.path.join(self.outdir,datfile.run,datfile.basename)
                         (filestem,ext)=os.path.splitext(datfile.filepath)
                         checksum_file = filestem+'.checksum'
@@ -847,17 +863,7 @@ class LumiSectionHandler():
                                 except:
                                     self.logger.fatal("checksum mismatch for "+ datfile.filepath)
                                 #failed checksum, assign everything to error events and try to delete the file
-                                procevts = int(outfile.getFieldByName("Processed"))
-                                errevts = int(outfile.getFieldByName("ErrorEvents"))
-                                outfile.setFieldByName("Processed","0")
-                                outfile.setFieldByName("Accepted","0")
-                                outfile.setFieldByName("ErrorEvents",str(procevts+errevts))
-                                outfile.setFieldByName("Filelist","")
-                                outfile.setFieldByName("Filesize","0")
-                                outfile.setFieldByName("FileAdler32","-1")
-                                outfile.writeout()
-                                try:os.remove(newfilepath)
-                                except:pass
+                                writeoutError(outfile,newfilepath)
                         if checksum_cmssw!=None and checksum_success==True:
                                 outfile.setFieldByName("FileAdler32",str(checksum_cmssw&0xffffffff))
                                 outfile.writeout()
@@ -865,6 +871,18 @@ class LumiSectionHandler():
                             os.unlink(filestem+'.checksum')
                         except:pass
                         self.datfileList.remove(datfile)
+                  if not foundDat and errEntry<self.totalEvent:
+                      success = False
+                      try:
+                          #micromerge-on-the-fly mode (in case of non-zero output)
+                          destinationpath = os.path.join(self.outdir,datfile.run,outfile.basename.splitext()[0]+".dat")
+                          success = outfile.mergeDatInputs(destinationpath)
+                      except Exception as ex:
+                          self.logger.fatal("Failed micro-merge: "+destinationpath)
+                          self.logger.exception(ex)
+                      if not success:
+                          writeoutError(outfile,newfilepath)
+
 
                 #move output json file in rundir
                 newfilepath = os.path.join(self.outdir,outfile.run,outfile.basename)

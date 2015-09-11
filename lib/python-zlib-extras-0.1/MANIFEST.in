@@ -1,0 +1,9 @@
+include COPYING
+include MANIFEST.in
+include setup.py
+prune *.orig
+prune *.pyc
+prune *.pyo
+prune *.rej
+prune *~
+recursive-include _zlibextras  *.c

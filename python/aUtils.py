@@ -11,7 +11,7 @@ import threading
 
 from inotifywrapper import InotifyWrapper
 import _inotify as inotify
-
+import _zlibextras as zlibextras
 
 ES_DIR_NAME = "TEMP_ES_DIRECTORY"
 UNKNOWN,OUTPUTJSD,DEFINITION,STREAM,INDEX,FAST,SLOW,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,INI,EOLS,BOLS,EOR,COMPLETE,DAT,PDAT,PJSNDATA,PIDPB,PB,CRASH,MODULELEGEND,PATHLEGEND,BOX,QSTATUS,FLUSH,PROCESSING = range(27)            #file types 
@@ -527,6 +527,67 @@ class fileHandler(object):
         if copy==False:os.unlink(src)
         return adler32c
 
+
+    def mergeDatInputs(self,destinationpath,doChecksum):
+        dirname = os.path.dirname(self.filepath)
+        cccomb=1
+        dst = None
+        adler32c=1
+        copy_size=0
+        json_size=0
+        for input in self.inputs:
+            nproc = input.data['nproc']
+            nerr = input.data['nproc']
+            ifile = input.data['Filelist']
+            ifilecksum = input.data['FileAdler32']
+            ifilesize = input.data['Filesize']
+            #no merging if n processed = 0
+            if nproc==0:
+                continue
+            #if any of 'proper' files has checksum set
+            if ifilecksum == -1: ccomb = -1
+            json_size+=ifilesize
+
+            #if going to merge, open input file
+            if dst == None:
+                dst = open(destinationpath)
+
+            length=16*1024
+            if doChecksum:
+                with open(os.path.join(dirname,ifile, 'rb')) as fsrc:
+                    while 1:
+                        buf = fsrc.read(length)
+                        if not buf:
+                            break
+                        adler32c=zlib.adler32(buf,adler32c)
+                        fdst.write(buf)
+            else:
+                with open(os.path.join(dirname,ifile, 'rb')) as fsrc:
+                    while 1:
+                        buf = fsrc.read(length)
+                        if not buf:
+                            break
+                        copy_size+=len(buf)
+                        fdst.write(buf)
+
+            if ccomb!=-1:
+              ccomb = zlibextras.adler32_combine(ccomb,ifilecksum,ifilesize)
+        if dst:
+            dst.close()
+        #check results
+        if doChecksum:
+          checks_pass = (ccomb == adler32c)
+          if not checks_pass:
+            self.logger.fatal("Checksum mismatch for output file" + destinationpath + ". Expected adler32:" + str(ccomb)+", got:" + str(adler32c))
+        else:
+          check_pass = (copy_size == json_size)
+          if not checks_pass:
+            self.logger.fatal("Checksum mismatch for output file" + destinationpath + ". Expected size:" + str(json_size) + ", got:" + str(copy_size))
+        self.data.setFieldByName("Filesize",json_size)
+        self.data.setFieldByName("FileAdler32",ccomb)
+        return checks_pass
+
+
     def exists(self):
         return os.path.exists(self.filepath)
 
@@ -597,9 +658,9 @@ class fileHandler(object):
         self.data["definition"] = jsdfile
         self.data["source"] = host
 
-        if self.filetype==STREAMDQMHISTOUTPUT:
-            self.inputs.append(infile)
-        else:
+        self.inputs.append(infile)
+
+        if self.filetype!=STREAMDQMHISTOUTPUT:
             #append list of files if this is json metadata stream
             try:
                 findex,ftype = self.getFieldIndex("Filelist")

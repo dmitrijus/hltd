@@ -875,7 +875,10 @@ class LumiSectionHandler():
                       success = False
                       try:
                           #micromerge-on-the-fly mode (in case of non-zero output)
-                          destinationpath = os.path.join(self.outdir,datfile.run,outfile.basename.splitext()[0]+".dat")
+                          #testing code: @SM
+                          destinationpath = os.path.join(self.outdir,outfile.run,outfile.basename.splitext()[0]+".dat")
+                          self.logger.info("checking path " +os.path.join(self.dirname,outfile.run,outfile.basename.splitext()[0]+".dat"))
+                          os.stat(os.path.join(self.dirname,outfile.run,outfile.basename.splitext()[0]+".dat").st_size)
                           success = outfile.mergeDatInputs(destinationpath)
                       except Exception as ex:
                           self.logger.fatal("Failed micro-merge: "+destinationpath)

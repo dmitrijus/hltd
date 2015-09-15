@@ -896,9 +896,11 @@ class LumiSectionHandler():
                 #do not copy data if this is jsn data stream and json merging fails
                 if outfile.mergeAndMoveJsnDataMaybe(os.path.join(self.outdir,outfile.run,outfile.stream))==False:return
 
+                oldpath=outfile.filepath
                 result,checksum=outfile.moveFile(newfilepath,copy=True,createDestinationDir=False)
                 if result:
                   self.outfileList.remove(outfile)
+                outfile.filepath=oldpath
                 outfile.esCopy()
                 outfile.deleteFile(silent=True)
  

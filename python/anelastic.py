@@ -277,7 +277,15 @@ class LumiSectionRanger():
         ext = ".ini"
 
         filename = "_".join([runname,ls,stream,self.host])+ext
-        filepath = os.path.join(self.outdir,runname,filename)
+        filepath = os.path.join(self.outdir,runname,stream,filename)
+        filedir = os.path.join(self.outdir,runname,stream)
+
+        #try to create output stream subdirectory
+        try:
+            os.mkdir(filedir)
+        except:
+            pass
+
         infile = fileHandler(filepath)
         infile.data = ""
         if infile.writeout(empty=True,verbose=False):
@@ -308,7 +316,14 @@ class LumiSectionRanger():
         filename = "_".join([run,ls,stream,self.host])+ext
         localfilepath = os.path.join(localdir,filename)
         localmonfilepath = os.path.join(localdir,'mon',filename)
-        remotefilepath = os.path.join(self.outdir,run,filename)
+        remotefiledir = os.path.join(self.outdir,run,stream)
+        remotefilepath = os.path.join(self.outdir,run,stream,filename)
+
+        #create stream subdirectory in output if not there
+        try:
+            os.mkdir(remotefiledir)
+        except:
+            pass
 
         if not os.path.exists(localmonfilepath):
             try:
@@ -346,8 +361,17 @@ class LumiSectionRanger():
             return
           except:
             pass
+          stream = None
+          for token in self.infile.name.split('_'):
+            if token.startswith('stream'):
+              stream=token
+          #find stream token
           #copy to output with rename
-          self.infile.moveFile(os.path.join(outputDir,run,os.path.basename(newpath)),copy = True,adler32=False,
+          if not stream:
+            self.infile.moveFile(os.path.join(outputDir,run,os.path.basename(newpath)),copy = True,adler32=False,
+                               silent=True,createDestinationDir=False,missingDirAlert=False)
+          else:
+            self.infile.moveFile(os.path.join(outputDir,run,stream,os.path.basename(newpath)),copy = True,adler32=False,
                                silent=True,createDestinationDir=False,missingDirAlert=False)
           #local copy
           self.infile.moveFile(newpath,copy = True,adler32=False,silent=True,createDestinationDir=False,missingDirAlert=False)
@@ -439,7 +463,7 @@ class LumiSectionRanger():
     def createBoLS(self,run,ls,stream):
         #create BoLS file in output dir
         bols_file = run+"_"+ls+"_"+stream+"_BoLS.jsn"
-        bols_path =  os.path.join(self.outdir,run,bols_file)
+        bols_path =  os.path.join(self.outdir,run,stream,bols_file)
         try:
            open(bols_path,'a').close()
         except:
@@ -635,12 +659,12 @@ class LumiSectionHandler():
                     self.logger.debug('renaming '+ str(localPidDataPath)+' --> ' + str(localDataPath))
                     os.rename(localPidDataPath,localDataPath)
                     dataFile = fileHandler(localDataPath)
-                    remoteDataPath = os.path.join(outdir,outfile.run,datafilename)
+                    remoteDataPath = os.path.join(outdir,outfile.run,outfile.stream,datafilename)
                     if self.EOLS:
                         dataFile.moveFile(remoteDataPath, createDestinationDir=True, missingDirAlert=True)
                 else:
                     outfile.setFieldByName("Filelist","")
-                remotePath = os.path.join(outdir,outfile.run,outfilename)
+                remotePath = os.path.join(outdir,outfile.run,outfile.stream,outfilename)
                 outfile.writeout()
                 #remove input file
                 os.remove(infile.filepath)
@@ -817,7 +841,7 @@ class LumiSectionHandler():
                 if outfile.isJsonDataStream()==False:
                   for datfile in datfilelist:
                     if datfile.stream == stream:
-                        newfilepath = os.path.join(self.outdir,datfile.run,datfile.basename)
+                        newfilepath = os.path.join(self.outdir,datfile.run,datfile.stream,datfile.basename)
                         (filestem,ext)=os.path.splitext(datfile.filepath)
                         checksum_file = filestem+'.checksum'
                         doChecksum=conf.output_adler32
@@ -867,10 +891,10 @@ class LumiSectionHandler():
                         self.datfileList.remove(datfile)
 
                 #move output json file in rundir
-                newfilepath = os.path.join(self.outdir,outfile.run,outfile.basename)
+                newfilepath = os.path.join(self.outdir,outfile.run,outfile.stream,outfile.basename)
 
                 #do not copy data if this is jsn data stream and json merging fails
-                if outfile.mergeAndMoveJsnDataMaybe(os.path.join(self.outdir,outfile.run))==False:return
+                if outfile.mergeAndMoveJsnDataMaybe(os.path.join(self.outdir,outfile.run,outfile.stream))==False:return
 
                 result,checksum=outfile.moveFile(newfilepath,copy=True,createDestinationDir=False)
                 if result:
@@ -911,7 +935,7 @@ class LumiSectionHandler():
             errfile.setFieldByName("FileAdler32", "-1", warning=False)
             errfile.setFieldByName("TransferDestination","ErrorArea",warning=False)
             errfile.writeout()
-            newfilepath = os.path.join(self.outdir,errfile.run,errfile.basename)
+            newfilepath = os.path.join(self.outdir,errfile.run,errfile.stream,errfile.basename)
             #store in ES if there were any errors
             try:
                 if numErr>0:
@@ -924,7 +948,7 @@ class LumiSectionHandler():
         
             #create BoLS file in output dir
             bols_file = str(self.run)+"_"+self.ls+"_"+stream+"_BoLS.jsn"#use join
-            bols_path =  os.path.join(self.outdir,self.run,bols_file)
+            bols_path =  os.path.join(self.outdir,self.run,stream,bols_file)
             try:
                 open(bols_path,'a').close()
             except:

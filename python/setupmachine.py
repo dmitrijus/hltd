@@ -50,14 +50,15 @@ dqmtest_list = ["bu-c2f13-29-01","bu-c2f11-13-01",
 detdqm_list  = ["bu-c2f11-19-01",
                 "fu-c2f11-21-01","fu-c2f11-21-02","fu-c2f11-21-03","fu-c2f11-21-04",
                 "fu-c2f11-23-01","fu-c2f11-23-02","fu-c2f11-23-03","fu-c2f11-23-04"]
-
-#old machines
-old_es_cdaq_list = ['srv-c2a11-07-01','srv-c2a11-09-01','srv-c2a11-10-01','srv-c2a11-11-01','srv-c2a11-14-01','srv-c2a11-15-01',
-                 'srv-c2a11-16-01','srv-c2a11-17-01','srv-c2a11-18-01','srv-c2a11-19-01','srv-c2a11-20-01','srv-c2a11-21-01',
-                 'srv-c2a11-22-01','srv-c2a11-23-01','srv-c2a11-26-01','srv-c2a11-27-01','srv-c2a11-28-01','srv-c2a11-29-01','srv-c2a11-30-01']
-
-es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02', 'ncsrv-c2e42-21-02','ncsrv-c2e42-23-02']
-es_tribe_list =[ 'ncsrv-c2e42-13-03', 'ncsrv-c2e42-23-03']
+#es_cdaq_list = ["srv-c2a11-07-01","srv-c2a11-08-01","srv-c2a11-09-01","srv-c2a11-10-01",
+#                "srv-c2a11-11-01","srv-c2a11-14-01","srv-c2a11-15-01","srv-c2a11-16-01",
+#                "srv-c2a11-17-01","srv-c2a11-18-01","srv-c2a11-19-01","srv-c2a11-20-01",
+#                "srv-c2a11-21-01","srv-c2a11-22-01","srv-c2a11-23-01","srv-c2a11-26-01",
+#                "srv-c2a11-27-01","srv-c2a11-28-01","srv-c2a11-29-01","srv-c2a11-30-01"]
+#
+#es_tribe_list = ["srv-c2a11-31-01","srv-c2a11-32-01","srv-c2a11-33-01","srv-c2a11-34-01",
+#                "srv-c2a11-35-01","srv-c2a11-38-01","srv-c2a11-39-01","srv-c2a11-40-01",
+#                "srv-c2a11-41-01","srv-c2a11-42-01"]
 
 tribe_ignore_list = ['bu-c2f13-29-01','bu-c2f13-31-01','bu-c2f11-09-01','bu-c2f11-13-01','bu-c2f11-19-01']
 
@@ -79,25 +80,14 @@ def getmachinetype():
     elif myhost.startswith('fu-') : return 'daq2','fu'
     elif myhost.startswith('hilton-') : return 'hilton','fu'
     elif myhost.startswith('bu-') : return 'daq2','bu'
-    elif myhost.startswith('srv-') or myhost.startswith('ncsrv-'):
+    elif myhost.startswith('srv-') :
         try:
-            es_cdaq_list_ip = socket.gethostbyname_ex('es-cdaq')[2]
-            es_tribe_list_ip = socket.gethostbyname_ex('es-tribe')[2]
-            for es in es_cdaq_list:
-              try:
-                  es_cdaq_list_ip.append(socket.gethostbyname_ex(es)[2][0])
-              except Exception as ex:
-                  print ex
-            for es in es_tribe_list:
-              try:
-                  es_tribe_list_ip.append(socket.gethostbyname_ex(es)[2][0])
-              except Exception as ex:
-                  print ex
-
+            es_cdaq_list = socket.gethostbyname_ex('es-cdaq')[2]
+            es_tribe_list = socket.gethostbyname_ex('es-tribe')[2]
             myaddr = socket.gethostbyname(myhost)
-            if myaddr in es_cdaq_list_ip:
+            if myaddr in es_cdaq_list:
                 return 'es','escdaq'
-            elif myaddr in es_tribe_list_ip:
+            elif myaddr in es_tribe_list:
                 return 'es','tribe'
             else:
                 return 'unknown','unknown'
@@ -157,12 +147,11 @@ def name_identifier():
 
 
 
-def getBUAddr(parentTag,hostname):
+def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_):
 
-    global equipmentSet
     #con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_W/'+dbpwd+'@'+dbhost+':10121/int2r_lb.cern.ch',
 
-    if env == "vm":
+    if env_ == "vm":
 
         try:
             #cluster in openstack that is not (yet) in mysql
@@ -172,18 +161,17 @@ def getBUAddr(parentTag,hostname):
             return retval
         except:
             pass
-        con = MySQLdb.connect( host= dbhost, user = dblogin, passwd = dbpwd, db = dbsid)
+        con = MySQLdb.connect( host= dbhost_, user = dblogin_, passwd = dbpwd_, db = dbsid_)
     else:
         if parentTag == 'daq2':
-            if dbhost.strip()=='null':
-                #con = cx_Oracle.connect('CMS_DAQ2_HW_CONF_W','pwd','cms_rcms',
-                con = cx_Oracle.connect(dblogin,dbpwd,dbsid,
+            if dbhost_.strip()=='null':
+                con = cx_Oracle.connect(dblogin_,dbpwd_,dbsid_,
                           cclass="FFFSETUP",purity = cx_Oracle.ATTR_PURITY_SELF)
             else:
-                con = cx_Oracle.connect(dblogin+'/'+dbpwd+'@'+dbhost+':10121/'+dbsid,
+                con = cx_Oracle.connect(dblogin+'/'+dbpwd_+'@'+dbhost_+':10121/'+dbsid_,
                           cclass="FFFSETUP",purity = cx_Oracle.ATTR_PURITY_SELF)
         else:
-            con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_R/'+dbpwd+'@int2r2-v.cern.ch:10121/int2r_lb.cern.ch',
+            con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_R/'+dbpwd_+'@int2r2-v.cern.ch:10121/int2r_lb.cern.ch',
                           cclass="FFFSETUP",purity = cx_Oracle.ATTR_PURITY_SELF)
     
     #print con.version
@@ -219,14 +207,14 @@ def getBUAddr(parentTag,hostname):
                 hn.nic_id = d.nic_id AND \
                 d.dnsname = '" + hostname + "' \
                 AND d.eqset_id = (select child.eqset_id from DAQ_EQCFG_EQSET child, DAQ_EQCFG_EQSET \
-                parent WHERE child.parent_id = parent.eqset_id AND parent.cfgkey = '"+parentTag+"' and child.cfgkey = '"+ equipmentSet + "')"
+                parent WHERE child.parent_id = parent.eqset_id AND parent.cfgkey = '"+parentTag+"' and child.cfgkey = '"+ eqset_ + "')"
 
     #NOTE: to query squid master for the FU, replace 'myBU%' with 'mySquidMaster%'
 
-    if equipmentSet == 'latest':
+    if eqset_ == 'latest':
       cur.execute(qstring)
     else:
-      print "query equipment set",parentTag+'/'+equipmentSet
+      print "query equipment set",parentTag+'/'+eqset_
       cur.execute(qstring2)
 
     retval = []
@@ -456,7 +444,7 @@ if __name__ == "__main__":
         if 'elasticsearch' in selection:
             restoreFileMaybe(elasticsysconf)
             restoreFileMaybe(elasticconf)
-            #restoreFileMaybe(elasticlogconf)
+            restoreFileMaybe(elasticlogconf)
 
         sys.exit(0)
 
@@ -593,7 +581,7 @@ if __name__ == "__main__":
 
     if type == 'fu':
       if cluster == 'daq2val' or cluster == 'daq2': 
-        for addr in getBUAddr(cluster,cnhostname):
+        for addr in getBUAddr(cluster,cnhostname,env,equipmentSet,dbhost,dblogin,dbpwd,dbsid):
             if buName==None:
                 buName = addr[1].split('.')[0]
             elif buName != addr[1].split('.')[0]:
@@ -664,7 +652,6 @@ if __name__ == "__main__":
             escfg.reg('discovery.zen.ping.multicast.enabled','false')
             escfg.reg('network.publish_host',es_publish_host)
             escfg.reg('transport.tcp.compress','true')
-            #escfg.reg('script.groovy.sandbox.enabled','true')
 
             if type == 'fu':
                 if env=="vm":
@@ -685,7 +672,7 @@ if __name__ == "__main__":
 
         if type == 'tribe':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','24G')
+            essyscfg.reg('ES_HEAP_SIZE','12G')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
@@ -713,26 +700,21 @@ if __name__ == "__main__":
             escfg.commit()
 
             #modify logging.yml
-            eslogcfg = FileManager(elasticlogconf,':',esEdited,'',' ')
-            eslogcfg.reg('es.logger.level','WARN')
+            eslogcfg = FileManager(eslogcfg,':',esEdited,'',' ')
+            eslogcfg.reg('es.logger.level','ERROR')
             eslogcfg.commit()
  
         if type == 'escdaq':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','30G')
-            essyscfg.reg('DATA_DIR','/elasticsearch/lib/elasticsearch')
+            essyscfg.reg('ES_HEAP_SIZE','10G')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('cluster.name','es-cdaq')
-            #TODO:switch to multicast when complete with new node migration
-            escfg.reg('discovery.zen.ping.multicast.enabled','false')
-            escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_cdaq_list+old_es_cdaq_list))
-            escfg.reg('discovery.zen.minimum_master_nodes','4')
-            #escfg.reg('index.mapper.dynamic','false')
+            escfg.reg('discovery.zen.minimum_master_nodes','11')
+            escfg.reg('index.mapper.dynamic','false')
             escfg.reg('action.auto_create_index','false')
             escfg.reg('transport.tcp.compress','true')
-            escfg.reg('script.groovy.sandbox.enabled','true')
             escfg.reg('node.master','true')
             escfg.reg('node.data','true')
             escfg.commit()

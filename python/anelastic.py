@@ -897,7 +897,7 @@ class LumiSectionHandler():
                 if outfile.mergeAndMoveJsnDataMaybe(os.path.join(self.outdir,outfile.run,outfile.stream))==False:return
 
                 oldpath=outfile.filepath
-                result,checksum=outfile.moveFile(newfilepath,copy=True,createDestinationDir=False)
+                result,checksum=outfile.moveFile(newfilepath,copy=True,createDestinationDir=False,updateFileInfo=False)
                 if result:
                   self.outfileList.remove(outfile)
                 outfile.filepath=oldpath

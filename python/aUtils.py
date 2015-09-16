@@ -402,7 +402,7 @@ class fileHandler(object):
                 return False
         return True
 
-    def moveFile(self,newpath,copy = False,adler32=False,silent=False, createDestinationDir=True, missingDirAlert=True):
+    def moveFile(self,newpath,copy = False,adler32=False,silent=False, createDestinationDir=True, missingDirAlert=True, updateFileInfo=True):
         checksum=1
         if not self.exists(): return True,checksum
         oldpath = self.filepath
@@ -486,8 +486,9 @@ class fileHandler(object):
                 self.logger.exception(e)
                 raise e
 
-        self.filepath = newpath
-        self.getFileInfo()
+        if updateFileInfo:
+            self.filepath = newpath
+            self.getFileInfo()
         return True,checksum
 
     #move file (works only on src as file, not directory) 

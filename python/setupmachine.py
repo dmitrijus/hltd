@@ -539,7 +539,7 @@ if __name__ == "__main__":
     cmssw_version = 'CMSSW_7_1_4_patch1'
     dqmmachine = 'False'
     execdir = '/opt/hltd'
-    resourcefract = '0.5'
+    resourcefract = '0.33'
     auto_clear_quarantined = 'False'
     
     if cluster == 'daq2val':

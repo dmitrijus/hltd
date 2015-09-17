@@ -1086,7 +1086,10 @@ class OnlineResource:
     def NotifyNewRun(self,runnumber):
         self.runnumber = runnumber
         logger.info("calling start of run on "+self.cpu[0])
-        try:
+        attemptsLeft=3
+        while attemptsLeft>0:
+          attemptsLeft-=1
+          try:
             connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)
             connection.request("GET",'cgi-bin/start_cgi.py?run='+str(runnumber))
             response = connection.getresponse()
@@ -1095,8 +1098,14 @@ class OnlineResource:
             if response.status > 300: self.hoststate = 1
             else:
                 logger.info(response.read())
-        except Exception as ex:
-            logger.exception(ex)
+            break
+          except Exception as ex:
+            if attemptsLeft>0:
+              logger.error(str(ex))
+              logger.info('retrying connection to '+str(self.cpu[0]))
+            else:
+              logger.error('Exhausted attempts to contact '+str(self.cpu[0]))
+              logger.exception(ex)
 
     def NotifyShutdown(self):
         try:

@@ -224,7 +224,8 @@ central_boxinfo_mapping = {
                       }
                   },
               'cloudState'    :{'type':'string',"index":"not_analyzed"},
-              'detectedStaleHandle':{'type':'boolean'}
+              'detectedStaleHandle':{'type':'boolean'},
+              'blacklist' : {'type':'string',"index":"not_analyzed"}
               #'activeRunsErrors':{'type':'string',"index":"not_analyzed"},#deprecated
               },
             '_timestamp' : { 

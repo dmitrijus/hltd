@@ -309,6 +309,8 @@ class elasticBandBU:
             document['activeRuns'] = str(document['activeRuns']).strip('[]')
             document['appliance']=self.host
             document['instance']=self.conf.instance
+            if bu_doc==True:
+              document['blacklist']=self.black_list
             #only here
             document['host']=basename
             try:document.pop('version')

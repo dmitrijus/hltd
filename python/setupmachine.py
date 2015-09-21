@@ -558,6 +558,8 @@ if __name__ == "__main__":
         runindex_name = 'cdaq'
         if myhost in minidaq_list:
             runindex_name = 'minidaq'
+            resourcefract = '1.0'
+            resourcefractd = '1.0'
             auto_clear_quarantined = 'True'
         if myhost in dqm_list or myhost in dqmtest_list or myhost in detdqm_list:
             use_elasticsearch = 'False'

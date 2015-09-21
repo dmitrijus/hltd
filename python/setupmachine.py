@@ -5,7 +5,7 @@ import shutil
 import json
 import subprocess
 import shutil
-
+import syslog
 import time
 
 sys.path.append('/opt/hltd/python')
@@ -152,11 +152,12 @@ def name_identifier():
 
 
 
-def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_):
+def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retry=True):
 
     #con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_W/'+dbpwd+'@'+dbhost+':10121/int2r_lb.cern.ch',
+    try:
 
-    if env_ == "vm":
+      if env_ == "vm":
 
         try:
             #cluster in openstack that is not (yet) in mysql
@@ -167,7 +168,7 @@ def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_):
         except:
             pass
         con = MySQLdb.connect( host= dbhost_, user = dblogin_, passwd = dbpwd_, db = dbsid_)
-    else:
+      else:
         session_suffix = hostname.split('-')[0]+hostname.split('-')[1]
         if parentTag == 'daq2':
             if dbhost.strip()=='null':
@@ -181,6 +182,13 @@ def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_):
             con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_R/'+dbpwd_+'@int2r2-v.cern.ch:10121/int2r_lb.cern.ch',
                           cclass="FFFSETUP"+session_suffix,purity = cx_Oracle.ATTR_PURITY_SELF)
     
+    except Exception as ex:
+      syslog.syslog('setupmachine.py: '+ str(ex))
+      time.sleep(0.1)
+      if retry:
+        return getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retry=False)
+      else:
+        raise ex
     #print con.version
 
     cur = con.cursor()

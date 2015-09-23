@@ -531,17 +531,17 @@ class fileHandler(object):
 
     def mergeDatInputs(self,destinationpath,doChecksum):
         dirname = os.path.dirname(self.filepath)
-        cccomb=1
+        ccomb=1
         dst = None
         adler32accum=1
         json_size=0
         copy_size=0
         for input in self.inputs:
-            nproc = input.data['nproc']
-            nerr = input.data['nproc']
-            ifile = input.data['Filelist']
-            ifilecksum = input.data['FileAdler32']
-            ifilesize = input.data['Filesize']
+            nproc = int(input.getFieldByName('Processed'))
+            nerr = int(input.getFieldByName('ErrorEvents'))
+            ifile = input.getFieldByName('Filelist')
+            ifilecksum = int(input.getFieldByName('FileAdler32'))
+            ifilesize = int(input.getFieldByName('Filesize'))
 
             #no file to merge if n processed = 0
             if nproc==0:
@@ -551,7 +551,7 @@ class fileHandler(object):
             if ifilecksum == -1:
               ccomb = -1
               doChecksum = False
-            if ccomb!=-1:
+            if doChecksum:
               ccomb = zlibextras.adler32_combine(ccomb,ifilecksum,ifilesize)
 
             json_size+=ifilesize
@@ -563,37 +563,42 @@ class fileHandler(object):
             length=16*1024
             adler32c=1
             file_size=0
-            with open(os.path.join(dirname,ifile, 'rb')) as fsrc:
+            with open(os.path.join(dirname,ifile), 'rb') as fsrc:
                 while 1:
                     buf = fsrc.read(length)
                     if not buf:
                         break
-                    file_size+=len(buf)
+                    read_len=len(buf)
+                    file_size+=read_len
                     if doChecksum:
-                      adler32c=zlib.adler32(buf,1)
-                    fdst.write(buf)
+                      adler32c=zlib.adler32(buf,adler32c)
+                    dst.write(buf)
             copy_size += file_size
-            if doChecksum and ifilecksum != adler32c:
-              self.logger.fatal("Checksum mismatch detected while reading file " + ifile + ". expected:"+str(ifilechecksum)+" obtained:"+str(adler32c))
+            #adler32c = adler32 & 0xffffffff
+            if doChecksum and ifilecksum != (adler32c & 0xffffffff):
+              self.logger.fatal("Checksum mismatch detected while reading file " + ifile + ". expected:"+str(ifilecksum)+" obtained:"+str(adler32c&0xffffffff))
             if file_size!=ifilesize:
               self.logger.fatal("Size mismatch is detected while reading file " + ifile + ". expected:"+str(ifilesize)+" obtained:"+str(file_size))
             if doChecksum:
-              adler32_accum = zlibextras.adler32_combine(adler32_accum,adler32c,ifilesize)
-                
+              adler32accum = zlibextras.adler32_combine(adler32accum,adler32c,ifilesize) #& 0xffffffff
+
         if dst:
             dst.close()
 
         #delete input files
         for input in self.inputs:
-            ifile = input.data['Filelist']
+            ifile = input.getFieldByName('Filelist')
             if nproc==0:continue
             try:os.remove(ifile)
             except:pass
 
-        self.data.setFieldByName("Filesize",json_size)
-        self.data.setFieldByName("FileAdler32",ccomb)
-        checks_pass = ( (ccomb == adler32accum) or (ccomb==-1) or (not doChecksum) ) and (copy_size == json_size)
-
+        self.setFieldByName("Filesize",json_size)
+        if doChecksum:
+            self.setFieldByName("FileAdler32",ccomb & 0xffffffff)
+        else:
+            self.setFieldByName("FileAdler32",-1)
+        checks_pass = (ccomb == adler32accum or not doChecksum ) and (copy_size == json_size)
+        self.logger.info(str(checks_pass))
         return checks_pass
 
     def exists(self):

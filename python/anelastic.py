@@ -905,18 +905,23 @@ class LumiSectionHandler():
                         self.datfileList.remove(datfile)
                   if not foundDat and errEntry<self.totalEvent:
                       success = False
+                      destinationpath = os.path.join(self.outdir,outfile.run,outfile.stream,outfile.name+".dat")
                       try:
-                          #micromerge-on-the-fly mode (in case of non-zero output)
-                          #testing code: @SM
-                          destinationpath = os.path.join(self.outdir,outfile.run,outfile.basename.splitext()[0]+".dat")
-                          self.logger.info("checking path " +os.path.join(self.dirname,outfile.run,outfile.basename.splitext()[0]+".dat"))
-                          os.stat(os.path.join(self.dirname,outfile.run,outfile.basename.splitext()[0]+".dat").st_size)
-                          success = outfile.mergeDatInputs(destinationpath)
+                          try:
+                              os.stat(os.path.join(self.tempdir,outfile.run,outfile.name+".dat")).st_size
+                              self.logger.warning('file exists, but not previously detected? '+os.path.join(self.tempdir,outfile.run,outfile.name+".dat"))
+                          except:
+                              pass
+                          success = outfile.mergeDatInputs(destinationpath,conf.output_adler32)
+                          outfile.writeout()
+                          #test
+                          os.stat(os.path.join(self.outdir,outfile.run,outfile.stream,outfile.name+".dat")).st_size
                       except Exception as ex:
                           self.logger.fatal("Failed micro-merge: "+destinationpath)
                           self.logger.exception(ex)
+                          success=False
                       if not success:
-                          writeoutError(outfile,newfilepath)
+                          writeoutError(outfile,destinationpath)
 
 
                 #move output json file in rundir

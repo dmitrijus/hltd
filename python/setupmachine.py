@@ -5,7 +5,7 @@ import shutil
 import json
 import subprocess
 import shutil
-
+import syslog
 import time
 
 sys.path.append('/opt/hltd/python')
@@ -38,9 +38,9 @@ dbsid = 'empty'
 dblogin = 'empty'
 dbpwd = 'empty'
 equipmentSet = 'latest'
-minidaq_list = ["bu-c2f13-21-01","bu-c2f13-23-01","bu-c2f13-25-01","bu-c2f13-27-01",
-                "fu-c2f13-17-01","fu-c2f13-17-02","fu-c2f13-17-03","fu-c2f13-17-04",
-                "fu-c2f13-19-01","fu-c2f13-19-02","fu-c2f13-19-03","fu-c2f13-19-04"]
+minidaq_list = ["bu-c2f13-14-01","bu-c2f13-16-01","bu-c2f13-25-01","bu-c2f13-27-01",
+                "bu-c2f13-37-01","bu-c2f13-39-01","fu-c2f13-09-01","fu-c2f13-09-02",
+                "fu-c2f13-20-01","fu-c2f13-20-02","fu-c2f13-33-01","fu-c2f13-33-02"]
 dqm_list     = ["bu-c2f13-31-01","bu-c2f11-09-01",
                 "fu-c2f13-39-01","fu-c2f13-39-02","fu-c2f13-39-03","fu-c2f13-39-04",
                 "fu-c2f11-11-01","fu-c2f11-11-02","fu-c2f11-11-03","fu-c2f11-11-04"]
@@ -50,15 +50,9 @@ dqmtest_list = ["bu-c2f13-29-01","bu-c2f11-13-01",
 detdqm_list  = ["bu-c2f11-19-01",
                 "fu-c2f11-21-01","fu-c2f11-21-02","fu-c2f11-21-03","fu-c2f11-21-04",
                 "fu-c2f11-23-01","fu-c2f11-23-02","fu-c2f11-23-03","fu-c2f11-23-04"]
-#es_cdaq_list = ["srv-c2a11-07-01","srv-c2a11-08-01","srv-c2a11-09-01","srv-c2a11-10-01",
-#                "srv-c2a11-11-01","srv-c2a11-14-01","srv-c2a11-15-01","srv-c2a11-16-01",
-#                "srv-c2a11-17-01","srv-c2a11-18-01","srv-c2a11-19-01","srv-c2a11-20-01",
-#                "srv-c2a11-21-01","srv-c2a11-22-01","srv-c2a11-23-01","srv-c2a11-26-01",
-#                "srv-c2a11-27-01","srv-c2a11-28-01","srv-c2a11-29-01","srv-c2a11-30-01"]
-#
-#es_tribe_list = ["srv-c2a11-31-01","srv-c2a11-32-01","srv-c2a11-33-01","srv-c2a11-34-01",
-#                "srv-c2a11-35-01","srv-c2a11-38-01","srv-c2a11-39-01","srv-c2a11-40-01",
-#                "srv-c2a11-41-01","srv-c2a11-42-01"]
+
+es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02', 'ncsrv-c2e42-21-02','ncsrv-c2e42-23-02']
+es_tribe_list =[ 'ncsrv-c2e42-13-03', 'ncsrv-c2e42-23-03']
 
 tribe_ignore_list = ['bu-c2f13-29-01','bu-c2f13-31-01','bu-c2f11-09-01','bu-c2f11-13-01','bu-c2f11-19-01']
 
@@ -80,14 +74,25 @@ def getmachinetype():
     elif myhost.startswith('fu-') : return 'daq2','fu'
     elif myhost.startswith('hilton-') : return 'hilton','fu'
     elif myhost.startswith('bu-') : return 'daq2','bu'
-    elif myhost.startswith('srv-') :
+    elif myhost.startswith('srv-') or myhost.startswith('ncsrv-'):
         try:
-            es_cdaq_list = socket.gethostbyname_ex('es-cdaq')[2]
-            es_tribe_list = socket.gethostbyname_ex('es-tribe')[2]
+            es_cdaq_list_ip = socket.gethostbyname_ex('es-cdaq')[2]
+            es_tribe_list_ip = socket.gethostbyname_ex('es-tribe')[2]
+            for es in es_cdaq_list:
+              try:
+                  es_cdaq_list_ip.append(socket.gethostbyname_ex(es)[2][0])
+              except Exception as ex:
+                  print ex
+            for es in es_tribe_list:
+              try:
+                  es_tribe_list_ip.append(socket.gethostbyname_ex(es)[2][0])
+              except Exception as ex:
+                  print ex
+
             myaddr = socket.gethostbyname(myhost)
-            if myaddr in es_cdaq_list:
+            if myaddr in es_cdaq_list_ip:
                 return 'es','escdaq'
-            elif myaddr in es_tribe_list:
+            elif myaddr in es_tribe_list_ip:
                 return 'es','tribe'
             else:
                 return 'unknown','unknown'
@@ -147,11 +152,12 @@ def name_identifier():
 
 
 
-def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_):
+def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retry=True):
 
     #con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_W/'+dbpwd+'@'+dbhost+':10121/int2r_lb.cern.ch',
+    try:
 
-    if env_ == "vm":
+      if env_ == "vm":
 
         try:
             #cluster in openstack that is not (yet) in mysql
@@ -162,18 +168,27 @@ def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_):
         except:
             pass
         con = MySQLdb.connect( host= dbhost_, user = dblogin_, passwd = dbpwd_, db = dbsid_)
-    else:
+      else:
+        session_suffix = hostname.split('-')[0]+hostname.split('-')[1]
         if parentTag == 'daq2':
-            if dbhost_.strip()=='null':
+            if dbhost.strip()=='null':
+                #con = cx_Oracle.connect('CMS_DAQ2_HW_CONF_W','pwd','cms_rcms',
                 con = cx_Oracle.connect(dblogin_,dbpwd_,dbsid_,
-                          cclass="FFFSETUP",purity = cx_Oracle.ATTR_PURITY_SELF)
+                          cclass="FFFSETUP"+session_suffix,purity = cx_Oracle.ATTR_PURITY_SELF)
             else:
-                con = cx_Oracle.connect(dblogin+'/'+dbpwd_+'@'+dbhost_+':10121/'+dbsid_,
-                          cclass="FFFSETUP",purity = cx_Oracle.ATTR_PURITY_SELF)
+                con = cx_Oracle.connect(dblogin_+'/'+dbpwd_+'@'+dbhost_+':10121/'+dbsid_,
+                          cclass="FFFSETUP"+session_suffix,purity = cx_Oracle.ATTR_PURITY_SELF)
         else:
             con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_R/'+dbpwd_+'@int2r2-v.cern.ch:10121/int2r_lb.cern.ch',
-                          cclass="FFFSETUP",purity = cx_Oracle.ATTR_PURITY_SELF)
+                          cclass="FFFSETUP"+session_suffix,purity = cx_Oracle.ATTR_PURITY_SELF)
     
+    except Exception as ex:
+      syslog.syslog('setupmachine.py: '+ str(ex))
+      time.sleep(0.1)
+      if retry:
+        return getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retry=False)
+      else:
+        raise ex
     #print con.version
 
     cur = con.cursor()
@@ -230,7 +245,7 @@ def getAllBU(requireFU=False):
     parentTag = 'daq2'
     if True:
     #if parentTag == 'daq2':
-        if dbhost.strip()=='null':
+        if dbhost_.strip()=='null':
             #con = cx_Oracle.connect('CMS_DAQ2_HW_CONF_W','pwd','cms_rcms',
             con = cx_Oracle.connect(dblogin,dbpwd,dbsid,
                       cclass="FFFSETUP",purity = cx_Oracle.ATTR_PURITY_SELF)
@@ -444,7 +459,7 @@ if __name__ == "__main__":
         if 'elasticsearch' in selection:
             restoreFileMaybe(elasticsysconf)
             restoreFileMaybe(elasticconf)
-            restoreFileMaybe(elasticlogconf)
+            #restoreFileMaybe(elasticlogconf)
 
         sys.exit(0)
 
@@ -540,6 +555,8 @@ if __name__ == "__main__":
     dqmmachine = 'False'
     execdir = '/opt/hltd'
     resourcefract = '0.33'
+    resourcefractd = '0.45'
+    resourcefract_minidaq = '0.5'
     auto_clear_quarantined = 'False'
     
     if cluster == 'daq2val':
@@ -549,6 +566,8 @@ if __name__ == "__main__":
         runindex_name = 'cdaq'
         if myhost in minidaq_list:
             runindex_name = 'minidaq'
+            resourcefract = '1.0'
+            resourcefractd = '1.0'
             auto_clear_quarantined = 'True'
         if myhost in dqm_list or myhost in dqmtest_list or myhost in detdqm_list:
             use_elasticsearch = 'False'
@@ -557,6 +576,7 @@ if __name__ == "__main__":
             dqmmachine = 'True'
             username = 'dqmpro'
             resourcefract = '1.0'
+            resourcefractd = '1.0'
             cmssw_version = ''
             auto_clear_quarantined = 'True'
             if type == 'fu':
@@ -638,12 +658,11 @@ if __name__ == "__main__":
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
             essyscfg.reg('ES_HEAP_SIZE','1G')
             essyscfg.reg('MAX_LOCKED_MEMORY','unlimited')
-            essyscfg.reg('ES_USE_GC_LOGGING','true')
+            essyscfg.reg('ES_USE_GC_LOGGING','false')
             if type == 'fu':
               #if myhost.startswith('fu-c2d'):#Megware FU racks
-                essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log -XX:NewSize=500m -XX:MaxNewSize=600m"')
-              #else:
-              #  essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log"')
+                #essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log -XX:NewSize=500m -XX:MaxNewSize=600m"')
+                essyscfg.reg('ES_JAVA_OPTS','""')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
@@ -652,6 +671,7 @@ if __name__ == "__main__":
             escfg.reg('discovery.zen.ping.multicast.enabled','false')
             escfg.reg('network.publish_host',es_publish_host)
             escfg.reg('transport.tcp.compress','true')
+            escfg.reg('script.groovy.sandbox.enabled','true')
 
             if type == 'fu':
                 if env=="vm":
@@ -661,7 +681,7 @@ if __name__ == "__main__":
                 escfg.reg('indices.fielddata.cache.size', '50%')
                 escfg.reg('indices.fielddata.cache.expire','600m')
                 escfg.reg('index.cache.field.expire','600m')
-                escfg.reg('bootstrap.mlockall','true')
+                escfg.reg('bootstrap.mlockall','false')
                 escfg.reg('node.master','false')
                 escfg.reg('node.data','true')
             if type == 'bu':
@@ -672,7 +692,7 @@ if __name__ == "__main__":
 
         if type == 'tribe':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','12G')
+            essyscfg.reg('ES_HEAP_SIZE','24G')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
@@ -700,21 +720,26 @@ if __name__ == "__main__":
             escfg.commit()
 
             #modify logging.yml
-            eslogcfg = FileManager(eslogcfg,':',esEdited,'',' ')
-            eslogcfg.reg('es.logger.level','ERROR')
+            eslogcfg = FileManager(elasticlogconf,':',esEdited,'',' ')
+            eslogcfg.reg('es.logger.level','WARN')
             eslogcfg.commit()
  
         if type == 'escdaq':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','10G')
+            essyscfg.reg('ES_HEAP_SIZE','30G')
+            essyscfg.reg('DATA_DIR','/elasticsearch/lib/elasticsearch')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('cluster.name','es-cdaq')
-            escfg.reg('discovery.zen.minimum_master_nodes','11')
-            escfg.reg('index.mapper.dynamic','false')
+            #TODO:switch to multicast when complete with new node migration
+            escfg.reg('discovery.zen.ping.multicast.enabled','false')
+            escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_cdaq_list))
+            escfg.reg('discovery.zen.minimum_master_nodes','4')
+            #escfg.reg('index.mapper.dynamic','false')
             escfg.reg('action.auto_create_index','false')
             escfg.reg('transport.tcp.compress','true')
+            escfg.reg('script.groovy.sandbox.enabled','true')
             escfg.reg('node.master','true')
             escfg.reg('node.data','true')
             escfg.commit()
@@ -871,7 +896,12 @@ if __name__ == "__main__":
           hltdcfg.reg('cmssw_default_version',cmssw_version,'[CMSSW]')
           hltdcfg.reg('cmssw_threads',nthreads,'[CMSSW]')
           hltdcfg.reg('cmssw_streams',nfwkstreams,'[CMSSW]')
-          hltdcfg.reg('resource_use_fraction',resourcefract,'[Resources]')
+          if myhost in minidaq_list:
+              hltdcfg.reg('resource_use_fraction',resourcefract_minidaq,'[Resources]')
+          elif myhost.startswith('fu-c2d'):
+              hltdcfg.reg('resource_use_fraction',resourcefractd,'[Resources]')
+          else:
+              hltdcfg.reg('resource_use_fraction',resourcefract,'[Resources]')
           hltdcfg.commit()
     if "web" in selection:
           try:os.rmdir('/var/www/html')

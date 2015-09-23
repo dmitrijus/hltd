@@ -371,6 +371,13 @@ class LumiSectionRanger():
             self.infile.moveFile(os.path.join(outputDir,run,os.path.basename(newpath)),copy = True,adler32=False,
                                silent=True,createDestinationDir=False,missingDirAlert=False)
           else:
+            remotefiledir = os.path.join(outputDir,run,stream)
+            #create stream subdirectory in output if not there
+            try:
+                os.mkdir(remotefiledir)
+            except:
+                pass
+
             self.infile.moveFile(os.path.join(outputDir,run,stream,os.path.basename(newpath)),copy = True,adler32=False,
                                silent=True,createDestinationDir=False,missingDirAlert=False)
           #local copy

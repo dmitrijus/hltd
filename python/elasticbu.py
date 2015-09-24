@@ -190,6 +190,8 @@ class elasticBandBU:
               doc = json.load(fp)
               document['stateNames'] = doc['names']
               document['reserved'] = doc['reserved']
+              document['special'] = doc['special']
+              document['output'] = doc['output']
               #put old name format value
               nstring=""
               cnt=0

@@ -48,7 +48,7 @@ if role=='fu' and not conf.dqm_machine:
             if foundInCloud and ignoreCloud:
                 open(conf.resource_base+'/cloud/core'+str(resource_count),'a').close()
             else:
-                open(conf.resource_base+'/idle/core'+str(resource_count),'a').close()
+                open(conf.resource_base+'/quarantined/core'+str(resource_count),'a').close()
             resource_count+=1
 
     try:

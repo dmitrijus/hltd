@@ -143,6 +143,7 @@ class elasticBand():
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['stream']=stream
+        document['fm_date']=str(infile.mtime)
         try:document.pop('definition')
 	except:pass
         self.fuoutBuffer.setdefault(ls,[]).append(document)

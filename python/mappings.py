@@ -94,6 +94,12 @@ central_runindex_mapping = {
                     'reserved':{
                         'type':'integer'
                         },
+                    'special':{
+                        'type':'integer'
+                        },
+                    'output':{
+                        'type':'integer'
+                        },
                     'id':{
                         'type':'string'
                         }

@@ -214,8 +214,14 @@ class elasticBandBU:
           document['special'] = 7
           outputcnt=0
           for sname in document['names'].split():
-            if "hltOutput=" in sname: outputcnt+=1
+            if "=hltOutput" in sname: outputcnt+=1
           document['output'] = outputcnt
+          document['stateNames']=[]
+          nameTokens = document['names'].split()
+          for nameToken in nameTokens:
+           if '=' in nameToken:
+             idx,sn = nameToken.split('=')
+             document["stateNames"].append( sn )
           
         documents = [document]
         return self.index_documents('microstatelegend',documents)

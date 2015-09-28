@@ -14,5 +14,6 @@ eval `scram runtime -sh`;
 cd $4;
 export FRONTIER_LOG_LEVEL="warning"
 export FRONTIER_LOG_FILE=""
+export FFF_EMPTYLSMODE="true"
 type -P cmsRun &>/dev/null || (sleep 2;exit 127)
 exec cmsRun $6 "transferMode="$7 "runNumber="$8 "buBaseDir="$9 "dataDir"=${10} "numThreads="${11} "numFwkStreams"=${12} >> $logname 2>&1

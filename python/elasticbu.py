@@ -189,19 +189,34 @@ class elasticBandBU:
             with open(fullpath,'r') as fp:
               doc = json.load(fp)
               document['stateNames'] = doc['names']
-              document['reserved'] = doc['reserved']
-              #put old name format value
-              nstring=""
-              cnt=0
+              try:document['reserved'] = doc['reserved']
+              except:document['reserved'] = 33
+              try:document['special'] = doc['special']
+              except:document['special'] = 7
+              nstring = ""
+              cnt = 0
+              outputcnt = 0
+              #fill in also old format for now
               for sname in doc['names']:
-                nstring+= str(cnt) + "=" + sname + " "
-                cnt+=1
+                  nstring+= str(cnt) + "=" + sname + " "
+                  cnt+=1
+                  if sname.startswith('hltOutput'):outputcnt+=1
+              try:document['output'] = doc['output']
+              except:document['output']=outputcnt
               document['names'] = nstring
           except Exception as ex:
-            self.logger.warning("can not parse "+fullpath)
+            self.logger.warning("can not parse "+fullpath + ' ' + str(ex))
         else:
+          #old format
           stub = self.read_line(fullpath)
           document['names']= self.read_line(fullpath)
+          document['reserved'] = 33
+          document['special'] = 7
+          outputcnt=0
+          for sname in document['names'].split():
+            if "hltOutput=" in sname: outputcnt+=1
+          document['output'] = outputcnt
+          
         documents = [document]
         return self.index_documents('microstatelegend',documents)
 

@@ -171,7 +171,7 @@ def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retr
       else:
         session_suffix = hostname.split('-')[0]+hostname.split('-')[1]
         if parentTag == 'daq2':
-            if dbhost.strip()=='null':
+            if dbhost_.strip()=='null':
                 #con = cx_Oracle.connect('CMS_DAQ2_HW_CONF_W','pwd','cms_rcms',
                 con = cx_Oracle.connect(dblogin_,dbpwd_,dbsid_,
                           cclass="FFFSETUP"+session_suffix,purity = cx_Oracle.ATTR_PURITY_SELF)
@@ -566,9 +566,7 @@ if __name__ == "__main__":
         runindex_name = 'cdaq'
         if myhost in minidaq_list:
             runindex_name = 'minidaq'
-            resourcefract = '1.0'
-            resourcefractd = '1.0'
-            auto_clear_quarantined = 'True'
+            #auto_clear_quarantined = 'True'
         if myhost in dqm_list or myhost in dqmtest_list or myhost in detdqm_list:
             use_elasticsearch = 'False'
             runindex_name = 'dqm'

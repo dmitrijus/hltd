@@ -657,7 +657,8 @@ class LumiSectionHandler():
                 #copy entries from intput json file
                 outfile.data = self.infile.data 
 
-                self.outputBoLSFile(stream)
+                if self.EOLS:
+                    self.outputBoLSFile(stream)
                 if localPidDataPath:
                     datastem,dataext = os.path.splitext(pidDataName)
                     datafilename = "_".join([self.run,self.ls,stream,self.host])+dataext

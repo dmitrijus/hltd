@@ -270,7 +270,7 @@
       },
       "_timestamp": {
         "enabled": true,
-        "store": "yes"
+        "store": "yes",
         "path": "fm_date"
       }
     },

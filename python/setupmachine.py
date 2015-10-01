@@ -554,9 +554,9 @@ if __name__ == "__main__":
     cmssw_version = 'CMSSW_7_1_4_patch1'
     dqmmachine = 'False'
     execdir = '/opt/hltd'
-    resourcefract = '0.33'
-    resourcefractd = '0.45'
-    resourcefract_minidaq = '0.5'
+    resourcefract = 1
+    resourcefractd = 1
+    resourcefract_minidaq = 1
     auto_clear_quarantined = 'False'
     
     if cluster == 'daq2val':
@@ -892,8 +892,10 @@ if __name__ == "__main__":
           hltdcfg.reg('auto_clear_quarantined',auto_clear_quarantined,'[Recovery]')
           hltdcfg.reg('cmssw_base',cmssw_base,'[CMSSW]')
           hltdcfg.reg('cmssw_default_version',cmssw_version,'[CMSSW]')
-          hltdcfg.reg('cmssw_threads',nthreads,'[CMSSW]')
-          hltdcfg.reg('cmssw_streams',nfwkstreams,'[CMSSW]')
+          #hltdcfg.reg('cmssw_threads',nthreads,'[CMSSW]')
+          hltdcfg.reg('cmssw_threads',4,'[CMSSW]')
+          #hltdcfg.reg('cmssw_streams',nfwkstreams,'[CMSSW]')
+          hltdcfg.reg('cmssw_streams',4,'[CMSSW]')
           if myhost in minidaq_list:
               hltdcfg.reg('resource_use_fraction',resourcefract_minidaq,'[Resources]')
           elif myhost.startswith('fu-c2d'):

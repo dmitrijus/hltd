@@ -263,11 +263,15 @@
           "type": "string",
           "index_analyzer": "prefix-test-analyzer",
           "search_analyzer": "keyword"
+        },
+        "fm_date": {
+          "type": "date"
         }
       },
       "_timestamp": {
         "enabled": true,
         "store": "yes"
+        "path": "fm_date"
       }
     },
     "fu-complete": {

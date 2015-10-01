@@ -102,13 +102,13 @@ pluginfile1="lukas-vlcek-bigdesk-v2.5.0-1-g505b32e-mod.zip"
 pluginname2="head"
 pluginfile2="head-master.zip"
 pluginname3="river-runriver"
-pluginfile3="river-runriver-1.3.4-plugin.zip"
+pluginfile3="river-runriver-1.3.5-plugin.zip"
 
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta-elastic.spec <<EOF
 Name: $PACKAGENAME
-Version: 1.7.8
+Version: 1.7.9
 Release: 1
 Summary: hlt daemon
 License: gpl

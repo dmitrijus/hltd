@@ -657,7 +657,8 @@ class LumiSectionHandler():
                 #copy entries from intput json file
                 outfile.data = self.infile.data 
 
-                self.outputBoLSFile(stream)
+                if self.EOLS:
+                    self.outputBoLSFile(stream)
                 if localPidDataPath:
                     datastem,dataext = os.path.splitext(pidDataName)
                     datafilename = "_".join([self.run,self.ls,stream,self.host])+dataext
@@ -668,7 +669,7 @@ class LumiSectionHandler():
                     dataFile = fileHandler(localDataPath)
                     remoteDataPath = os.path.join(outdir,outfile.run,outfile.stream,datafilename)
                     if self.EOLS:
-                        dataFile.moveFile(remoteDataPath, createDestinationDir=True, missingDirAlert=True)
+                        dataFile.moveFile(remoteDataPath, createDestinationDir=False, missingDirAlert=True)
                 else:
                     outfile.setFieldByName("Filelist","")
                 remotePath = os.path.join(outdir,outfile.run,outfile.stream,outfilename)
@@ -678,9 +679,10 @@ class LumiSectionHandler():
                 #only copy data and json file in case EOLS file has been produced for this LS
                 #(otherwise this EoR of LS that doesn't exist on BU)
                 if self.EOLS:
-                    #TODO:esCopy file after copy to output and before delete (do in moveFile)
-                    outfile.esCopy()
-                    outfile.moveFile(remotePath, createDestinationDir=True, missingDirAlert=True)
+                    outfile.moveFile(remotePath, createDestinationDir=False,updateFileInfo=False)
+                    outfile.esCopy(keepmtime=False)
+                    outfile.deleteFile(silent=True)
+
                 self.emptyLumiStreams.append(stream)
                 if len(self.emptyLumiStreams)==len(self.activeStreams)+1:
                   self.closed.set()
@@ -930,12 +932,10 @@ class LumiSectionHandler():
                 #do not copy data if this is jsn data stream and json merging fails
                 if outfile.mergeAndMoveJsnDataMaybe(os.path.join(self.outdir,outfile.run,outfile.stream))==False:return
 
-                oldpath=outfile.filepath
                 result,checksum=outfile.moveFile(newfilepath,copy=True,createDestinationDir=False,updateFileInfo=False)
                 if result:
                   self.outfileList.remove(outfile)
-                outfile.filepath=oldpath
-                outfile.esCopy()
+                outfile.esCopy(keepmtime=False)
                 outfile.deleteFile(silent=True)
  
                 

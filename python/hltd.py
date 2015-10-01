@@ -3007,6 +3007,8 @@ class ResourceRanger:
             #this should be error (i.e. bus.confg should not be modified during a run)
             bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
             if event.fullpath == bus_config:
+              logger.warning("automatic remounting on changed bus.config is no longer supported. restart hltd to remount")
+              if False:
                 if self.managed_monitor:
                     self.managed_monitor.stop()
                     self.managed_monitor.join()

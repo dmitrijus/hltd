@@ -623,7 +623,7 @@ class fileHandler(object):
         return True
 
     #TODO:make sure that the file is copied only once
-    def esCopy(self):
+    def esCopy(self, keepmtime=True):
         if not self.exists(): return
         if self.filetype in TO_ELASTICIZE:
             esDir = os.path.join(self.dir,ES_DIR_NAME)
@@ -633,7 +633,10 @@ class fileHandler(object):
                 retries = 5
                 while True:
                     try:
-                        shutil.copy2(self.filepath,newpathTemp)
+                        if keepmtime:
+                            shutil.copy2(self.filepath,newpathTemp)
+                        else:
+                            shutil.copy(self.filepath,newpathTemp)
                         break
                     except (OSError,IOError),e:
                         retries-=1

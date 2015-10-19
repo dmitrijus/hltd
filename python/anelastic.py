@@ -679,7 +679,7 @@ class LumiSectionHandler():
                 #only copy data and json file in case EOLS file has been produced for this LS
                 #(otherwise this EoR of LS that doesn't exist on BU)
                 if self.EOLS:
-                    outfile.moveFile(remotePath, createDestinationDir=False,updateFileInfo=False)
+                    outfile.moveFile(remotePath, createDestinationDir=False,updateFileInfo=False,copy=True)
                     outfile.esCopy(keepmtime=False)
                     outfile.deleteFile(silent=True)
 
@@ -951,7 +951,10 @@ class LumiSectionHandler():
                     errfile.esCopy()
             except Exception,ex:
                 self.logger.exception(ex)
-            errfile.moveFile(newfilepath,createDestinationDir=False)
+            errfile.moveFile(newfilepath,createDestinationDir=False,copy=True)
+            errfile.esCopy(keepmtime=False)
+            errfile.deleteFile(silent=True)
+
 
     def outputBoLSFile(self,stream):
         

@@ -20,6 +20,7 @@ class elasticBand():
         self.fuoutBuffer = {}
         self.es = ElasticSearch(es_server_url,timeout=20) 
         self.hostname = os.uname()[1]
+        self.sourceid = self.hostname + '_' + str(os.getpid())
         self.hostip = socket.gethostbyname_ex(self.hostname)[2][0]
         #self.number_of_data_nodes = self.es.health()['number_of_data_nodes']
         self.settings = {     "index.routing.allocation.require._ip" : self.hostip }
@@ -140,6 +141,9 @@ class elasticBand():
         datadict = dict(zip(keys, values))
         try:datadict.pop('Filelist')
 	except:pass
+        #add PID if missing
+        try:myid=document['source']
+        except:document['source']=self.sourceid
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['stream']=stream

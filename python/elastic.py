@@ -67,7 +67,7 @@ class elasticCollector():
             if filetype in [FAST,SLOW,QSTATUS]:
                 self.elasticize()
             elif self.esDirName in infile.dir:
-                if filetype in [INDEX,STREAM,OUTPUT,STREAMDQMHISTOUTPUT]:self.elasticize()
+                if filetype in [INDEX,STREAM,OUTPUT,STREAMDQMHISTOUTPUT,STREAMERR]:self.elasticize()
                 elif filetype in [EOLS]:self.elasticizeLS()
                 elif filetype in [COMPLETE]:
                     self.elasticize()
@@ -129,7 +129,7 @@ class elasticCollector():
                 self.logger.info(name+" going into prc-out")
                 es.elasticize_prc_out(infile)
                 self.infile.deleteFile(silent=True)
-            elif filetype in [OUTPUT,STREAMDQMHISTOUTPUT]:
+            elif filetype in [OUTPUT,STREAMDQMHISTOUTPUT,STREAMERR]:
                 self.logger.info(name+" going into fu-out")
                 es.elasticize_fu_out(infile)
                 self.infile.deleteFile(silent=True)

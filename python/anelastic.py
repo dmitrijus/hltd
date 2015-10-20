@@ -951,7 +951,7 @@ class LumiSectionHandler():
                     errfile.esCopy()
             except Exception,ex:
                 self.logger.exception(ex)
-            errfile.moveFile(newfilepath,createDestinationDir=False,copy=True)
+            errfile.moveFile(newfilepath,createDestinationDir=False,copy=True,updateFileInfo=False)
             errfile.esCopy(keepmtime=False)
             errfile.deleteFile(silent=True)
 

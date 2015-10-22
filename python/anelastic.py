@@ -237,9 +237,8 @@ class LumiSectionRanger():
                 if self.maxClosedLumi<ls_num:
                     self.maxClosedLumi=ls_num
                     self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
-                #keep history of closed empty lumisections
-                if lsHandler.emptyLS:
-                    self.ClosedEmptyLSList.add(ls_num)
+                #keep history of closed lumisections
+                self.ClosedEmptyLSList.add(ls_num)
                 self.LSHandlerList.pop(key,None)
         elif filetype == DEFINITION:
             self.processDefinitionFile()

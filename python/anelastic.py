@@ -237,9 +237,8 @@ class LumiSectionRanger():
                 if self.maxClosedLumi<ls_num:
                     self.maxClosedLumi=ls_num
                     self.mr.notifyLumi(None,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
-                #keep history of closed empty lumisections
-                if lsHandler.emptyLS:
-                    self.ClosedEmptyLSList.add(ls_num)
+                #keep history of closed lumisections
+                self.ClosedEmptyLSList.add(ls_num)
                 self.LSHandlerList.pop(key,None)
         elif filetype == DEFINITION:
             self.processDefinitionFile()
@@ -679,7 +678,7 @@ class LumiSectionHandler():
                 #only copy data and json file in case EOLS file has been produced for this LS
                 #(otherwise this EoR of LS that doesn't exist on BU)
                 if self.EOLS:
-                    outfile.moveFile(remotePath, createDestinationDir=False,updateFileInfo=False)
+                    outfile.moveFile(remotePath, createDestinationDir=False,updateFileInfo=False,copy=True)
                     outfile.esCopy(keepmtime=False)
                     outfile.deleteFile(silent=True)
 
@@ -759,6 +758,7 @@ class LumiSectionHandler():
         file2merge.setJsdfile(self.jsdfile)
         file2merge.setFieldByName("ErrorEvents",numEvents)
         file2merge.setFieldByName("ReturnCodeMask",errCode)
+        file2merge.setFieldByName("HLTErrorEvents",numEvents,warning=False)
         #if file2merge.getFieldIndex("transferDestination")>-1:
         #    file2merge.setFieldByName("transferDestination","ErrorArea")
         
@@ -782,6 +782,7 @@ class LumiSectionHandler():
                  self.logger.info('error stream input file '+rawFile+' is gone, possibly already deleted by the process')
                  pass
             file2merge.setFieldByName("ErrorEvents",rawErrorEvents)
+            file2merge.setFieldByName("HLTErrorEvents",rawErrorEvents,warning=False)
             inputFileList = ",".join(errorRawFiles)
             self.logger.info("inputFileList: " + inputFileList)
             file2merge.setFieldByName("InputFiles",inputFileList)
@@ -978,7 +979,10 @@ class LumiSectionHandler():
                     errfile.esCopy()
             except Exception,ex:
                 self.logger.exception(ex)
-            errfile.moveFile(newfilepath,createDestinationDir=False)
+            errfile.moveFile(newfilepath,createDestinationDir=False,copy=True,updateFileInfo=False)
+            errfile.esCopy(keepmtime=False)
+            errfile.deleteFile(silent=True)
+
 
     def outputBoLSFile(self,stream):
         

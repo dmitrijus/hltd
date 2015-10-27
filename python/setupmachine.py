@@ -528,12 +528,17 @@ if __name__ == "__main__":
     if not sys.argv[argvc]:
         print "CMSSW number of threads/process is missing"
     nthreads = sys.argv[argvc]
-
+    #@SM: override
+    #nthreads = 4
+    resource_cmsswthreads = nthreads
 
     argvc+=1
     if not sys.argv[argvc]:
         print "CMSSW number of framework streams/process is missing"
     nfwkstreams = sys.argv[argvc]
+     #@SM: override 
+    #nfwkstreams = 4
+    resource_cmsswstreams = nfwkstreams
 
 
 
@@ -554,10 +559,13 @@ if __name__ == "__main__":
     cmssw_version = 'CMSSW_7_1_4_patch1'
     dqmmachine = 'False'
     execdir = '/opt/hltd'
-    resourcefract = '0.33'
-    resourcefractd = '0.45'
-    resourcefract_minidaq = '0.5'
     auto_clear_quarantined = 'False'
+    if resource_cmsswthreads == 1 or resource_cmsswstreams == 1:
+      resourcefract = 0.33
+      resourcefractd = 0.45
+    else:
+      resourcefract = 1
+      resourcefractd = 1
     
     if cluster == 'daq2val':
         runindex_name = 'dv'
@@ -566,6 +574,10 @@ if __name__ == "__main__":
         runindex_name = 'cdaq'
         if myhost in minidaq_list:
             runindex_name = 'minidaq'
+            resourcefract = 1
+            resourcefractd = 1
+            resource_cmsswthreads = 1
+            resource_cmsswstreams = 1
             #auto_clear_quarantined = 'True'
         if myhost in dqm_list or myhost in dqmtest_list or myhost in detdqm_list:
             use_elasticsearch = 'False'
@@ -575,6 +587,8 @@ if __name__ == "__main__":
             username = 'dqmpro'
             resourcefract = '1.0'
             resourcefractd = '1.0'
+            resource_cmsswthreads = 1
+            resource_cmsswstreams = 1
             cmssw_version = ''
             auto_clear_quarantined = 'True'
             if type == 'fu':
@@ -892,14 +906,12 @@ if __name__ == "__main__":
           hltdcfg.reg('auto_clear_quarantined',auto_clear_quarantined,'[Recovery]')
           hltdcfg.reg('cmssw_base',cmssw_base,'[CMSSW]')
           hltdcfg.reg('cmssw_default_version',cmssw_version,'[CMSSW]')
-          hltdcfg.reg('cmssw_threads',nthreads,'[CMSSW]')
-          hltdcfg.reg('cmssw_streams',nfwkstreams,'[CMSSW]')
-          if myhost in minidaq_list:
-              hltdcfg.reg('resource_use_fraction',resourcefract_minidaq,'[Resources]')
-          elif myhost.startswith('fu-c2d'):
-              hltdcfg.reg('resource_use_fraction',resourcefractd,'[Resources]')
+          hltdcfg.reg('cmssw_threads',str(resource_cmsswthreads),'[CMSSW]')
+          hltdcfg.reg('cmssw_streams',str(resource_cmsswstreams),'[CMSSW]')
+          if myhost.startswith('fu-c2d'):
+              hltdcfg.reg('resource_use_fraction',str(resourcefractd),'[Resources]')
           else:
-              hltdcfg.reg('resource_use_fraction',resourcefract,'[Resources]')
+              hltdcfg.reg('resource_use_fraction',str(resourcefract),'[Resources]')
           hltdcfg.commit()
     if "web" in selection:
           try:os.rmdir('/var/www/html')

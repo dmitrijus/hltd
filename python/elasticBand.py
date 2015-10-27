@@ -20,6 +20,7 @@ class elasticBand():
         self.fuoutBuffer = {}
         self.es = ElasticSearch(es_server_url,timeout=20) 
         self.hostname = os.uname()[1]
+        self.sourceid = self.hostname + '_' + str(os.getpid())
         self.hostip = socket.gethostbyname_ex(self.hostname)[2][0]
         #self.number_of_data_nodes = self.es.health()['number_of_data_nodes']
         self.settings = {     "index.routing.allocation.require._ip" : self.hostip }
@@ -136,10 +137,17 @@ class elasticBand():
         if stream.startswith("stream"): stream = stream[6:]
         #TODO:read output jsd file to decide on the variable format
         values = [int(f) if ((type(f) is str and f.isdigit()) or type(f) is int) else str(f) for f in document['data']]
-        keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32","TransferDestination"]
-        datadict = dict(zip(keys, values))
+        if len(values)>9:
+          keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32","TransferDestination","hltErrorEvents"]
+          datadict = dict(zip(keys, values))
+        else:
+          keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32","TransferDestination"]
+          datadict = dict(zip(keys, values))
         try:datadict.pop('Filelist')
 	except:pass
+        #add PID if missing
+        try:myid=document['source']
+        except:document['source']=self.sourceid
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['stream']=stream

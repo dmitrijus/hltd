@@ -867,7 +867,6 @@ class LumiSectionHandler():
                   for datfile in datfilelist:
                     if datfile.stream == stream:
                         foundDat=True
-                        newfilepath = os.path.join(self.outdir,datfile.run,datfile.basename)
                         newfilepath = os.path.join(self.outdir,datfile.run,datfile.stream,datfile.basename)
                         (filestem,ext)=os.path.splitext(datfile.filepath)
                         checksum_file = filestem+'.checksum'

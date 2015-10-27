@@ -758,6 +758,7 @@ class LumiSectionHandler():
         file2merge.setJsdfile(self.jsdfile)
         file2merge.setFieldByName("ErrorEvents",numEvents)
         file2merge.setFieldByName("ReturnCodeMask",errCode)
+        file2merge.setFieldByName("HLTErrorEvents",numEvents,warning=False)
         #if file2merge.getFieldIndex("transferDestination")>-1:
         #    file2merge.setFieldByName("transferDestination","ErrorArea")
         
@@ -781,6 +782,7 @@ class LumiSectionHandler():
                  self.logger.info('error stream input file '+rawFile+' is gone, possibly already deleted by the process')
                  pass
             file2merge.setFieldByName("ErrorEvents",rawErrorEvents)
+            file2merge.setFieldByName("HLTErrorEvents",rawErrorEvents,warning=False)
             inputFileList = ",".join(errorRawFiles)
             self.logger.info("inputFileList: " + inputFileList)
             file2merge.setFieldByName("InputFiles",inputFileList)

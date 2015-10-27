@@ -228,6 +228,9 @@
             "errorEvents": {
               "type": "integer"
             },
+            "hltErrorEvents": {
+              "type": "integer"
+            },
             "returnCodeMask": {
               "type": "string",
               "index": "not_analyzed"

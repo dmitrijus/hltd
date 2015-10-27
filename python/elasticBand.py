@@ -137,8 +137,12 @@ class elasticBand():
         if stream.startswith("stream"): stream = stream[6:]
         #TODO:read output jsd file to decide on the variable format
         values = [int(f) if ((type(f) is str and f.isdigit()) or type(f) is int) else str(f) for f in document['data']]
-        keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32","TransferDestination"]
-        datadict = dict(zip(keys, values))
+        if len(values)>9:
+          keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32","TransferDestination","hltErrorEvents"]
+          datadict = dict(zip(keys, values))
+        else:
+          keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32","TransferDestination"]
+          datadict = dict(zip(keys, values))
         try:datadict.pop('Filelist')
 	except:pass
         #add PID if missing

@@ -973,11 +973,6 @@ class LumiSectionHandler():
             errfile.writeout()
             newfilepath = os.path.join(self.outdir,errfile.run,errfile.stream,errfile.basename)
             #store in ES if there were any errors
-            try:
-                if numErr>0:
-                    errfile.esCopy()
-            except Exception,ex:
-                self.logger.exception(ex)
             errfile.moveFile(newfilepath,createDestinationDir=False,copy=True,updateFileInfo=False)
             errfile.esCopy(keepmtime=False)
             errfile.deleteFile(silent=True)

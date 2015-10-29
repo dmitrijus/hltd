@@ -41,15 +41,24 @@ if role=='fu' and not conf.dqm_machine:
     foundInCloud=len(os.listdir(conf.resource_base+'/cloud'))>0
     clearDir(conf.resource_base+'/cloud')
  
-    fp=open('/proc/cpuinfo','r')
     resource_count = 0
-    for line in fp:
-        if line.startswith('processor'):
+    def fillCores():
+      global resource_count
+      with open('/proc/cpuinfo','r') as fp:
+        for line in fp:
+          if line.startswith('processor'):
             if foundInCloud and ignoreCloud:
-                open(conf.resource_base+'/cloud/core'+str(resource_count),'a').close()
+              open(conf.resource_base+'/cloud/core'+str(resource_count),'a').close()
             else:
-                open(conf.resource_base+'/quarantined/core'+str(resource_count),'a').close()
+              open(conf.resource_base+'/quarantined/core'+str(resource_count),'a').close()
             resource_count+=1
+
+    fillCores()
+    #fill with more cores for VM environment
+    if os.uname()[1].startswith('fu-vm-'):
+      fillCores()
+      fillCores()
+      fillCores()
 
     try:
         os.umask(0)

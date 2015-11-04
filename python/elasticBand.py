@@ -23,7 +23,7 @@ class elasticBand():
         self.sourceid = self.hostname + '_' + str(os.getpid())
         self.hostip = socket.gethostbyname_ex(self.hostname)[2][0]
         #self.number_of_data_nodes = self.es.health()['number_of_data_nodes']
-        self.settings = {     "index.routing.allocation.require._ip" : self.hostip }
+        #self.settings = {     "index.routing.allocation.require._ip" : self.hostip }
         self.indexCreated=False
         self.indexFailures=0
         self.monBufferSize = monBufferSize
@@ -88,11 +88,19 @@ class elasticBand():
         else:
           datadict['macro'] = 0
         if document['data'][1] != "N/A":
-          datadict['mini']    = [int(f) for f in document['data'][1].strip('[]').split(',')]
+          miniVector = []
+          for f,index in document['data'][1].strip('[]').split(','):
+            val = int(f)
+            if val>0:miniVector.append({'key':index,'value':val})
+          datadict['mini']   = miniVector
         else:
           datadict['mini'] = 0
         if document['data'][2] != "N/A":
-          datadict['micro']   = [int(f) for f in document['data'][2].strip('[]').split(',')]
+          microVector = []
+          for f,index in document['data'][2].strip('[]').split(','):
+            val = int(f)
+            if val>0:microVector.append({'key':index,'value':val})
+          datadict['micro']   = microVector
         else:
           datadict['micro'] = 0
         datadict['tp']      = float(document['data'][4]) if not math.isnan(float(document['data'][4])) and not  math.isinf(float(document['data'][4])) else 0.
@@ -102,6 +110,7 @@ class elasticBand():
         except:pass
         try:datadict['lockcount']  = float(document['data'][8])
         except:pass
+        datadict['source'] = self.hostname + '_' + infile.pid
         self.tryIndex('prc-s-state',datadict)
  
     def elasticize_prc_out(self,infile):
@@ -120,6 +129,7 @@ class elasticBand():
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['stream']=stream
+        document['source']=self.hostname+'_'+infile.pid
         try:document.pop('definition')
 	except:pass
         self.prcoutBuffer.setdefault(ls,[]).append(document)
@@ -145,12 +155,11 @@ class elasticBand():
           datadict = dict(zip(keys, values))
         try:datadict.pop('Filelist')
 	except:pass
-        #add PID if missing
-        try:myid=document['source']
-        except:document['source']=self.sourceid
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['stream']=stream
+        document['host']=self.hostname
+        document['source']=self.hostname
         document['fm_date']=str(infile.mtime)
         try:document.pop('definition')
 	except:pass
@@ -175,6 +184,7 @@ class elasticBand():
         document['index']=int(index[5:])
         document['dest']=self.hostname
         document['process']=int(prc[3:])
+        document['source']=self.hostname+'_'+prc
         document['fm_date']=str(infile.mtime)
         try:document.pop('definition')
 	except:pass
@@ -221,16 +231,16 @@ class elasticBand():
         self.flushMonBuffer()
         self.flushAllLS()
 
-    def updateIndexSettingsMaybe(self):
-	return
-        if self.indexCreated==False:
-            self.es.update_settings(self.indexName,self.settings)
-            self.indexCreated=True
+    #def updateIndexSettingsMaybe(self):
+    #	return
+    #    if self.indexCreated==False:
+    #        self.es.update_settings(self.indexName,self.settings)
+    #        self.indexCreated=True
 
     def tryIndex(self,docname,document): 
         try:
             self.es.index(self.indexName,docname,document)
-            self.updateIndexSettingsMaybe()
+            #self.updateIndexSettingsMaybe()
         except (ConnectionError,Timeout) as ex:
             self.indexFailures+=1
             if self.indexFailures<2:
@@ -246,7 +256,7 @@ class elasticBand():
             attempts-=1
             try:
                 self.es.bulk_index(self.indexName,docname,documents)
-                self.updateIndexSettingsMaybe()
+                #self.updateIndexSettingsMaybe()
                 break
             except (ConnectionError,Timeout) as ex:
                 if attempts==0:

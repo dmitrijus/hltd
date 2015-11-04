@@ -234,7 +234,11 @@ echo "  python2.6 /opt/fff/setupmachine.py elasticsearch,hltd $params" >> %{buil
 echo "fi"                                                              >> %{buildroot}/opt/fff/configurefff.sh
 
 echo "#!/bin/bash" > %{buildroot}/opt/fff/dbcheck.sh
-echo "python2.6 /opt/fff/dbcheck.py $dblogin $dbpwd $dbsid"    >> %{buildroot}/opt/fff/dbcheck.sh
+echo "if [ -n \"\\\$1\" ]; then "                                   >> %{buildroot}/opt/fff/dbcheck.sh
+echo "  python2.6 /opt/fff/dbcheck.py $dblogin $dbpwd $dbsid $1"    >> %{buildroot}/opt/fff/dbcheck.sh
+echo "else" >> %{buildroot}/opt/fff/dbcheck.sh                      >> %{buildroot}/opt/fff/dbcheck.sh
+echo "  python2.6 /opt/fff/dbcheck.py $dblogin $dbpwd $dbsid"       >> %{buildroot}/opt/fff/dbcheck.sh
+echo "fi"                                                           >> %{buildroot}/opt/fff/dbcheck.sh
 
 
 cp $BASEDIR/esplugins/$pluginfile1 %{buildroot}/opt/fff/esplugins/$pluginfile1

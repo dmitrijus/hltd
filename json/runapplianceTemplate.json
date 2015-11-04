@@ -68,10 +68,16 @@
           "type": "integer"
         },
         "mini": {
-          "type": "integer"
+          "properties":{
+            "key":{"type":"integer"},
+            "value":{"type":"integer"}
+          }
         },
         "micro": {
-          "type": "integer"
+          "properties":{
+            "key":{"type":"integer"},
+            "value":{"type":"integer"}
+          }
         },
         "tp": {
           "type": "double"
@@ -91,44 +97,17 @@
         "ls": {
           "type": "integer"
         },
-        "process": {
-          "type": "string"
+        "source" : {
+          "type":"string",
+          "index":"not_analyzed"
         }
-      }
-    },
-    "fu-s-state": {
-      "properties": {
-        "macro": {
-          "type": "integer"
-        },
-        "mini": {
-          "type": "integer"
-        },
-        "micro": {
-          "type": "integer"
-        },
-        "tp": {
-          "type": "double"
-        },
-        "lead": {
-          "type": "double"
-        },
-        "nfiles": {
-          "type": "integer"
-        },
-        "ls": {
-          "type": "integer"
-        },
-        "machine": {
-          "type": "string"
-        }
+      },
+      "_timestamp": {
+        "enabled": true,
+        "store": "yes",
       }
     },
     "prc-out": {
-      "_routing": {
-        "required": true,
-        "path": "source"
-      },
       "properties": {
         "data": {
           "properties": {
@@ -154,10 +133,7 @@
         },
         "source": {
           "type": "string",
-          "index_analyzer": "prefix-test-analyzer",
-          "search_analyzer": "keyword",
-          "store": "yes",
-          "index": "analyzed"
+          "index": "not_analyzed"
         }
       },
       "_timestamp": {
@@ -166,10 +142,6 @@
       }
     },
     "prc-in": {
-      "_routing": {
-        "required": true,
-        "path": "dest"
-      },
       "properties": {
         "data": {
           "properties": {
@@ -188,19 +160,13 @@
         "index": {
           "type": "integer"
         },
-        "source": {
-          "type": "string"
-        },
-        "dest": {
-          "type": "string",
-          "index_analyzer": "prefix-test-analyzer",
-          "search_analyzer": "keyword",
-          "store": "yes",
-          "index": "analyzed"
-        },
         "process": {
-          "type": "integer"
-        },
+          "type":"integer"
+        }
+        "source": {
+          "type": "string",
+          "index":"not_analyzed"
+        }
         "fm_date": {
           "type": "date"
         }
@@ -212,10 +178,6 @@
       }
     },
     "fu-out": {
-      "_routing": {
-        "required": true,
-        "path": "source"
-      },
       "properties": {
         "data": {
           "properties": {
@@ -245,13 +207,9 @@
               "type": "string",
               "index": "not_analyzed"
             },
-            "files": {
-              "properties": {
-                "name": {
+            "InputFiles": {
                   "type": "string",
                   "index": "not_analyzed"
-                }
-              }
             }
           }
         },
@@ -260,6 +218,10 @@
         },
         "stream": {
           "type": "string",
+          "index": "not_analyzed"
+        },
+        "host": {
+          "type":"string",
           "index": "not_analyzed"
         },
         "source": {
@@ -291,19 +253,6 @@
         "enabled": true,
         "store": "yes",
         "path": "fm_date"
-      }
-    },
-    "bu-out": {
-      "properties": {
-        "out": {
-          "type": "integer"
-        },
-        "ls": {
-          "type": "integer"
-        },
-        "source": {
-          "type": "string"
-        }
       }
     },
     "qstatus": {
@@ -348,10 +297,6 @@
       "_ttl": {
         "enabled": true,
         "default": "30d"
-      },
-      "_routing": {
-        "required": true,
-        "path": "host"
       },
       "properties": {
         "host": {

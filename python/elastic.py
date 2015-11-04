@@ -118,7 +118,7 @@ class elasticCollector():
                 es.elasticize_prc_istate(infile)
                 self.logger.debug(name+" going into prc-istate")
             elif filetype == SLOW: 
-                es.elasticize_prc_sstate(infile)      
+                es.elasticize_prc_sstate(infile)
                 self.logger.debug(name+" going into prc-sstate")
                 self.infile.deleteFile(silent=True)  
             elif filetype == INDEX: 

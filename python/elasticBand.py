@@ -70,7 +70,6 @@ class elasticBand():
             try:document['lockcount']  = float(stub['data'][8])
             except:pass
             document['fm_date'] = str(mtime)
-            document['source'] = self.hostname + '_' + infile.pid
             self.istateBuffer.append(document)
         except Exception:
             pass
@@ -90,17 +89,17 @@ class elasticBand():
           datadict['macro'] = 0
         if document['data'][1] != "N/A":
           miniVector = []
-          for f,index in document['data'][1].strip('[]').split(','):
+          for idx,f in enumerate(document['data'][1].strip('[]').split(',')):
             val = int(f)
-            if val>0:miniVector.append({'key':index,'value':val})
+            if val>0:miniVector.append({'key':idx,'value':val})
           datadict['mini']   = miniVector
         else:
           datadict['mini'] = 0
         if document['data'][2] != "N/A":
           microVector = []
-          for f,index in document['data'][2].strip('[]').split(','):
+          for idx,f in enumerate(document['data'][2].strip('[]').split(',')):
             val = int(f)
-            if val>0:microVector.append({'key':index,'value':val})
+            if val>0:microVector.append({'key':idx,'value':val})
           datadict['micro']   = microVector
         else:
           datadict['micro'] = 0
@@ -183,7 +182,6 @@ class elasticBand():
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['index']=int(index[5:])
-        document['dest']=self.hostname
         document['process']=int(prc[3:])
         document['source']=self.hostname+'_'+prc
         document['fm_date']=str(infile.mtime)

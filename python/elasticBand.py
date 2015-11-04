@@ -70,6 +70,7 @@ class elasticBand():
             try:document['lockcount']  = float(stub['data'][8])
             except:pass
             document['fm_date'] = str(mtime)
+            document['source'] = self.hostname + '_' + infile.pid
             self.istateBuffer.append(document)
         except Exception:
             pass

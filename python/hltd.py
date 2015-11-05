@@ -1757,7 +1757,7 @@ class Run:
         if conf.role=='bu' and conf.use_elasticsearch:
             logger.info("checking ES template")
             try:
-                setupES()
+                setupES(forceReplicas=conf.force_replicas)
             except Exception as ex:
                 logger.error("Unable to check run appliance template:"+str(ex))
 

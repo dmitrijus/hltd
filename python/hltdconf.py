@@ -32,7 +32,7 @@ class hltdConf:
         self.run_number_padding = int(self.run_number_padding)
         self.delete_run_dir = bool(self.delete_run_dir=="True")
         self.use_elasticsearch = bool(self.use_elasticsearch=="True")
-        self.close_es_index = bool(self.close_es_index=="True")
+        self.force_replicas = int(self.force_replicas)
         self.cgi_port = int(self.cgi_port)
         self.cgi_instance_port_offset = int(self.cgi_instance_port_offset)
         self.soap2file_port = int(self.soap2file_port)

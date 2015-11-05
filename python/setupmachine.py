@@ -864,6 +864,11 @@ if __name__ == "__main__":
           hltdcfg.reg('soap2file_port',soap2file_port,'[Web]')
 
           hltdcfg.reg('elastic_cluster',clusterName,'[Monitoring]')
+
+          #only 1 replica in MiniDAQ appliances
+          if myhost in minidaq_list:
+            hltdcfg.reg('force_replicas',0,'[Monitoring]')
+
           hltdcfg.reg('watch_directory',watch_dir_bu,'[General]')
           #hltdcfg.reg('micromerge_output',out_dir_bu,'[General]')
           hltdcfg.reg('elastic_runindex_url',elastic_host,'[Monitoring]')

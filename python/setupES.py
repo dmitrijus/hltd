@@ -47,7 +47,7 @@ def printout(msg,usePrint,haveLog):
 	logging.info(msg)
 
 
-def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,overrideTests=False):
+def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,overrideTests=False, forceReplicas=-1):
 
     #ip_url=getURLwithIP(es_server_url)
     es = ElasticSearch(es_server_url,timeout=5)
@@ -74,6 +74,8 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
             else:
                 printout(template_name+" already exists.",doPrint,False)
                 loaddoc = load_template(es,template_name)
+                if forceReplicas>=0:
+                  loaddoc['settings']['index']['number_of_replicas']=forceReplicas
                 if loaddoc!=None:
                     mappingSame =  norm_name['mappings']==loaddoc['mappings']
                     #settingSame = norm_name['settings']==loaddoc['settings']

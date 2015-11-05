@@ -675,15 +675,6 @@ class RunCompletedChecker(threading.Thread):
 
             #exit if both checks are complete
             if check_es_complete==False:
-                try:
-                    if self.conf.close_es_index==True:
-                        #wait a bit for queries to complete
-                        time.sleep(10)
-                        resp = requests.post(self.urlclose,timeout=5)
-                        self.logger.info('closed appliance ES index for run '+str(self.nr))
-                except Exception as exc:
-                    self.logger.error('Error in closing run index')
-                    self.logger.exception(exc)
                 break
             #check every 10 seconds
             self.threadEvent.wait(10)

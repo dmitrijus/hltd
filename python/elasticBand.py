@@ -110,6 +110,7 @@ class elasticBand():
         except:pass
         try:datadict['lockcount']  = float(document['data'][8])
         except:pass
+        datadict['fm_date'] = str(infile.mtime)
         datadict['source'] = self.hostname + '_' + infile.pid
         self.tryIndex('prc-s-state',datadict)
  

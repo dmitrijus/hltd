@@ -101,6 +101,9 @@
         "ls": {
           "type": "integer"
         },
+        "fm_date": {
+          "type": "date"
+        },
         "source" : {
           "type":"string",
           "index":"not_analyzed"
@@ -108,7 +111,8 @@
       },
       "_timestamp": {
         "enabled": true,
-        "store": "yes"
+        "store": "yes",
+        "path" : "fm_date"
       }
     },
     "prc-out": {

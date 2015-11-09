@@ -159,9 +159,10 @@ def calculateLexicalId(string):
 
 class CMSSWLogEvent(object):
 
-    def __init__(self,pid,type,severity,firstLine,inject_central_idx):
+    def __init__(self,rn,pid,type,severity,firstLine,inject_central_idx):
 
         self.pid = pid
+        self.rn=rn
         self.type = type
         self.severity = severity
         self.document = {}
@@ -174,6 +175,7 @@ class CMSSWLogEvent(object):
         self.message.append(line)
 
     def fillCommon(self):
+        self.document['run']=self.rn
         self.document['host']=hostname
         self.document['pid']=self.pid
         self.document['type']=typeStr[self.type]
@@ -188,8 +190,8 @@ class CMSSWLogEvent(object):
              
 class CMSSWLogEventML(CMSSWLogEvent):
 
-    def __init__(self,pid,severity,firstLine):
-        CMSSWLogEvent.__init__(self,pid,MLMSG,severity,firstLine,False)
+    def __init__(self,rn,pid,severity,firstLine):
+        CMSSWLogEvent.__init__(self,rn,pid,MLMSG,severity,firstLine,False)
 
     def parseSubInfo(self):
         if self.info1.startswith('(NoMod'):
@@ -275,8 +277,8 @@ class CMSSWLogEventML(CMSSWLogEvent):
 
 class CMSSWLogEventException(CMSSWLogEvent):
 
-    def __init__(self,pid,firstLine,inject_central):
-        CMSSWLogEvent.__init__(self,pid,EXCEPTION,FATALLEVEL,firstLine,inject_central)
+    def __init__(self,rn,pid,firstLine,inject_central):
+        CMSSWLogEvent.__init__(self,rn,pid,EXCEPTION,FATALLEVEL,firstLine,inject_central)
         self.documentclass = 'cmssw'
 
     def decode(self):
@@ -317,8 +319,8 @@ class CMSSWLogEventException(CMSSWLogEvent):
 
 class CMSSWLogEventStackTrace(CMSSWLogEvent):
 
-    def __init__(self,pid,firstLine,inject_central):
-        CMSSWLogEvent.__init__(self,pid,STACKTRACE,FATALLEVEL,firstLine,inject_central)
+    def __init__(self,rn,pid,firstLine,inject_central):
+        CMSSWLogEvent.__init__(self,rn,pid,STACKTRACE,FATALLEVEL,firstLine,inject_central)
 
     def decode(self):
         CMSSWLogEvent.fillCommon(self)
@@ -336,12 +338,13 @@ class CMSSWLogEventStackTrace(CMSSWLogEvent):
 
 class CMSSWLogParser(threading.Thread):
 
-    def __init__(self,path,pid,queue):
+    def __init__(self,rn,path,pid,queue):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.es = ElasticSearch('http://'+conf.es_local+':9200',timeout=5)
         self.path = path
         self.pid = pid
+        self.rn = rn
         self.mainQueue = queue
 
         self.abort = False
@@ -397,27 +400,27 @@ class CMSSWLogParser(threading.Thread):
                 if len(buf[pos])==0:
                     pass
                 elif buf[pos].startswith('----- Begin Processing'):
-                    self.putInQueue(CMSSWLogEvent(self.pid,EVENTLOG,DEBUGLEVEL,buf[pos],False))
+                    self.putInQueue(CMSSWLogEvent(self.rn,self.pid,EVENTLOG,DEBUGLEVEL,buf[pos],False))
                 elif buf[pos].startswith('Current states'):#FastMonitoringService
                     pass
                 elif buf[pos].startswith('%MSG-d'):
-                    self.currentEvent = CMSSWLogEventML(self.pid,DEBUGLEVEL,buf[pos])
+                    self.currentEvent = CMSSWLogEventML(self.rn,self.pid,DEBUGLEVEL,buf[pos])
 
                 elif buf[pos].startswith('%MSG-i'):
-                    self.currentEvent = CMSSWLogEventML(self.pid,INFOLEVEL,buf[pos])
+                    self.currentEvent = CMSSWLogEventML(self.rn,self.pid,INFOLEVEL,buf[pos])
 
                 elif buf[pos].startswith('%MSG-w'):
-                    self.currentEvent = CMSSWLogEventML(self.pid,WARNINGLEVEL,buf[pos])
+                    self.currentEvent = CMSSWLogEventML(self.rn,self.pid,WARNINGLEVEL,buf[pos])
 
                 elif buf[pos].startswith('%MSG-e'):
-                    self.currentEvent = CMSSWLogEventML(self.pid,ERRORLEVEL,buf[pos])
+                    self.currentEvent = CMSSWLogEventML(self.rn,self.pid,ERRORLEVEL,buf[pos])
 
                 elif buf[pos].startswith('%MSG-d'):
                     #should not be present in production
-                    self.currentEvent = CMSSWLogEventML(self.pid,DEBUGLEVEL,buf[pos])
+                    self.currentEvent = CMSSWLogEventML(self.rn,self.pid,DEBUGLEVEL,buf[pos])
 
                 elif buf[pos].startswith('----- Begin Fatal Exception'):
-                    self.currentEvent = CMSSWLogEventException(self.pid,buf[pos],self.central_left>0)
+                    self.currentEvent = CMSSWLogEventException(self.rn,self.pid,buf[pos],self.central_left>0)
                     self.central_left-=1
 
                 #signals not caught as exception (and libc assertion)
@@ -441,12 +444,12 @@ class CMSSWLogParser(threading.Thread):
                     #or buf[pos].startswith('I/O possible') #29
                     #or buf[pos].startswith('Power failure') #30
 
-                    self.currentEvent = CMSSWLogEventStackTrace(self.pid,buf[pos],self.central_left>0)
+                    self.currentEvent = CMSSWLogEventStackTrace(self.rn,self.pid,buf[pos],self.central_left>0)
                     self.central_left-=1
                 elif buf[pos]=='\n':
                     pass
                 else:
-                    self.putInQueue(CMSSWLogEvent(self.pid,UNFORMATTED,DEBUGLEVEL,buf[pos],False))
+                    self.putInQueue(CMSSWLogEvent(self.rn,self.pid,UNFORMATTED,DEBUGLEVEL,buf[pos],False))
                 pos+=1
             else:
                 if self.currentEvent.type == MLMSG and (buf[pos]=='%MSG' or buf[pos]=='%MSG\n') :
@@ -585,7 +588,7 @@ class CMSSWLogESWriter(threading.Thread):
 
     def addParser(self,path,pid):
         if self.doStop or self.abort: return
-        self.parsers[path] =  CMSSWLogParser(path,pid,self.queue)
+        self.parsers[path] =  CMSSWLogParser(self.rn,path,pid,self.queue)
         self.parsers[path].start()
         self.numParsers+=1
 

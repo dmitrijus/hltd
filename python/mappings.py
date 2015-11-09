@@ -336,6 +336,9 @@ central_hltdlogs_mapping = {
                                     "type": "string",
                                     "index": "not_analyzed"
                             },
+                            "run" : {
+                                    "type":"integer"
+                            },
                             "lumi": {
                                     "type": "integer"
                             },
@@ -351,7 +354,7 @@ central_hltdlogs_mapping = {
                             },
                             "msgtime": {
                                     "type": "date",
-                                    "format": "YYYY-mm-dd HH:mm:ss"
+                                    "format": "YYYY-mm-dd HH:mm:ss||dd-MM-YYYY HH:mm:ss"
                             },
                             "msgtimezone": {
                                     "type": "string",

@@ -254,11 +254,14 @@ class CMSSWLogEventML(CMSSWLogEvent):
               pass
 
         #time parsing
-        datepieces=headerInfo[3].strip().split('-')
-        #convert document into hltdlogs-like format
-        datestring = datepieces[2]+'-'+monthmap[datepieces[1]]+'-'+datepieces[0]
-        self.document['msgtime']=datestring+' '+headerInfo[4]
-        datetimepieces = headerInfo[5].strip().split()
+        try:
+          #convert CMSSW datetime into hltdlogs-like format
+          datepieces=headerInfo[3].strip().split('-')
+          datestring = datepieces[2]+'-'+monthmap[datepieces[1]]+'-'+datepieces[0]
+          self.document['msgtime']=datestring+' '+headerInfo[4]
+        except IndexError:
+          #not date field,pass
+          pass
        
         self.document['msgtimezone']=headerInfo[5]
 

@@ -72,12 +72,14 @@
           "type": "integer"
         },
         "mini": {
+          "index":"no",
           "properties":{
             "key":{"type":"integer"},
             "value":{"type":"integer"}
           }
         },
         "micro": {
+          "index":"no",
           "properties":{
             "key":{"type":"integer"},
             "value":{"type":"integer"}
@@ -360,7 +362,7 @@
         },
         "msgtime": {
           "type": "date",
-          "format": "dd-MMM-YYYY HH:mm:ss"
+          "format": "YYYY-mm-dd HH:mm:ss"
         },
         "msgtimezone": {
           "type": "string",

@@ -351,7 +351,7 @@ central_hltdlogs_mapping = {
                             },
                             "msgtime": {
                                     "type": "date",
-                                    "format": "dd-MMM-YYYY HH:mm:ss"
+                                    "format": "YYYY-mm-dd HH:mm:ss"
                             },
                             "msgtimezone": {
                                     "type": "string",

@@ -13,9 +13,10 @@ cd $1
 cd base
 source cmsset_default.sh >> $logname
 cd $1
-cd current
+# fully dereference 'current' symbolic link 
+cd `readlink -f current`
 pwd >> $logname 2>&1
 eval `scram runtime -sh`;
 cd $3;
 pwd >> $logname 2>&1
-exec esMonitoring.py -z $lognamez cmsRun `readlink $6` runInputDir=$5 runNumber=$4 $7 $8 >> $logname 2>&1
+exec esMonitoring.py -z $lognamez cmsRun `readlink -f $6` runInputDir=$5 runNumber=$4 $7 $8 >> $logname 2>&1

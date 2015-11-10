@@ -472,10 +472,13 @@ def cleanup_mountpoints(remount=True):
                         sys.exit(1)
 
                 i+=1
+        else:
+          logger.warning('starting hltd without bus.config file!')
         #clean up suspended state
         try:
             if remount==True:os.popen('rm -rf '+conf.watch_directory+'/suspend*')
         except:pass
+        return True
     except Exception as ex:
         logger.error("Exception in cleanup_mountpoints")
         logger.exception(ex)
@@ -629,7 +632,8 @@ class system_monitor(threading.Thread):
                 self.directory = [os.path.join(bu_disk_ramdisk_CI_instance,'appliance','boxes')]
             else:
                 logger.info('Updating box info via data interface')
-                self.directory = [os.path.join(bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
+                if len(bu_disk_list_ramdisk_instance):
+                  self.directory = [os.path.join(bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
             self.check_file = [os.path.join(x,self.hostname) for x in self.check_directory]
         else:
             self.directory = [os.path.join(conf.watch_directory,'appliance/boxes/')]

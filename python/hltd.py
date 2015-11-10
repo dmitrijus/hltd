@@ -329,6 +329,10 @@ def cleanup_mountpoints(remount=True):
             with open(bus_config) as fp:
                 lines = fp.readlines()
 
+            if len(lines)==0:
+               #exception if invalid bus.config file
+               raise Exception("Missing BU address in bus.config file")
+
             if conf.mount_control_path and len(lines):
 
                 try:
@@ -2475,7 +2479,11 @@ class RunRanger:
                               +'*never* happen')
 
         elif dirname.startswith('herod') or dirname.startswith('tsunami'):
-            os.remove(fullpath)
+            try:
+              os.remove(fullpath)
+            except:
+              #safety net if cgi script removes herod
+              pass
             if conf.role == 'fu':
                 global q_list
                 logger.info("killing all CMSSW child processes")
@@ -2527,7 +2535,8 @@ class RunRanger:
                     logger.info(ex)
 
         elif dirname.startswith('cleanoutput'):
-            os.remove(fullpath)
+            try:os.remove(fullpath)
+            except:pass
             nlen = len('cleanoutput')
             if len(dirname)==nlen:
               logger.info('cleaning output (all run data)'+str(rn)) 
@@ -2541,7 +2550,8 @@ class RunRanger:
                 logger.error('Could not parse '+dirname)
 
         elif dirname.startswith('cleanramdisk'):
-            os.remove(fullpath)
+            try:os.remove(fullpath)
+            except:pass
             nlen = len('cleanramdisk')
             if len(dirname)==nlen:
               logger.info('cleaning ramdisk (all run data)'+str(rn)) 
@@ -2563,10 +2573,12 @@ class RunRanger:
                     elif conf.role=='bu':
                         run.ShutdownBU()
                 logger.info("terminated all ongoing runs via cgi interface (populationcontrol)")
-            os.remove(fullpath)
+            try:os.remove(fullpath)
+            except:pass
 
         elif dirname.startswith('harakiri') and conf.role == 'fu':
-            os.remove(fullpath)
+            try:os.remove(fullpath)
+            except:pass
             pid=os.getpid()
             logger.info('asked to commit seppuku:'+str(pid))
             try:
@@ -2633,10 +2645,13 @@ class RunRanger:
             #find out BU name from bus_config
             bu_name=None
             bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
-            if os.path.exists(bus_config):
-                for line in open(bus_config):
-                    bu_name=line.split('.')[0]
-                    break
+            try:
+                if os.path.exists(bus_config):
+                    for line in open(bus_config,'r'):
+                        bu_name=line.split('.')[0]
+                        break
+            except:
+                pass
 
             #first report to BU that umount was done
             try:
@@ -3251,7 +3266,9 @@ class hltd(Daemon2,object):
             (notice that hltd does not NEED to be restarted since it is watching the file all the time)
             """
 
-            cleanup_mountpoints()
+            if not cleanup_mountpoints():
+                logger.fatal("error mounting - terminating service")
+                os._exit(10)
 
             calculate_threadnumber()
 

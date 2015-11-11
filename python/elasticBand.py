@@ -72,7 +72,7 @@ class elasticBand():
             try:document['lockcount']  = float(stub['data'][8])
             except:pass
             document['fm_date'] = str(mtime)
-            document['class'] = self.nprocid
+            document['mclass'] = self.nprocid
             self.istateBuffer.append(document)
         except Exception:
             pass
@@ -89,7 +89,7 @@ class elasticBand():
         if document['data'][0] != "N/A":
           datadict['macro']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
         else:
-          datadict['macro'] = 0
+          datadict['macro'] = -1
         if document['data'][1] != "N/A":
           miniVector = []
           for idx,f in enumerate(document['data'][1].strip('[]').split(',')):
@@ -97,7 +97,7 @@ class elasticBand():
             if val>0:miniVector.append({'key':idx,'value':val})
           datadict['mini']   = miniVector
         else:
-          datadict['mini'] = 0
+          datadict['mini'] = []
         if document['data'][2] != "N/A":
           microVector = []
           for idx,f in enumerate(document['data'][2].strip('[]').split(',')):
@@ -105,17 +105,20 @@ class elasticBand():
             if val>0:microVector.append({'key':idx,'value':val})
           datadict['micro']   = microVector
         else:
-          datadict['micro'] = 0
-        datadict['tp']      = float(document['data'][4]) if not math.isnan(float(document['data'][4])) and not  math.isinf(float(document['data'][4])) else 0.
-        datadict['lead']    = float(document['data'][5]) if not math.isnan(float(document['data'][5])) and not  math.isinf(float(document['data'][5])) else 0.
-        datadict['nfiles']  = int(document['data'][6])
-        try:datadict['lockwaitUs']  = float(document['data'][7])
-        except:pass
-        try:datadict['lockcount']  = float(document['data'][8])
-        except:pass
+          datadict['micro'] = []
+        try:
+          datadict['inputStats'] = {
+            'tp' :   float(document['data'][4]) if not math.isnan(float(document['data'][4])) and not  math.isinf(float(document['data'][4])) else 0.,
+            'lead' : float(document['data'][5]) if not math.isnan(float(document['data'][5])) and not  math.isinf(float(document['data'][5])) else 0.,
+            'nfiles' :  int(document['data'][6]),
+            'lockwaitUs' : float(document['data'][7]),
+            'lockcount' : float(document['data'][8])
+          }
+        except:
+          pass
         datadict['fm_date'] = str(infile.mtime)
         datadict['source'] = self.hostname + '_' + infile.pid
-        datadict['class'] = self.nprocid
+        datadict['mclass'] = self.nprocid
         self.tryIndex('prc-s-state',datadict)
  
     def elasticize_prc_out(self,infile):

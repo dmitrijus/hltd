@@ -55,7 +55,7 @@
           "type": "string",
           "index":"not_analyzed"
         },
-        "class" : {
+        "mclass" : {
           "type": "string",
           "index":"not_analyzed"
         }
@@ -89,20 +89,24 @@
             "value":{"type":"integer"}
           }
         },
-        "tp": {
-          "type": "double"
-        },
-        "lead": {
-          "type": "double"
-        },
-        "nfiles": {
-          "type": "integer"
-        },
-        "lockwaitUs": {
-          "type": "double"
-        },
-        "lockcount": {
-          "type": "integer"
+        "inputStats" : {
+          "properties" : {
+            "tp": {
+              "type": "double"
+            },
+            "lead": {
+              "type": "double"
+            },
+            "nfiles": {
+              "type": "integer"
+            },
+            "lockwaitUs": {
+              "type": "double"
+            },
+            "lockcount": {
+              "type": "integer"
+            }
+          }
         },
         "ls": {
           "type": "integer"
@@ -114,7 +118,7 @@
           "type":"string",
           "index":"not_analyzed"
         },
-        "class" : {
+        "mclass" : {
           "type": "string",
           "index":"not_analyzed"
         }

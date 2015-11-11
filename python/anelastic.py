@@ -1178,7 +1178,7 @@ if __name__ == "__main__":
     watchDir = os.path.join(conf.watch_directory,dirname)
     outputDir = sys.argv[4]
     outputRunDir = os.path.join(outputDir,'run'+run_number.zfill(conf.run_number_padding))
- 
+
     mask = inotify.IN_CLOSE_WRITE | inotify.IN_MOVED_TO  # watched events
     logger.info("starting anelastic for "+dirname)
     mr = None

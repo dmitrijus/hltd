@@ -12,7 +12,7 @@ from aUtils import *
 class elasticBand():
 
 
-    def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo):
+    def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo,nprocid=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.istateBuffer = []  
         self.prcinBuffer = {}
@@ -29,7 +29,9 @@ class elasticBand():
         self.monBufferSize = monBufferSize
         self.fastUpdateModulo = fastUpdateModulo
         aliasName = runstring + "_" + indexSuffix
-        self.indexName = aliasName# + "_" + self.hostname 
+        self.indexName = aliasName# + "_" + self.hostname
+        #construct id string (num total (logical) cores and num_utilized cores
+        self.nprocid = nprocid
         eslib_logger = logging.getLogger('elasticsearch')
         eslib_logger.setLevel(logging.ERROR)
 
@@ -70,6 +72,7 @@ class elasticBand():
             try:document['lockcount']  = float(stub['data'][8])
             except:pass
             document['fm_date'] = str(mtime)
+            document['class'] = self.nprocid
             self.istateBuffer.append(document)
         except Exception:
             pass
@@ -112,6 +115,7 @@ class elasticBand():
         except:pass
         datadict['fm_date'] = str(infile.mtime)
         datadict['source'] = self.hostname + '_' + infile.pid
+        datadict['class'] = self.nprocid
         self.tryIndex('prc-s-state',datadict)
  
     def elasticize_prc_out(self,infile):

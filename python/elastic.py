@@ -182,6 +182,17 @@ if __name__ == "__main__":
     monDir = os.path.join(dirname,"mon")
     tempDir = os.path.join(dirname,ES_DIR_NAME)
 
+
+    #find out total number of logical cores
+    pnproc = subprocess.Popen("nproc",shell=True, stdout=subprocess.PIPE)
+    pnproc.wait()
+    try:
+      nlogical = int(pnproc.stdout.read())
+    except:
+      logger.warning('unable to run nproc command')
+      nlogical=0
+    nprocid = str(nlogical) + '_' + str(int(nlogical -round(nlogical*(1. - conf.resource_use_fraction))))
+
     monMask = inotify.IN_CLOSE_WRITE | inotify.IN_MOVED_TO
     tempMask = inotify.IN_CLOSE_WRITE | inotify.IN_MOVED_TO
 
@@ -205,7 +216,7 @@ if __name__ == "__main__":
         mr.register_inotify_path(tempDir,tempMask)
         mr.start_inotify()
 
-        es = elasticBand.elasticBand('http://'+conf.es_local+':9200',rundirname,indexSuffix,expected_processes,update_modulo)
+        es = elasticBand.elasticBand('http://'+conf.es_local+':9200',rundirname,indexSuffix,expected_processes,update_modulo,nprocid)
 
         #starting elasticCollector thread
         ec = elasticCollector(ES_DIR_NAME,inmondir)

@@ -281,7 +281,8 @@ def cleanup_mountpoints(remount=True):
         #make subdirectories if necessary and return
         if remount==True:
             try:
-                os.makedirs(os.path.join(conf.bu_base_dir,conf.ramdisk_subdirectory))
+                #there is no BU mount, so create subdirectory structure on FU
+                os.makedirs(os.path.join(conf.bu_base_dir,conf.ramdisk_subdirectory,'appliance','boxes'))
             except OSError:
                 pass
             try:

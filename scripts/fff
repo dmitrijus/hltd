@@ -20,6 +20,7 @@ def executeService(service,commands):
    proc = Popen(arr, stdout=PIPE)
    output = proc.communicate()[0]
    time.sleep(.1)
+
    isHltdStatus = service == 'hltd' and 'status' in commands
    if (isHltdStatus and 'is running' in output) or (not isHltdStatus and proc.returncode==0):
        print commands+' '+service+ ':\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
@@ -30,6 +31,21 @@ def executeService(service,commands):
       return proc.returncode
 
 def reconfigureScript(services=['elasticsearch','hltd']):
+
+
+  if 'hltd' in services and 'elasticsearch' in services:
+    proc = Popen(['/sbin/chkconfig', 'fffmeta', 'on'], stdout=PIPE, stderr=PIPE)
+    output = proc.communicate()[0]
+
+  #activate services in the boot sequence
+  if 'hltd' in services:
+      proc = Popen(['/sbin/chkconfig', 'hltd', 'on'], stdout=PIPE, stderr=PIPE)
+      output = proc.communicate()[0]
+
+  if 'elasticsearch' in services:
+      proc = Popen(['/sbin/chkconfig', 'elasticsearch', 'on'], stdout=PIPE, stderr=PIPE)
+      output = proc.communicate()[0]
+
   if 'hltd' in services:
       proc = Popen(['/etc/init.d/hltd','status'], stdout=PIPE)
       output = proc.communicate()[0]
@@ -38,14 +54,14 @@ def reconfigureScript(services=['elasticsearch','hltd']):
         return 1
 
   if 'elasticsearch' in services:
-    proc = Popen(['/etc/init.d/elasticsearch','status'], stdout=PIPE)
-    output = proc.communicate()[0]
-    if proc.returncode==0:
-      print "Unable to reconfigure if elasticsearch already running",' [  \033[1;31mFAILED\033[0;39m  ]'
-      return 1
+      proc = Popen(['/etc/init.d/elasticsearch','status'], stdout=PIPE)
+      output = proc.communicate()[0]
+      if proc.returncode==0:
+        print "Unable to reconfigure if elasticsearch already running",' [  \033[1;31mFAILED\033[0;39m  ]'
+        return 1
 
   #TODO:detect problems in execution of the reconfigure script
-  if services == ['elasticsearch','hltd']:
+  if 'hltd' in services and 'elasticsearch' in services:
     proc = Popen('/opt/fff/configurefff.sh', stdout=PIPE, stderr=PIPE)
   else:
     proc = Popen(['/opt/fff/configurefff.sh',services[0]], stdout=PIPE, stderr=PIPE)
@@ -90,9 +106,23 @@ if __name__ == "__main__":
       rc2=executeService('elasticsearch',sys.argv[1])
       sys.exit(rc1|rc2)
 
+    elif 'disable'==sys.argv[1]:
+      proc = Popen(['/opt/fff/disablenode.py','hltd,elasticsearch'], stdout=PIPE, stderr=PIPE)
+      output = proc.communicate()[0]
+      executeService('hltd','stop')
+      executeService('elasticsearch','stop')
+      proc = Popen('chmod -x /etc/init.d/fff', stdout=PIPE, stderr=PIPE, shell=True)
+      output = proc.communicate()[0]
+      proc = Popen(['/sbin/chkconfig','elasticsearch','off'], stdout=PIPE, stderr=PIPE)
+      output = proc.communicate()[0]
+      proc = Popen(['/sbin/chkconfig', 'hltd', 'off'], stdout=PIPE, stderr=PIPE)
+      output = proc.communicate()[0]
+      proc = Popen(['/sbin/chkconfig', 'fffmeta', 'off'], stdout=PIPE, stderr=PIPE)
+      output = proc.communicate()[0]
+      print "FFF services are disabled"
     else:
-        print "Unknown command"
-        sys.exit(1)
+      print "Unknown command"
+      sys.exit(1)
 
   elif len(sys.argv) > 2:
 

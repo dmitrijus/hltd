@@ -186,6 +186,7 @@ Requires:elasticsearch >= 1.4.2, hltd >= 1.7.9, cx_Oracle >= 5.1.2, java-1.8.0-o
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/dbcheck.sh
 Provides:/opt/fff/setupmachine.py
+Provides:/opt/fff/disablenode.py
 Provides:/opt/fff/dbcheck.py
 Provides:/opt/fff/instances.input
 Provides:/etc/init.d/fffmeta
@@ -213,6 +214,7 @@ mkdir -p opt/fff/esplugins
 mkdir -p opt/fff/backup
 mkdir -p etc/init.d/
 cp $BASEDIR/python/setupmachine.py %{buildroot}/opt/fff/setupmachine.py
+cp $BASEDIR/python/disablenode.py %{buildroot}/opt/fff/disablenode.py
 cp $BASEDIR/python/dbcheck.py %{buildroot}/opt/fff/dbcheck.py
 cp $BASEDIR/etc/instances.input %{buildroot}/opt/fff/instances.input
 echo "#!/bin/bash" > %{buildroot}/opt/fff/configurefff.sh
@@ -272,6 +274,9 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 755 ,root, root) /opt/fff/setupmachine.py
 %attr( 755 ,root, root) /opt/fff/setupmachine.pyc
 %attr( 755 ,root, root) /opt/fff/setupmachine.pyo
+%attr( 755 ,root, root) /opt/fff/disablenode.py
+%attr( 755 ,root, root) /opt/fff/disablenode.pyc
+%attr( 755 ,root, root) /opt/fff/disablenode.pyo
 %attr( 755 ,root, root) /opt/fff/instances.input
 %attr( 700 ,root, root) /opt/fff/configurefff.sh
 %attr( 700 ,root, root) /opt/fff/dbcheck.sh

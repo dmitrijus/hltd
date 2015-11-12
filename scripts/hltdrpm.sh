@@ -197,7 +197,6 @@ rm -rf $TOPDIR/opt/hltd/rpm
 rm -rf $TOPDIR/opt/hltd/lib
 rm -rf $TOPDIR/opt/hltd/esplugins
 rm -rf $TOPDIR/opt/hltd/scripts/paramcache*
-rm -rf $TOPDIR/opt/hltd/TODO
 
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
@@ -237,6 +236,9 @@ tar -C $TOPDIR -c opt/hltd | tar -xC \$RPM_BUILD_ROOT
 tar -C $TOPDIR -c etc | tar -xC \$RPM_BUILD_ROOT
 tar -C $TOPDIR -c usr | tar -xC \$RPM_BUILD_ROOT
 rm \$RPM_BUILD_ROOT/opt/hltd/python/setupmachine.py
+rm \$RPM_BUILD_ROOT/opt/hltd/python/disablenode.py
+rm \$RPM_BUILD_ROOT/opt/hltd/python/dbcheck.py
+rm \$RPM_BUILD_ROOT/opt/hltd/TODO
 %post
 #/opt/hltd/python/fillresources.py #--> in fffmeta
 %files

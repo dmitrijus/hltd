@@ -188,6 +188,7 @@ Provides:/opt/fff/dbcheck.sh
 Provides:/opt/fff/setupmachine.py
 Provides:/opt/fff/disablenode.py
 Provides:/opt/fff/dbcheck.py
+Provides:/opt/fff/db.jsn
 Provides:/opt/fff/instances.input
 Provides:/etc/init.d/fffmeta
 Provides:/etc/init.d/fff
@@ -242,6 +243,7 @@ echo "else" >> %{buildroot}/opt/fff/dbcheck.sh                      >> %{buildro
 echo "  python2.6 /opt/fff/dbcheck.py $dblogin $dbpwd $dbsid"       >> %{buildroot}/opt/fff/dbcheck.sh
 echo "fi"                                                           >> %{buildroot}/opt/fff/dbcheck.sh
 
+echo " { \"login\":\"${dblogin}\" , \"password\":\"${dbpwd}\" , \"sid\":\"${dbsid}\" }"    >> %{buildroot}/opt/fff/db.jsn
 
 cp $BASEDIR/esplugins/$pluginfile1 %{buildroot}/opt/fff/esplugins/$pluginfile1
 cp $BASEDIR/esplugins/$pluginfile2 %{buildroot}/opt/fff/esplugins/$pluginfile2
@@ -283,6 +285,7 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 755 ,root, root) /opt/fff/dbcheck.py
 %attr( 755 ,root, root) /opt/fff/dbcheck.pyc
 %attr( 755 ,root, root) /opt/fff/dbcheck.pyo
+%attr( 700 ,root, root) /opt/fff/db.jsn
 %attr( 755 ,root, root) /etc/init.d/fffmeta
 %attr( 755 ,root, root) /etc/init.d/fff
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile1

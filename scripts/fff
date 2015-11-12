@@ -12,7 +12,8 @@ from applianceumount import stopFUs
 from applianceumount import checkMode
 import time
 import syslog
-
+import cx_Oracle
+import json
 
 def executeService(service,commands):
    arr = [os.path.join('/etc/init.d',service)]
@@ -72,6 +73,24 @@ def reconfigureScript(services=['elasticsearch','hltd']):
   time.sleep(.1)
   return 0
 
+def isBlacklisted():
+    with open('/opt/fff/db.jsn') as dbp:
+      dbpj = json.load(dbp)
+      oracleUser = dbpj['login']
+      oraclePass = dbpj['password']
+      oracleDB   = dbpj['sid']
+    db = cx_Oracle.connect(oracleUser, oraclePass, oracleDB)
+    cursor = db.cursor()
+    query = """SELECT h.hostname FROM Daq_Bl_Hosts h, Daq_Bl_Blacklist_Hosts bh, Daq_Bl_Blacklists b, Daq_Bl_Host_Info hi WHERE h.Host_ID = bh.Host_ID and hi.Host_ID = bh.Host_ID and bh.Blacklist_id = b.Blacklist_ID and b.Blacklist_ID IN (SELECT Blacklist_ID  FROM Daq_Bl_Blacklists WHERE Setup_ID = 1 AND Blacklist_ID IN (SELECT MAX(Blacklist_ID) FROM Daq_Bl_Blacklists)) ORDER BY h.hostname"""
+    cursor.execute(query)
+    blacklist = cursor.fetchall()
+    black = [element.split('.')[0] for tupl in blacklist for element in tupl]
+    cursor.close()
+    db.close()
+    if os.uname()[1] in black: return True
+    else: return False
+
+
 if __name__ == "__main__":
 
   if len(sys.argv) ==2:
@@ -106,20 +125,28 @@ if __name__ == "__main__":
       rc2=executeService('elasticsearch',sys.argv[1])
       sys.exit(rc1|rc2)
 
-    elif 'disable'==sys.argv[1]:
-      proc = Popen(['/opt/fff/disablenode.py','hltd,elasticsearch'], stdout=PIPE, stderr=PIPE)
-      output = proc.communicate()[0]
-      executeService('hltd','stop')
-      executeService('elasticsearch','stop')
-      proc = Popen('chmod -x /etc/init.d/fff', stdout=PIPE, stderr=PIPE, shell=True)
-      output = proc.communicate()[0]
-      proc = Popen(['/sbin/chkconfig','elasticsearch','off'], stdout=PIPE, stderr=PIPE)
-      output = proc.communicate()[0]
-      proc = Popen(['/sbin/chkconfig', 'hltd', 'off'], stdout=PIPE, stderr=PIPE)
-      output = proc.communicate()[0]
-      proc = Popen(['/sbin/chkconfig', 'fffmeta', 'off'], stdout=PIPE, stderr=PIPE)
-      output = proc.communicate()[0]
-      print "FFF services are disabled"
+    elif sys.argv[1].startswith('disable'):
+      if (sys.argv[1]=='disableBlacklisted' and isBlacklisted()) or True:
+        proc = Popen(['/opt/fff/disablenode.py','hltd,elasticsearch'], stdout=PIPE, stderr=PIPE)
+        output = proc.communicate()[0]
+        executeService('hltd','stop')
+        executeService('elasticsearch','stop')
+        proc = Popen('chmod -x /etc/init.d/fff', stdout=PIPE, stderr=PIPE, shell=True)
+        output = proc.communicate()[0]
+        proc = Popen(['/sbin/chkconfig','elasticsearch','off'], stdout=PIPE, stderr=PIPE)
+        output = proc.communicate()[0]
+        proc = Popen(['/sbin/chkconfig', 'hltd', 'off'], stdout=PIPE, stderr=PIPE)
+        output = proc.communicate()[0]
+        proc = Popen(['/sbin/chkconfig', 'fffmeta', 'off'], stdout=PIPE, stderr=PIPE)
+        output = proc.communicate()[0]
+        print "FFF services are disabled"
+    elif 'checkBlacklist' == sys.argv[1]:
+        if isBlacklisted():
+          print "Host is blacklisted"
+          sys.exit(1)
+        else:
+          print "Host is not blacklisted"
+          sys.exit(0)
     else:
       print "Unknown command"
       sys.exit(1)

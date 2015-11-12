@@ -289,7 +289,7 @@ def cleanup_mountpoints(remount=True):
                 os.makedirs(os.path.join(conf.bu_base_dir,conf.output_subdirectory))
             except OSError:
                 pass
-            return True
+        return True
     try:
         process = subprocess.Popen(['mount'],stdout=subprocess.PIPE)
         out = process.communicate()[0]
@@ -475,6 +475,7 @@ def cleanup_mountpoints(remount=True):
                 i+=1
         else:
           logger.warning('starting hltd without bus.config file!')
+          return False
         #clean up suspended state
         try:
             if remount==True:os.popen('rm -rf '+conf.watch_directory+'/suspend*')

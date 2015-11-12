@@ -108,7 +108,11 @@ if __name__ == "__main__":
         rc2=executeService('elasticsearch','stop')
         sys.exit(rc1|rc2)
 
-    elif 'restart' == sys.argv[1]:
+    elif sys.argv[1].startswith('restart'):
+        if sys.argv[1] == 'restartUnblacklisted':
+          if isBlacklisted():
+            print "Machine is blacklisted. Skipping reconfigure/restart of services"
+            sys.exit(1)
 
         executeService('hltd','stop')
         executeService('elasticsearch','stop')

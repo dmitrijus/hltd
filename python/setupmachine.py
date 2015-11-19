@@ -40,12 +40,10 @@ dbpwd = 'empty'
 equipmentSet = 'latest'
 minidaq_list = ["bu-c2f13-14-01","bu-c2f13-16-01","bu-c2f13-25-01","bu-c2f13-27-01",
                 "bu-c2f13-37-01","bu-c2f13-39-01","fu-c2f13-09-01","fu-c2f13-09-02",
-                "fu-c2f13-20-01","fu-c2f13-20-02","fu-c2f13-33-01","fu-c2f13-33-02","bu-c2d13-41-01","bu-c2f13-29-01"]
-dqm_list     = ["bu-c2f13-31-01","bu-c2f11-09-01",
-                "fu-c2f13-39-01","fu-c2f13-39-02","fu-c2f13-39-03","fu-c2f13-39-04",
+                "fu-c2f13-20-01","fu-c2f13-20-02","fu-c2f13-20-03","fu-c2f13-33-01","fu-c2f13-33-02","bu-c2f13-41-01","bu-c2f13-29-01"]
+dqm_list     = ["bu-c2f11-09-01",
                 "fu-c2f11-11-01","fu-c2f11-11-02","fu-c2f11-11-03","fu-c2f11-11-04"]
 dqmtest_list = ["bu-c2f11-13-01",
-                "fu-c2f13-41-01","fu-c2f13-41-02","fu-c2f13-41-03","fu-c2f13-41-04",
                 "fu-c2f11-15-01","fu-c2f11-15-02","fu-c2f11-15-03","fu-c2f11-15-04"]
 detdqm_list  = ["bu-c2f11-19-01",
                 "fu-c2f11-21-01","fu-c2f11-21-02","fu-c2f11-21-03","fu-c2f11-21-04",
@@ -54,7 +52,7 @@ detdqm_list  = ["bu-c2f11-19-01",
 es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02', 'ncsrv-c2e42-21-02','ncsrv-c2e42-23-02']
 es_tribe_list =[ 'ncsrv-c2e42-13-03', 'ncsrv-c2e42-23-03']
 
-tribe_ignore_list = ['bu-c2f13-31-01','bu-c2f11-09-01','bu-c2f11-13-01','bu-c2f11-19-01']
+tribe_ignore_list = ['bu-c2f11-09-01','bu-c2f11-13-01','bu-c2f11-19-01']
 
 myhost = os.uname()[1]
 
@@ -867,7 +865,7 @@ if __name__ == "__main__":
 
           #only 1 replica in MiniDAQ appliances
           if myhost in minidaq_list:
-            hltdcfg.reg('force_replicas',0,'[Monitoring]')
+            hltdcfg.reg('force_replicas','0','[Monitoring]')
 
           hltdcfg.reg('watch_directory',watch_dir_bu,'[General]')
           #hltdcfg.reg('micromerge_output',out_dir_bu,'[General]')

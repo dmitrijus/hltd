@@ -19,11 +19,11 @@ BASEDIR=$PWD
 # create a build area
 
 echo "removing old build area"
-rm -rf /tmp/hltd-build-tmp
+rm -rf /tmp/hltd-build-tmp-area
 echo "creating new build area"
-mkdir  /tmp/hltd-build-tmp
+mkdir  /tmp/hltd-build-tmp-area
 ls
-cd     /tmp/hltd-build-tmp
+cd     /tmp/hltd-build-tmp-area
 TOPDIR=$PWD
 ls
 

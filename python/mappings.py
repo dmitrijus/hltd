@@ -183,6 +183,7 @@ central_runindex_mapping = {
                     'fm_date'       :{'type':'date'},
                     'id'            :{'type':'string'}, #run+appliance+stream+ls
                     'appliance'     :{'type':'string'},
+                    'host'          :{'type':'string','index' : 'not_analyzed'},
                     'stream'        :{'type':'string','index' : 'not_analyzed'},
                     'ls'            :{'type':'integer'},
                     'processed'     :{'type':'integer'},

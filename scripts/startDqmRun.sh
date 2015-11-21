@@ -19,4 +19,5 @@ pwd >> $logname 2>&1
 eval `scram runtime -sh`;
 cd $3;
 pwd >> $logname 2>&1
+export FRONTIER_LOG_LEVEL="warning"
 exec esMonitoring.py -z $lognamez cmsRun `readlink -f $6` runInputDir=$5 runNumber=$4 $7 $8 >> $logname 2>&1

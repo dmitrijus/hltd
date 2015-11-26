@@ -1891,17 +1891,23 @@ class Run:
         try:
             for resource in self.online_resource_list:
                 if resource.processstate==100:
-                    logger.info('terminating process '+str(resource.process.pid)+
+                    try:
+                        logger.info('terminating process '+str(resource.process.pid)+
                                  ' in state '+str(resource.processstate)+' owning '+str(resource.cpu))
 
-                    if killJobs:resource.process.kill()
-                    else:resource.process.terminate()
+                        if killJobs:resource.process.kill()
+                        else:resource.process.terminate()
+                    except AttributeError:
+                        pass
                     if resource.watchdog!=None and resource.watchdog.is_alive():
                         try:
                             resource.join()
                         except:
                             pass
-                    logger.info('process '+str(resource.process.pid)+' terminated')
+                    try:
+                        logger.info('process '+str(resource.process.pid)+' terminated')
+                    except AttributeError:
+                        logger.info('terminated process (in another thread)')
                     time.sleep(.1) 
                     logger.info(' releasing resource(s) '+str(resource.cpu))
 

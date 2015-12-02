@@ -137,11 +137,12 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
                 except ElasticHttpError as ex:
                   try:
                     if "IndexClosedException" in ex[1]:
-                        printout("Index "+create_index_name+ " is already closed and can not be used again!",doPrint,True)
+                        printout("Index "+create_index_name+ " is already closed! Index will be reopened",doPrint,True)
+                        c_res = es.send_request('POST', [create_index_name,'_open'])
                     else:
                         printout(str(ex),doPrint,True)
                   except:
-                    printout("Unable to parse exception"+str(ex),doPrint,True)
+                    printout("setupES exception: "+str(ex),doPrint,True)
                 except Exception as ex:
                   printout("Unable to get doc count in index. Possible cluster problem: "+str(ex),doPrint,True)
             except Exception as ex:

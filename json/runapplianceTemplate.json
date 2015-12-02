@@ -49,7 +49,8 @@
           "type": "integer"
         },
         "fm_date": {
-          "type": "date"
+          "type": "date",
+           "format": "dateOptionalTime"
         },
         "source": {
           "type": "string",
@@ -62,12 +63,12 @@
       },
       "_timestamp": {
         "enabled": true,
-        "store": "yes",
+        "store": true,
         "path": "fm_date"
       },
       "_ttl": {
         "enabled": true,
-        "default": "5m"
+        "default": 300000
       }
     },
     "prc-s-state": {
@@ -76,17 +77,15 @@
           "type": "integer"
         },
         "mini": {
-          "index":"no",
           "properties":{
-            "key":{"type":"integer"},
-            "value":{"type":"integer"}
+            "key":{"type":"integer","index":"no"},
+            "value":{"type":"integer","index":"no"}
           }
         },
         "micro": {
-          "index":"no",
           "properties":{
-            "key":{"type":"integer"},
-            "value":{"type":"integer"}
+            "key":{"type":"integer","index":"no"},
+            "value":{"type":"integer","index":"no"}
           }
         },
         "inputStats" : {
@@ -112,7 +111,8 @@
           "type": "integer"
         },
         "fm_date": {
-          "type": "date"
+          "type": "date",
+          "format": "dateOptionalTime"
         },
         "source" : {
           "type":"string",
@@ -125,7 +125,7 @@
       },
       "_timestamp": {
         "enabled": true,
-        "store": "yes",
+        "store": true,
         "path" : "fm_date"
       }
     },
@@ -147,7 +147,7 @@
         },
         "ls": {
           "type": "integer",
-          "store": "yes"
+          "store": true
         },
         "stream": {
           "type": "string",
@@ -160,7 +160,7 @@
       },
       "_timestamp": {
         "enabled": true,
-        "store": "yes"
+        "store": true
       }
     },
     "prc-in": {
@@ -177,7 +177,7 @@
         },
         "ls": {
           "type": "integer",
-          "store": "yes"
+          "store": true
         },
         "index": {
           "type": "integer"
@@ -190,12 +190,13 @@
           "index":"not_analyzed"
         },
         "fm_date": {
-          "type": "date"
+          "type": "date",
+          "format": "dateOptionalTime"
         }
       },
       "_timestamp": {
         "enabled": true,
-        "store": "yes",
+        "store": true,
         "path": "fm_date"
       }
     },
@@ -252,12 +253,13 @@
           "search_analyzer": "keyword"
         },
         "fm_date": {
-          "type": "date"
+          "type": "date",
+          "format": "dateOptionalTime"
         }
       },
       "_timestamp": {
         "enabled": true,
-        "store": "yes",
+        "store": true,
         "path": "fm_date"
       }
     },
@@ -268,12 +270,13 @@
           "index": "not_analyzed"
         },
         "fm_date": {
-          "type": "date"
+          "type": "date",
+          "format": "dateOptionalTime"
         }
       },
       "_timestamp": {
         "enabled": true,
-        "store": "yes",
+        "store": true,
         "path": "fm_date"
       }
     },
@@ -298,7 +301,8 @@
           "type": "integer"
         },
         "fm_date": {
-          "type": "date"
+          "type": "date",
+          "format": "dateOptionalTime"
         },
         "host": {
           "type": "string",
@@ -307,18 +311,18 @@
       },
       "_timestamp": {
         "enabled": true,
-        "store": "yes",
+        "store": true,
         "path": "fm_date"
       }
     },
     "cmsswlog": {
       "_timestamp": {
         "enabled": true,
-        "store": "yes"
+        "store": true
       },
       "_ttl": {
         "enabled": true,
-        "default": "30d"
+        "default": 2592000000
       },
       "properties": {
         "host": {

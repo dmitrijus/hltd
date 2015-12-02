@@ -112,11 +112,43 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
                 #c_res = es.create_index(index = create_index_name, body = loaddoc)
                 c_res = es.send_request('PUT', [create_index_name], body = loaddoc)
                 if c_res!={'acknowledged':True}:
-                    logging.info("Result of index " + create_index_name + " create request: " + str(c_res) )
+                    printout("Result of index " + create_index_name + " create request: " + str(c_res),doPrint,True )
+            except IndexAlreadyExistsError as ex:
+                #this is for index pre-creator
+                printout("Attempting to intialize already existing index "+create_index_name+" : Proceeding with checking if settings/mapping is same",doPrint,True)
+                try:
+                  doc_resp = es.send_request('GET', [create_index_name,'_count'])['count']
+                  #only try to recreate if no documents (pre-'buffered' index which has not been used)
+                  if doc_resp==0:
+                    doc_settings = convert(es.send_request('GET', [create_index_name,'_settings']))[create_index_name]['settings']
+                    #if shard/replica settings not same, delete and recreate the empty index
+                    if int(doc_settings['index']['number_of_shards']) != int(loaddoc['settings']['index']['number_of_shards']) \
+                      or int(doc_settings['index']['number_of_replicas']) != int(loaddoc['settings']['index']['number_of_replicas']):
+                        c_res = es.send_request('DELETE', [create_index_name])
+                        c_res = es.send_request('PUT', [create_index_name], body = loaddoc)
+                    else:
+                      #if mappings not same, delete and recreate the empty index
+                      doc_mappings = convert(es.send_request('GET', [create_index_name,'_mapping']))[create_index_name]['mappings']
+                      if doc_mappings!=loaddoc['mappings']:
+                          c_res = es.send_request('DELETE', [create_index_name])
+                          c_res = es.send_request('PUT', [create_index_name], body = loaddoc)
+                  else:
+                      printout("Attempting to intialize/use already existing index:"+create_index_name,doPrint,True)
+                except ElasticHttpError as ex:
+                  try:
+                    if "IndexClosedException" in ex[1]:
+                        printout("Index "+create_index_name+ " is already closed and can not be used again!",doPrint,True)
+                    else:
+                        printout(str(ex),doPrint,True)
+                  except:
+                    printout("Unable to parse exception"+str(ex),doPrint,True)
+                except Exception as ex:
+                  printout("Unable to get doc count in index. Possible cluster problem: "+str(ex),doPrint,True)
             except Exception as ex:
-                logging.info("Index not created: "+str(ex))
+                #if type(ex)==RemoteTransportException: print "a",type(ex)
+                printout("Index not created: "+str(ex),doPrint,True)
         else:
-            logging.info("Not creating index without template")
+            printout("Not creating index without template",doPrint,True)
 
 if __name__ == '__main__':
 
@@ -134,5 +166,5 @@ if __name__ == '__main__':
         if "forcereplace" in sys.argv[2]:
             replaceOption=2
 
-    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True,overrideTests=True)
+    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True,overrideTests=True,create_index_name='run231013_appliance_bu-vm-01-01')
 

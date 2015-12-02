@@ -36,6 +36,7 @@ import _inotify as inotify
 from elasticbu import BoxInfoUpdater
 from aUtils import fileHandler,ES_DIR_NAME
 from setupES import setupES 
+from elasticBand import IndexCreator
 
 thishost = os.uname()[1]
 nthreads = None
@@ -622,6 +623,7 @@ class system_monitor(threading.Thread):
         self.statThread = None
         self.stale_flag=False
         self.boxdoc_version = boxdoc_version
+        self.highest_run_number = None
         if conf.mount_control_path:
             self.startStatNFS()
 
@@ -871,6 +873,15 @@ class system_monitor(threading.Thread):
                     os.rename(res_path_temp,res_path)
                     res_doc['fm_date']=tstring
                     try:boxInfo.ec.injectSummaryJson(res_doc)
+                    except:pass
+                    try:
+                      if lastFUrun>0:
+                        if not self.highest_run_number or self.highest_run_number<lastFUrun:
+                          self.highest_run_number=lastFUrun
+                        indexCreator.setMasked(True,self.highest_run_number)
+                      else:
+                        indexCreator.setMasked(False,self.highest_run_number)
+
                     except:pass
 
                 for mfile in self.file:
@@ -1763,11 +1774,12 @@ class Run:
                 logger.warning('can not parse ' + str(resourcepath))
         return False
 
-    def CheckTemplate(self):
+    def CheckTemplate(self,run=None):
         if conf.role=='bu' and conf.use_elasticsearch:
             logger.info("checking ES template")
             try:
-                setupES(forceReplicas=conf.force_replicas)
+                #new: try to create index with template mapping after template check
+                setupES(forceReplicas=conf.force_replicas,create_index_name='run'+str(self.runnumber)+'_'+conf.elastic_cluster)
             except Exception as ex:
                 logger.error("Unable to check run appliance template:"+str(ex))
 
@@ -3346,6 +3358,12 @@ class hltd(Daemon2,object):
             if conf.use_elasticsearch == True:
                 boxInfo = BoxInfoUpdater(watch_directory,conf,nsslock,boxdoc_version)
                 boxInfo.start()
+
+            if conf.use_elasticsearch:
+                indexCreator = IndexCreator('http://'+conf.es_local+':9200',conf.elastic_cluster,conf.force_replicas)
+                #disabled until tested
+                #indexCreator.start()
+
 
         runRanger = RunRanger(self.instance)
         runRanger.register_inotify_path(watch_directory,inotify.IN_CREATE)

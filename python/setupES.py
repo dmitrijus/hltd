@@ -29,6 +29,7 @@ def send_template(es,name,doc):
 def create_template(es,name):
     doc = load_template(es,name)
     send_template(es,name,doc)
+    return doc
 
 def convert(input):
 	if isinstance(input, dict):
@@ -47,7 +48,7 @@ def printout(msg,usePrint,haveLog):
 	logging.info(msg)
 
 
-def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,overrideTests=False, forceReplicas=-1):
+def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,overrideTests=False, forceReplicas=-1, create_index_name=None):
 
     #ip_url=getURLwithIP(es_server_url)
     es = ElasticSearch(es_server_url,timeout=5)
@@ -63,19 +64,22 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
 
 
     TEMPLATES = ["runappliance"]
+    loaddoc = None
     for template_name in TEMPLATES:
         if template_name not in templateList:
             printout(template_name+"template not present. It will be created. ",doPrint,False)
-            create_template(es,template_name)
+            loaddoc = create_template(es,template_name)
+            if forceReplicas>=0:
+              loaddoc['settings']['index']['number_of_replicas']=forceReplicas
         else:
+            loaddoc = load_template(es,template_name)
+            if forceReplicas>=0:
+              loaddoc['settings']['index']['number_of_replicas']=forceReplicas
             norm_name = convert(templateList[template_name])
             if deleteOld==0:
                 printout(template_name+" already exists. Add 'replace' parameter to update if different, or forceupdate to always  update.",doPrint,False)
             else:
                 printout(template_name+" already exists.",doPrint,False)
-                loaddoc = load_template(es,template_name)
-                if forceReplicas>=0:
-                  loaddoc['settings']['index']['number_of_replicas']=forceReplicas
                 if loaddoc!=None:
                     mappingSame =  norm_name['mappings']==loaddoc['mappings']
                     #settingSame = norm_name['settings']==loaddoc['settings']
@@ -93,15 +97,26 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
 			    try:
 		                if norm_name['settings']['index,test']==True:
                                     printout("Template test setting found, skipping update...",doPrint,True)
-                                    return
+                                    break
 			    except:pass
                         #delete_template(es,template_name)
 			printout("Updating "+template_name+" ES template",doPrint,True)
                         create_template(es,template_name)
 		    else:
                       printout('runappliance ES template is up to date',doPrint,True)
-                    
 
+    #create index name
+    if create_index_name:
+        if loaddoc:
+            try:
+                #c_res = es.create_index(index = create_index_name, body = loaddoc)
+                c_res = es.send_request('PUT', [create_index_name], body = loaddoc)
+                if c_res!={'acknowledged':True}:
+                    logging.info("Result of index " + create_index_name + " create request: " + str(c_res) )
+            except Exception as ex:
+                logging.info("Index not created: "+str(ex))
+        else:
+            logging.info("Not creating index without template")
 
 if __name__ == '__main__':
 

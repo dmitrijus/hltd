@@ -31,7 +31,7 @@ class hltdConf:
         self.mount_control_path = bool(self.mount_control_path=="True")
         self.run_number_padding = int(self.run_number_padding)
         self.delete_run_dir = bool(self.delete_run_dir=="True")
-        conf.output_adler32 = bool(conf.output_adler32=="True")
+        self.output_adler32 = bool(self.output_adler32=="True")
         self.use_elasticsearch = bool(self.use_elasticsearch=="True")
         self.force_replicas = int(self.force_replicas)
         self.cgi_port = int(self.cgi_port)

@@ -1,5 +1,6 @@
 import os,socket,time
 import sys
+import threading
 from pyelasticsearch.client import ElasticSearch
 from pyelasticsearch.exceptions import *
 import simplejson as json
@@ -9,31 +10,138 @@ import logging
 
 from aUtils import *
 
+
+class IndexCreator(threading.Thread):
+
+    def __init__(self,es_server_url, indexSuffix, forceReplicas, numPreCreate=10):
+        threading.Thread.__init__(self)
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.daemon=True
+        if not self.isDaemon(): logger.error("Not daemon")
+        self.body=None
+        try:
+            filepath = os.path.join(os.path.dirname((os.path.realpath(__file__))),'../json',"runapplianceTemplate.json")
+            with open(filepath,'r') as fpi:
+                self.body = json.load(fpi)
+
+            if forceReplicas>=0:
+              self.body['settings']['index']['number_of_replicas']=forceReplicas
+
+            #body.pop('template')
+        except Exception as e:
+            logger.error("Exception opening elasticsearch template, "+str(ex))
+
+        self.indexSuffix = indexSuffix
+        self.bufferedList = []
+        self.runPendingDelete = []
+        self.numPreCreate=10
+
+        eslib_logger = logging.getLogger('elasticsearch')
+        eslib_logger.setLevel(logging.ERROR)
+        self.es = ElasticSearch(es_server_url,timeout=20)
+        self.logger.info('done instantiation of indexCreator')
+        self.masked=True
+        self.lastActiveRun=None
+
+    def run(self):
+        while True:
+            time.sleep(60*5)
+            if masked:continue
+            if not self.lastActiveRun:continue
+            #try create
+            createNextIndexMaybe(self.lastActiveRun)
+
+
+    def setMasked(self,masked,lastActiveRun=None):
+        self.masked=masked
+        if lastActiveRun and (not self.lastActiveRun or self.lastActiveRun<lastActiveRun):
+          self.lastActiveRun = lastActiveRun
+
+    def createNextIndexMaybe(self,lastActiveRun):
+        if len(self.bufferedList)>=self.numPreCreate:
+          return False
+        result = create(lastActiveRun+1)
+        if result:
+                self.bufferedList.append(lastActiveRun+1)
+
+        #try to delete one empty index from skipped list
+        if len(self.runPendingDelete):
+          try:
+            d_indexName = 'run'+str(self.runPendingDelete[0])+'_'+self.indexSuffix 
+            d_res = self.es.delete_index(index = d_indexName)
+            if c_res!={'acknowledged':True}:
+              #todo:handle index doesn't exist (remove
+              self.logger.warning("Failed to delete index "+d_indexName+" with status"+str(c_res))
+            else:
+              delete_index.pop(0)
+          except Exception as ex:
+              self.logger.warning("Failed to delete index "+d_indexName+" with exception"+str(ex))
+        return result
+
+    def runHasStarted(self,run):
+        for rn in self.bufferedList[:]:
+          if rn<=run:
+            self.bufferedList.remove(rn)
+            if rn<run:
+                self.runPendingDelete.append(rn)
+
+    def create(self,run):
+        runstring = 'run'+str(run)
+        if not self.body:
+            self.logger.error("Unable to create index, no local run index template")
+            return False
+        indexName = runstring + "_" + indexSuffix
+        try:
+            #c_res = self.es.create_index(index = self.indexName, body = self.body)
+            c_res = self.es.send_request('PUT', [self.indexName], body = self.body)
+            if c_res!={'acknowledged':True}:
+              self.logger.error("Failed to create index "+indexName+" with status"+str(c_res))
+              return False
+            return True
+        except Exception as ex:
+            self.logger.warning("Unable to create index "+indexName+". "+str(ex))
+            return False
+
 class elasticBand():
 
 
-    def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo,nprocid=None):
+    def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo,forceReplicas,nprocid=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.istateBuffer = []  
         self.prcinBuffer = {}
         self.prcoutBuffer = {}
         self.fuoutBuffer = {}
-        self.es = ElasticSearch(es_server_url,timeout=20) 
-        self.hostname = os.uname()[1]
-        self.sourceid = self.hostname + '_' + str(os.getpid())
-        self.hostip = socket.gethostbyname_ex(self.hostname)[2][0]
+
+        self.es = ElasticSearch(es_server_url,timeout=20)
+        eslib_logger = logging.getLogger('elasticsearch')
+        eslib_logger.setLevel(logging.ERROR)
+
+        #self.hostip = socket.gethostbyname_ex(self.hostname)[2][0]
         #self.number_of_data_nodes = self.es.health()['number_of_data_nodes']
         #self.settings = {     "index.routing.allocation.require._ip" : self.hostip }
-        self.indexCreated=False
+
+        self.indexName = runstring + "_" + indexSuffix
+        try:
+            filepath = os.path.join(os.path.dirname((os.path.realpath(__file__))),'../json',"runapplianceTemplate.json")
+            with open(filepath,'r') as fpi:
+                body = json.load(fpi)
+            if forceReplicas>=0:
+              self.body['settings']['index']['number_of_replicas']=forceReplicas
+
+            #body.pop('template')
+            #c_res = self.es.create_index(index = self.indexName, body = body)
+            c_res = self.es.send_request('PUT', [self.indexName], body = body)
+            if c_res!={'acknowledged':True}:
+              self.logger.info("Result of index create: " + str(c_res) )
+        except Exception as ex:
+          self.logger.info("Elastic Exception "+ str(ex))
         self.indexFailures=0
         self.monBufferSize = monBufferSize
         self.fastUpdateModulo = fastUpdateModulo
-        aliasName = runstring + "_" + indexSuffix
-        self.indexName = aliasName# + "_" + self.hostname
+        self.hostname = os.uname()[1]
+        self.sourceid = self.hostname + '_' + str(os.getpid())
         #construct id string (num total (logical) cores and num_utilized cores
         self.nprocid = nprocid
-        eslib_logger = logging.getLogger('elasticsearch')
-        eslib_logger.setLevel(logging.ERROR)
 
     def imbue_jsn(self,infile,silent=False):
         with open(infile.filepath,'r') as fp:
@@ -237,12 +345,6 @@ class elasticBand():
     def flushAll(self):
         self.flushMonBuffer()
         self.flushAllLS()
-
-    #def updateIndexSettingsMaybe(self):
-    #	return
-    #    if self.indexCreated==False:
-    #        self.es.update_settings(self.indexName,self.settings)
-    #        self.indexCreated=True
 
     def tryIndex(self,docname,document): 
         try:

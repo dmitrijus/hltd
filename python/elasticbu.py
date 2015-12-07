@@ -84,6 +84,10 @@ class elasticBandBU:
         self.nsslock=nsslock
         self.updateIndexMaybe(self.runindex_name,self.runindex_write,self.runindex_read,mappings.central_es_settings,mappings.central_runindex_mapping)
         self.updateIndexMaybe(self.boxinfo_name,self.boxinfo_write,self.boxinfo_read,mappings.central_es_settings,mappings.central_boxinfo_mapping)
+        #silence 
+        eslib_logger = logging.getLogger('elasticsearch')
+        eslib_logger.setLevel(logging.ERROR)
+
         self.black_list=None
         if self.conf.instance=='main':
             self.hostinst = self.host

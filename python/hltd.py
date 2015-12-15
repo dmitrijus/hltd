@@ -118,6 +118,10 @@ def preexec_function():
     prctl.set_pdeathsig(SIGKILL)
     #    os.setpgrp()
 
+from buemu import BUEmu
+bu_emulator = BUEmu(conf,bu_disk_list_ramdisk_instance,preexec_function)
+
+
 def cleanup_resources():
     try:
         dirlist = os.listdir(cloud)
@@ -1024,59 +1028,6 @@ class system_monitor(threading.Thread):
         if self.statThread:
             self.statThread.join()
 
-class BUEmu:
-    def __init__(self):
-        self.process=None
-        self.runnumber = None
-
-    def startNewRun(self,nr):
-        if self.runnumber:
-            logger.error("Another BU emulator run "+str(self.runnumber)+" is already ongoing")
-            return
-        self.runnumber = nr
-        configtouse = conf.test_bu_config
-        destination_base = None
-        if conf.role == 'fu':
-            startindex = 0
-            destination_base = bu_disk_list_ramdisk_instance[startindex%len(bu_disk_list_ramdisk_instance)]
-        else:
-            destination_base = conf.watch_directory
-
-
-        if "_patch" in conf.cmssw_default_version:
-            full_release="cmssw-patch"
-        else:
-            full_release="cmssw"
-
-
-        new_run_args = [conf.cmssw_script_location+'/startRun.sh',
-                        conf.cmssw_base,
-                        conf.cmssw_arch,
-                        conf.cmssw_default_version,
-                        conf.exec_directory,
-                        full_release,
-                        'null',
-                        configtouse,
-                        str(nr),
-                        '/tmp', #input dir is not needed
-                        destination_base,
-                        '1',
-                        '1']
-        try:
-            self.process = subprocess.Popen(new_run_args,
-                                            preexec_fn=preexec_function,
-                                            close_fds=True
-                                            )
-        except Exception as ex:
-            logger.error("Error in forking BU emulator process")
-            logger.error(ex)
-
-    def stop(self):
-        os.kill(self.process.pid,SIGINT)
-        self.process.wait()
-        self.runnumber=None
-
-bu_emulator=BUEmu()
 
 class OnlineResource:
 

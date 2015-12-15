@@ -1023,7 +1023,8 @@ class DQMMerger(threading.Thread):
                 dqmJson = self.dqmQueue.get(True,0.5)
                 dqmJson.dqmMerge(self.outDir)
             except Queue.Empty as e:
-                break if self.finish else continue
+                if self.finish:break
+                continue
             except KeyboardInterrupt as e:
                 break
 

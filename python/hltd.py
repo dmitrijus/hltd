@@ -568,7 +568,6 @@ def calculate_threadnumber():
 def updateBlacklist(blfile):
     black_list=[]
     active_black_list=[]
-    #TODO:this will be updated to read blacklist from database
     if conf.role=='bu':
         try:
             if os.stat(blfile).st_size>0:
@@ -579,7 +578,7 @@ def updateBlacklist(blfile):
                             black_list.append(item)
                         logger.info("found these resources in " + blfile + " : " + str(black_list))
                     except ValueError:
-                        logger.error("error parsing /etc/appliance/blacklist")
+                        logger.error("error parsing" + blfile)
         except:
                 #no blacklist file, this is ok
             pass
@@ -2311,7 +2310,6 @@ class RunList:
             return None
 
     def isLatestRun(self,runObj):
-        #TODO:test
         return self.runs[-1] == runObj
         #return len(filter(lambda x: x.runnumber>runObj.runnumber,self.runs))==0
 

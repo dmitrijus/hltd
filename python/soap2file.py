@@ -71,4 +71,3 @@ if __name__ == "__main__":
     import procname
     procname.setprocname('soap2file')
     daemon.start()
-

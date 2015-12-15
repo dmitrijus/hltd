@@ -61,7 +61,7 @@ class FileManager:
             lstrip = l.strip()
             if lstrip.startswith('#'):
                 continue
-                   
+
             try:
                 key = lstrip.split(self.sep)[0].strip()
                 for r in self.regs:
@@ -147,4 +147,3 @@ if __name__ == "__main__":
 
     print "Disabling fffmeta service (boot check)"
 #    subprocess.check_call(['chkconfig fffmeta off'])
-

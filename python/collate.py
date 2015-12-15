@@ -15,7 +15,7 @@ class Aggregator:
             self.actdict = action
             self.action = Aggregator.__dict__['iterate']
         else:
-            self.action = Aggregator.__dict__[action] 
+            self.action = Aggregator.__dict__[action]
 
     def add(self,input):
         if not self.result: self.result = 0
@@ -26,7 +26,7 @@ class Aggregator:
         print len(input),len(self.result)
         assert len(input) == len(self.result)
         self.result = [x + self.result[ind] for ind,x in enumerate(input)]
-    
+
     def cat(self,input):
         if not self.result: self.result = []
         self.result.append(input)
@@ -44,11 +44,11 @@ class Aggregator:
         assert self.result == input[:input.rfind('_')]
 
     def avg(self,input):
-        if not self.work: 
+        if not self.work:
             self.work = []
             self.result = 0
         self.work.append(input)
-        for x in self.work: self.result += x 
+        for x in self.work: self.result += x
         self.result /= len(self.work)
 
     def drop(self,input):
@@ -57,7 +57,7 @@ class Aggregator:
     def iterate(self,input):
         for k,v in input.items():
             self.actdict[k](v)
-            
+
     def __call__(self,input):
         self.action(self,input)
 
@@ -65,8 +65,8 @@ class Aggregator:
         self.result = None
         self.work = None
         if self.actdict:
-            for v in self.actdict.values(): v.reset() 
-        
+            for v in self.actdict.values(): v.reset()
+
     def value(self):
         if self.actdict:
             return dict((k,v.value()) for k,v in self.actdict.items())
@@ -83,7 +83,7 @@ class Query:
             "query" : ""
             }
             }
-        
+
         if filtered:
             self.generic_query["query"]["constant_score"] = {
                 "filter" : {
@@ -136,10 +136,10 @@ class Collation:
                     'micro'  : Aggregator('histoadd'),
                     'tp'     : Aggregator('add'),
                     'lead'   : Aggregator('avg'),
-                    'nfiles' : Aggregator('add'),       
+                    'nfiles' : Aggregator('add'),
                     'ls'     : Aggregator('check'),
                     'process': Aggregator('cat')
-                    }   
+                    }
                 }
             }
     def lookup(self,doctype):
@@ -150,10 +150,10 @@ class Collation:
 #print datadict[type]['lookup']
     def search(self,ind,doctype,ls,stream=None):
         if stream:
-            result=self.server.search(self.lookup(doctype)(ls,stream), 
+            result=self.server.search(self.lookup(doctype)(ls,stream),
                              index=ind)
         else:
-            result=self.server.search(self.lookup(doctype)(ls), 
+            result=self.server.search(self.lookup(doctype)(ls),
                              index=ind)
         return result
 

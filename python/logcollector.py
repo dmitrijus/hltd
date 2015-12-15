@@ -29,7 +29,7 @@ from pyelasticsearch.exceptions import *
 from hltdconf import *
 from elasticBand import elasticBand
 from aUtils import stdOutLog,stdErrorLog
-from elasticbu import getURLwithIP 
+from elasticbu import getURLwithIP
 import mappings
 
 terminate = False
@@ -81,18 +81,18 @@ class ContextualCounter(object):
         #    msgId = str(event.document['lexicalId'])
         msgId = event.document['lexicalId']
         try:
-             counter = self.idCounterMap[msgId][0]
-             modulo = self.idCounterMap[msgId][1]
+            counter = self.idCounterMap[msgId][0]
+            modulo = self.idCounterMap[msgId][1]
         except:
-             if self.numberOfIds>=self.maxNumberOfIds:
-                 if self.numberOfIds==self.maxNumberOfIds:
-                     self.logger.error("Reached maximum number of CMSSW message IDs. Logging disabled...")
-                     self.numberOfIds+=1
-                 return False
-             self.idCounterMap[msgId]=[1,self.moduloInitial]
-             self.numberOfIds+=1
-             #always print first message
-             return True
+            if self.numberOfIds>=self.maxNumberOfIds:
+                if self.numberOfIds==self.maxNumberOfIds:
+                    self.logger.error("Reached maximum number of CMSSW message IDs. Logging disabled...")
+                    self.numberOfIds+=1
+                return False
+            self.idCounterMap[msgId]=[1,self.moduloInitial]
+            self.numberOfIds+=1
+            #always print first message
+            return True
 
         counter+=1
         self.idCounterMap[msgId][0]=counter
@@ -116,7 +116,7 @@ class ContextualCounter(object):
                 self.suppressList.append(e)
                 return False
             #else try to replace other suppressed type
-            elif counter>=self.alwaysSuppressThreshold: 
+            elif counter>=self.alwaysSuppressThreshold:
                 for item in self.suppressList:
                     if counter>item.counter and item.counter<self.alwaysSuppressThreshold:
                         self.suppressList.remove(item)
@@ -154,7 +154,7 @@ def calculateLexicalId(string):
     if (pos==-1 and strlen>STRMAX) or pos>STRMAX:
         pos=80
         if strlen<pos:
-          pos=strlen
+            pos=strlen
     return zlib.adler32(re.sub("[0-9\+\- ]", "",string[:pos]))
 
 class CMSSWLogEvent(object):
@@ -168,7 +168,7 @@ class CMSSWLogEvent(object):
         self.document = {}
         self.message = [firstLine]
         self.inject_central_index=inject_central_idx
-      
+
     def append(self,line):
         #line limit
         if len(self.message)>line_limit: return
@@ -187,7 +187,7 @@ class CMSSWLogEvent(object):
         self.document['message']=self.message[0]
         self.document['lexicalId']=calculateLexicalId(self.message[0])
 
-             
+
 class CMSSWLogEventML(CMSSWLogEvent):
 
     def __init__(self,rn,pid,severity,firstLine):
@@ -242,27 +242,27 @@ class CMSSWLogEventML(CMSSWLogEvent):
         elif self.info1.startswith('Pre') or self.info1.startswith('Post'):
             self.document['fwkState']=self.info1
             try:
-              if headerInfo[6] == 'Run:':
-                if len(headerInfo)>=10:
-                    if headerInfo[8]=='Lumi:':
-                        istr = int(headerInfo[9].rstrip('\n'))
-                        self.document['lumi']=int(istr)
-                    elif headerInfo[8]=='Event:':
-                        istr = int(headerInfo[9].rstrip('\n'))
-                        self.document['eventInPrc']=int(istr)
+                if headerInfo[6] == 'Run:':
+                    if len(headerInfo)>=10:
+                        if headerInfo[8]=='Lumi:':
+                            istr = int(headerInfo[9].rstrip('\n'))
+                            self.document['lumi']=int(istr)
+                        elif headerInfo[8]=='Event:':
+                            istr = int(headerInfo[9].rstrip('\n'))
+                            self.document['eventInPrc']=int(istr)
             except:
-              pass
+                pass
 
         #time parsing
         try:
-          #convert CMSSW datetime into hltdlogs-like format
-          datepieces=headerInfo[3].strip().split('-')
-          datestring = datepieces[2]+'-'+monthmap[datepieces[1]]+'-'+datepieces[0]
-          self.document['msgtime']=datestring+' '+headerInfo[4]
+            #convert CMSSW datetime into hltdlogs-like format
+            datepieces=headerInfo[3].strip().split('-')
+            datestring = datepieces[2]+'-'+monthmap[datepieces[1]]+'-'+datepieces[0]
+            self.document['msgtime']=datestring+' '+headerInfo[4]
         except IndexError:
-          #not date field,pass
-          pass
-       
+            #not date field,pass
+            pass
+
         self.document['msgtimezone']=headerInfo[5]
 
         #message payload processing
@@ -270,7 +270,7 @@ class CMSSWLogEventML(CMSSWLogEvent):
             for i in range(1,len(self.message)):
                 if i==1:
                     self.document['lexicalId']=calculateLexicalId(self.message[i])
-                if i==len(self.message)-1: 
+                if i==len(self.message)-1:
                     self.message[i]=self.message[i].rstrip('\n')
                 if 'message' in self.document:
                     self.document['message']+=self.message[i]
@@ -312,7 +312,7 @@ class CMSSWLogEventException(CMSSWLogEvent):
             for i in range(procl,len(self.message)):
                 if i==procl:
                     self.document['lexicalId']=calculateLexicalId(self.message[i])
-                if i==len(self.message)-1: 
+                if i==len(self.message)-1:
                     self.message[i]=self.message[i].rstrip('\n')
                 if 'message' in self.document:
                     self.document['message']+=self.message[i]
@@ -332,7 +332,7 @@ class CMSSWLogEventStackTrace(CMSSWLogEvent):
         #collect all lines
         if len(self.message)>1:
             for i in range(1,len(self.message)):
-                if i==len(self.message)-1: 
+                if i==len(self.message)-1:
                     self.message[i]=self.message[i].rstrip('\n')
                 self.document['message']+=self.message[i]
         #as there is no record, set current time
@@ -374,14 +374,14 @@ class CMSSWLogParser(threading.Thread):
                     pidcheck-=1
                     self.threadEvent.wait(2)
                     if pidcheck<=0:
-                       try:
-                           if os.kill(self.pid,0):
-                               if checkedOnce==True:break
-                               checkedOnce=True
-                       except OSError:
-                           if checkedOnce==True:break
-                           checkedOnce=True
-                           
+                        try:
+                            if os.kill(self.pid,0):
+                                if checkedOnce==True:break
+                                checkedOnce=True
+                        except OSError:
+                            if checkedOnce==True:break
+                            checkedOnce=True
+
 
         #consider last event finished and queue if not completed
         if self.abort == False and self.currentEvent:
@@ -463,11 +463,11 @@ class CMSSWLogParser(threading.Thread):
                     self.putInQueue(self.currentEvent)
                     self.currentEvent = None
                 elif self.currentEvent.type == STACKTRACE:
-                   if buf[pos].startswith('Current states')==False:#FastMonitoringService
-                       self.currentEvent.append(buf[pos])
+                    if buf[pos].startswith('Current states')==False:#FastMonitoringService
+                        self.currentEvent.append(buf[pos])
                 else:
-                   #append message line to event
-                   self.currentEvent.append(buf[pos])
+                    #append message line to event
+                    self.currentEvent.append(buf[pos])
                 pos+=1
 
     def putInQueue(self,event):
@@ -493,7 +493,7 @@ class CMSSWLogParser(threading.Thread):
 
         elif saveHistory and event.severity>=contextLogThreshold:
             self.historyFIFO.append(event)
- 
+
     def stop(self):
         self.abort = True
         self.threadEvent.set()
@@ -521,7 +521,7 @@ class CMSSWLogESWriter(threading.Thread):
         self.index_suffix = conf.elastic_cluster
         self.eb = elasticBand('http://'+conf.es_local+':9200',self.index_runstring,self.index_suffix,0,conf.force_replicas,0)
         self.contextualCounter = ContextualCounter()
-        self.initialized=True 
+        self.initialized=True
 
     def run(self):
         counter=0
@@ -544,31 +544,31 @@ class CMSSWLogESWriter(threading.Thread):
                     except Exception,ex:
                         self.logger.error("es bulk index:"+str(ex))
             elif self.queue.qsize()>0:
-                    while self.abort == False:
+                while self.abort == False:
+                    try:
+                        evt = self.queue.get(False)
                         try:
-                            evt = self.queue.get(False)
-                            try:
-                                if self.contextualCounter.check(evt):
-                                    #check if this entry should be inserted into the central index
-                                    if evt.severity>=FATALLEVEL and evt.inject_central_index:
-                                        hlc.esHandler.elasticize_cmsswlog(evt.document)
-                                    self.eb.es.index(self.eb.indexName,'cmsswlog',evt.document)
-                            except Exception,ex: 
-                                self.logger.error("es index:"+str(ex))
-                        except Queue.Empty:
-                            break
+                            if self.contextualCounter.check(evt):
+                                #check if this entry should be inserted into the central index
+                                if evt.severity>=FATALLEVEL and evt.inject_central_index:
+                                    hlc.esHandler.elasticize_cmsswlog(evt.document)
+                                self.eb.es.index(self.eb.indexName,'cmsswlog',evt.document)
+                        except Exception,ex:
+                            self.logger.error("es index:"+str(ex))
+                    except Queue.Empty:
+                        break
             else:
                 if self.doStop == False and self.abort == False:
                     self.threadEvent.wait(2)
                 else: break
                 counter+=1
                 if counter%60==0:
-                  try:
+                    try:
                     #if local run directory is gone, run logging is finished
-                    os.stat(os.path.join(conf.watch_directory,self.index_runstring))
-                  except:
-                    self.logger.info('Shutting down logger loop for run '+str(self.rn))
-                    break
+                        os.stat(os.path.join(conf.watch_directory,self.index_runstring))
+                    except:
+                        self.logger.info('Shutting down logger loop for run '+str(self.rn))
+                        break
 
     def stop(self):
         for key in self.parsers.keys():
@@ -638,7 +638,7 @@ class CMSSWLogCollector(object):
         self.inotifyWrapper.join()
         self.logger.info("MonitorRanger: Inotify wrapper returned")
         for rn in self.indices.keys():
-                self.indices[rn].stop()
+            self.indices[rn].stop()
 
     def process_IN_CREATE(self, event):
         if self.stop: return
@@ -670,10 +670,10 @@ class CMSSWLogCollector(object):
 
         #cleanup
         for rn in self.indices.keys():
-                alive = self.indices[rn].clearFinished()
-                if alive == 0:
-                    self.logger.info('removing old run'+str(rn)+' from the list')
-                    del self.indices[rn]
+            alive = self.indices[rn].clearFinished()
+            if alive == 0:
+                self.logger.info('removing old run'+str(rn)+' from the list')
+                del self.indices[rn]
 
     def process_default(self, event):
         return
@@ -684,48 +684,48 @@ class CMSSWLogCollector(object):
         try:
             elements = os.path.splitext(name)[0].split('_')
             for e in elements:
-               if e.startswith('run'):
-                   rn = int(e[3:])
-               if e.startswith('pid'):
-                   pid = int(e[3:])
+                if e.startswith('run'):
+                    rn = int(e[3:])
+                if e.startswith('pid'):
+                    pid = int(e[3:])
             return rn,pid
         except Exception,ex:
             self.logger.warn('problem parsing log file name: '+str(ex))
             self.logger.exception(ex)
             return None,None
 
- 
+
     def deleteOldLogs(self,maxAgeHours=0):
 
         existing_cmsswlogs = os.listdir(self.dir)
-        current_dt = datetime.datetime.now() 
+        current_dt = datetime.datetime.now()
         for file in existing_cmsswlogs:
-           if file.startswith('old_'):
-               try:
-                   if maxAgeHours>0:
-                       file_dt = os.path.getmtime(file)
-                       if (current_dt - file_dt).totalHours > maxAgeHours:
-                           #delete file
-                           os.remove(os.path.join(self.dir,file))
-                   else:
-                       os.remove(os.path.join(self.dir,file))
-               except Exception,ex:
-                   #maybe permissions were insufficient
-                   self.logger.error("could not delete log file")
-                   self.logger.exception(ex)
-           elif file.startswith('HltConfig'):
-               try:
-                   if maxAgeHours>0:
-                       file_dt = os.path.getmtime(file)
-                       if (current_dt - file_dt).totalHours > maxAgeHours*4:
-                           #delete file
-                           os.remove(os.path.join(self.dir,file))
-                   else:
-                       os.remove(os.path.join(self.dir,file))
-               except Exception,ex:
-                   #maybe permissions were insufficient
-                   self.logger.error("could not delete old saved HLT menu file")
-                   self.logger.exception(ex)
+            if file.startswith('old_'):
+                try:
+                    if maxAgeHours>0:
+                        file_dt = os.path.getmtime(file)
+                        if (current_dt - file_dt).totalHours > maxAgeHours:
+                            #delete file
+                            os.remove(os.path.join(self.dir,file))
+                    else:
+                        os.remove(os.path.join(self.dir,file))
+                except Exception,ex:
+                    #maybe permissions were insufficient
+                    self.logger.error("could not delete log file")
+                    self.logger.exception(ex)
+            elif file.startswith('HltConfig'):
+                try:
+                    if maxAgeHours>0:
+                        file_dt = os.path.getmtime(file)
+                        if (current_dt - file_dt).totalHours > maxAgeHours*4:
+                            #delete file
+                            os.remove(os.path.join(self.dir,file))
+                    else:
+                        os.remove(os.path.join(self.dir,file))
+                except Exception,ex:
+                    #maybe permissions were insufficient
+                    self.logger.error("could not delete old saved HLT menu file")
+                    self.logger.exception(ex)
 
 
     def getDirSize(self,dir):
@@ -745,7 +745,7 @@ class CMSSWLogCollector(object):
         logfiles = os.listdir(self.dir)
         for fname in logfiles:
             if fname.startswith('hlt_') and fname.endswith('.log'):
-                #prepend file with 'old_' prefix so that it can be deleted later
+            #prepend file with 'old_' prefix so that it can be deleted later
                 os.rename(os.path.join(self.dir,fname),os.path.join(self.dir,'old_'+fname))
 
 
@@ -809,7 +809,7 @@ class HLTDLogIndex():
                     document['message']+=line.strip('\n')
                 else:
                     document['message']+=line
-                
+
             document['lexicalId']=calculateLexicalId(msg[0])
         else:
             document['lexicalId']=0
@@ -839,12 +839,12 @@ class HLTDLogIndex():
 
     def updateMappingMaybe(self,ip_url):
         for key in mappings.central_hltdlogs_mapping:
-                doc = mappings.central_hltdlogs_mapping[key]
-                res = requests.get(ip_url+'/'+self.index_name+'/'+key+'/_mapping')
-                #only update if mapping is empty
-                if res.status_code==200 and res.content.strip()=='{}':
-                    requests.post(ip_url+'/'+self.index_name+'/'+key+'/_mapping',json.dumps(doc))
- 
+            doc = mappings.central_hltdlogs_mapping[key]
+            res = requests.get(ip_url+'/'+self.index_name+'/'+key+'/_mapping')
+            #only update if mapping is empty
+            if res.status_code==200 and res.content.strip()=='{}':
+                requests.post(ip_url+'/'+self.index_name+'/'+key+'/_mapping',json.dumps(doc))
+
 class HLTDLogParser(threading.Thread):
     def __init__(self,dir,file,loglevel,esHandler,skipToEnd):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -858,7 +858,7 @@ class HLTDLogParser(threading.Thread):
         self.skipToEnd=skipToEnd
 
         self.type=-1
-	if 'hltd.log' in file: self.type=0
+        if 'hltd.log' in file: self.type=0
         if 'anelastic.log' in file: self.type=1
         if 'elastic.log' in file: self.type=2
         if 'elasticbu.log' in file: self.type=3
@@ -919,7 +919,7 @@ class HLTDLogParser(threading.Thread):
                         try:
                             #if number of lines + previous size is > file size, it safe to assume it got truncated
                             if os.stat(fullpath).st_size<line_counter+startpos:
-                                #reopen
+                            #reopen
                                 line_counter=0
                                 startpos=0
                                 f.close()
@@ -933,32 +933,32 @@ class HLTDLogParser(threading.Thread):
                 else:break
 
             for  line in buf:
-                    if line.startswith('INFO:'):
-                        if self.loglevel<2:
-                            currentEvent = self.parseEntry(1,line)
-                        continue
-                    if line.startswith('DEBUG:'):
-                        if self.loglevel<1:
-                            currentEvent = self.parseEntry(0,line)
-                        continue
-                    if line.startswith('WARNING:'):
-                        if self.loglevel<3:
-                            currentEvent = self.parseEntry(2,line)
-                        continue
-                    if line.startswith('ERROR:'):
-                        if self.loglevel<4:
-                            currentEvent = self.parseEntry(3,line)
-                        continue
-                    if line.startswith('CRITICAL:'):
-                        currentEvent = self.parseEntry(4,line)
-                        continue
-                    if line.startswith('Traceback'):
-                        if self.logOpen:
-                            self.msg.append(line)
-                        else: currentEvent = self.parseEntry(3,line)
-                        continue
-                    else:
-                        if self.logOpen:self.msg.append(line)
+                if line.startswith('INFO:'):
+                    if self.loglevel<2:
+                        currentEvent = self.parseEntry(1,line)
+                    continue
+                if line.startswith('DEBUG:'):
+                    if self.loglevel<1:
+                        currentEvent = self.parseEntry(0,line)
+                    continue
+                if line.startswith('WARNING:'):
+                    if self.loglevel<3:
+                        currentEvent = self.parseEntry(2,line)
+                    continue
+                if line.startswith('ERROR:'):
+                    if self.loglevel<4:
+                        currentEvent = self.parseEntry(3,line)
+                    continue
+                if line.startswith('CRITICAL:'):
+                    currentEvent = self.parseEntry(4,line)
+                    continue
+                if line.startswith('Traceback'):
+                    if self.logOpen:
+                        self.msg.append(line)
+                    else: currentEvent = self.parseEntry(3,line)
+                    continue
+                else:
+                    if self.logOpen:self.msg.append(line)
 
         f.close()
 
@@ -976,7 +976,7 @@ class HLTDLogCollector():
         self.esurl = conf.elastic_runindex_url
         self.esHandler = HLTDLogIndex(self.esurl)
         self.firstScan=True
-    
+
     def scanForFiles(self):
         #if found ne
         if len(self.files)==0: return
@@ -1013,7 +1013,7 @@ def registerSignal(eventRef):
     threadEventRef = threadEvent
     signal.signal(signal.SIGINT, signalHandler)
     signal.signal(signal.SIGTERM, signalHandler)
-    
+
 
 if __name__ == "__main__":
 
@@ -1071,14 +1071,14 @@ if __name__ == "__main__":
     hlc = None
 
     if cmsswloglevel>=0:
-      try:
-          #starting inotify thread
-          clc = CMSSWLogCollector(cmsswlogdir,cmsswloglevel)
-          clc.register_inotify_path(cmsswlogdir,mask)
-          clc.start_inotify()
-      except Exception,e:
-          logger.error('exception starting cmssw log monitor')
-          logger.exception(e)
+        try:
+            #starting inotify thread
+            clc = CMSSWLogCollector(cmsswlogdir,cmsswloglevel)
+            clc.register_inotify_path(cmsswlogdir,mask)
+            clc.start_inotify()
+        except Exception,e:
+            logger.error('exception starting cmssw log monitor')
+            logger.exception(e)
     else:
         logger.info('CMSSW log collection is disabled')
 
@@ -1095,14 +1095,14 @@ if __name__ == "__main__":
                 else:
                     #retry connection to central ES if it was unavailable
                     try:
-                         if counter%doEvery==0:
-                             hlc = HLTDLogCollector(hltdlogdir,hltdlogs,hltdloglevel)
-                             continue
+                        if counter%doEvery==0:
+                            hlc = HLTDLogCollector(hltdlogdir,hltdlogs,hltdloglevel)
+                            continue
                     except Exception,ex:
-                         logger.error('exception starting hltd log monitor')
-                         logger.exception(ex)
-                         hlc=None
-                         pass
+                        logger.error('exception starting hltd log monitor')
+                        logger.exception(ex)
+                        hlc=None
+                        pass
             counter+=1
 
             threadEvent.wait(5)
@@ -1114,4 +1114,3 @@ if __name__ == "__main__":
 
     logger.info("Quit")
     sys.exit(0)
-

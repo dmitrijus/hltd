@@ -22,7 +22,7 @@ class hltdConf:
         self.output_subdirectory = 'output'
         self.fastmon_insert_modulo = 1
         self.elastic_cluster = None
- 
+
         for sec in cfg.sections():
             for item,value in cfg.items(sec):
                 self.__dict__[item] = value
@@ -39,9 +39,9 @@ class hltdConf:
         self.soap2file_port = int(self.soap2file_port)
 
         try:
-          self.instance_same_destination=bool(self.instance_same_destination=="True")
+            self.instance_same_destination=bool(self.instance_same_destination=="True")
         except:
-          self.instance_same_destination = True
+            self.instance_same_destination = True
 
         self.dqm_machine = bool(self.dqm_machine=="True")
         if self.dqm_machine:
@@ -72,7 +72,7 @@ class hltdConf:
                     sline = line.strip()
                     if line.startswith("cluster.name"):
                         self.elastic_cluster = line.split(':')[1].strip()
-      
+
     def dump(self):
         logging.info( '<hltd STATUS time="' + str(datetime.datetime.now()).split('.')[0] + '" user:' + self.user + ' role:' + self.role + '>')
 
@@ -93,4 +93,3 @@ def initConf(instance='main'):
     except:pass
     if conf==None and instance=='main': conf = hltdConf('/etc/hltd.conf')
     return conf
-

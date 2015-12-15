@@ -25,7 +25,7 @@ class IndexCreator(threading.Thread):
                 self.body = json.load(fpi)
 
             if forceReplicas>=0:
-              self.body['settings']['index']['number_of_replicas']=forceReplicas
+                self.body['settings']['index']['number_of_replicas']=forceReplicas
 
             #body.pop('template')
         except Exception as e:
@@ -55,35 +55,35 @@ class IndexCreator(threading.Thread):
     def setMasked(self,masked,lastActiveRun=None):
         self.masked=masked
         if lastActiveRun and (not self.lastActiveRun or self.lastActiveRun<lastActiveRun):
-          self.lastActiveRun = lastActiveRun
+            self.lastActiveRun = lastActiveRun
 
     def createNextIndexMaybe(self,lastActiveRun):
         if len(self.bufferedList)>=self.numPreCreate:
-          return False
+            return False
         result = self.create(lastActiveRun+1)
         if result:
-                self.bufferedList.append(lastActiveRun+1)
+            self.bufferedList.append(lastActiveRun+1)
 
         #try to delete one empty index from skipped list
         if len(self.runPendingDelete):
-          try:
-            d_indexName = 'run'+str(self.runPendingDelete[0])+'_'+self.indexSuffix 
-            d_res = self.es.delete_index(index = d_indexName)
-            if d_res!={'acknowledged':True}:
-              #todo:handle index doesn't exist (remove
-              self.logger.warning("Failed to delete index "+d_indexName+" with status"+str(d_res))
-            else:
-              self.runPendingDelete.pop(0)
-          except Exception as ex:
-              self.logger.warning("Failed to delete index "+d_indexName+" with exception"+str(ex))
+            try:
+                d_indexName = 'run'+str(self.runPendingDelete[0])+'_'+self.indexSuffix
+                d_res = self.es.delete_index(index = d_indexName)
+                if d_res!={'acknowledged':True}:
+                #todo:handle index doesn't exist (remove
+                    self.logger.warning("Failed to delete index "+d_indexName+" with status"+str(d_res))
+                else:
+                    self.runPendingDelete.pop(0)
+            except Exception as ex:
+                self.logger.warning("Failed to delete index "+d_indexName+" with exception"+str(ex))
         return result
 
     def runHasStarted(self,run):
         for rn in self.bufferedList[:]:
-          if rn<=run:
-            self.bufferedList.remove(rn)
-            if rn<run:
-                self.runPendingDelete.append(rn)
+            if rn<=run:
+                self.bufferedList.remove(rn)
+                if rn<run:
+                    self.runPendingDelete.append(rn)
 
     def create(self,run):
         runstring = 'run'+str(run)
@@ -95,8 +95,8 @@ class IndexCreator(threading.Thread):
             #c_res = self.es.create_index(index = self.indexName, body = self.body)
             c_res = self.es.send_request('PUT', [indexName], body = self.body)
             if c_res!={'acknowledged':True}:
-              self.logger.error("Failed to create index "+indexName+" with status"+str(c_res))
-              return False
+                self.logger.error("Failed to create index "+indexName+" with status"+str(c_res))
+                return False
             return True
         except Exception as ex:
             self.logger.warning("Unable to create index "+indexName+". "+str(ex))
@@ -107,7 +107,7 @@ class elasticBand():
 
     def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo,forceReplicas,nprocid=None):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.istateBuffer = []  
+        self.istateBuffer = []
         self.prcinBuffer = {}
         self.prcoutBuffer = {}
         self.fuoutBuffer = {}
@@ -126,15 +126,15 @@ class elasticBand():
             with open(filepath,'r') as fpi:
                 body = json.load(fpi)
             if forceReplicas>=0:
-              body['settings']['index']['number_of_replicas']=forceReplicas
+                body['settings']['index']['number_of_replicas']=forceReplicas
 
             #body.pop('template')
             #c_res = self.es.create_index(index = self.indexName, body = body)
             c_res = self.es.send_request('PUT', [self.indexName], body = body)
             if c_res!={'acknowledged':True}:
-              self.logger.info("Result of index create: " + str(c_res) )
+                self.logger.info("Result of index create: " + str(c_res) )
         except Exception as ex:
-          self.logger.info("Elastic Exception "+ str(ex))
+            self.logger.info("Elastic Exception "+ str(ex))
         self.indexFailures=0
         self.monBufferSize = monBufferSize
         self.fastUpdateModulo = fastUpdateModulo
@@ -158,7 +158,7 @@ class elasticBand():
             fp.readline()
             row = fp.readline().split(',')
             return row
-    
+
     def elasticize_prc_istate(self,infile):
         filepath = infile.filepath
         self.logger.debug("%r going into buffer" %filepath)
@@ -167,7 +167,7 @@ class elasticBand():
         stub = self.imbue_csv(infile)
         document = {}
         if len(stub) == 0 or stub[0]=='\n':
-          return;
+            return;
         try:
             document['macro'] = int(stub[0])
             document['mini']  = int(stub[1])
@@ -195,40 +195,40 @@ class elasticBand():
         datadict['ls'] = int(infile.ls[2:])
         datadict['process'] = infile.pid
         if document['data'][0] != "N/A":
-          datadict['macro']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
+            datadict['macro']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
         else:
-          datadict['macro'] = -1
+            datadict['macro'] = -1
         if document['data'][1] != "N/A":
-          miniVector = []
-          for idx,f in enumerate(document['data'][1].strip('[]').split(',')):
-            val = int(f)
-            if val>0:miniVector.append({'key':idx,'value':val})
-          datadict['mini']   = miniVector
+            miniVector = []
+            for idx,f in enumerate(document['data'][1].strip('[]').split(',')):
+                val = int(f)
+                if val>0:miniVector.append({'key':idx,'value':val})
+            datadict['mini']   = miniVector
         else:
-          datadict['mini'] = []
+            datadict['mini'] = []
         if document['data'][2] != "N/A":
-          microVector = []
-          for idx,f in enumerate(document['data'][2].strip('[]').split(',')):
-            val = int(f)
-            if val>0:microVector.append({'key':idx,'value':val})
-          datadict['micro']   = microVector
+            microVector = []
+            for idx,f in enumerate(document['data'][2].strip('[]').split(',')):
+                val = int(f)
+                if val>0:microVector.append({'key':idx,'value':val})
+            datadict['micro']   = microVector
         else:
-          datadict['micro'] = []
+            datadict['micro'] = []
         try:
-          datadict['inputStats'] = {
-            'tp' :   float(document['data'][4]) if not math.isnan(float(document['data'][4])) and not  math.isinf(float(document['data'][4])) else 0.,
-            'lead' : float(document['data'][5]) if not math.isnan(float(document['data'][5])) and not  math.isinf(float(document['data'][5])) else 0.,
-            'nfiles' :  int(document['data'][6]),
-            'lockwaitUs' : float(document['data'][7]),
-            'lockcount' : float(document['data'][8])
-          }
+            datadict['inputStats'] = {
+              'tp' :   float(document['data'][4]) if not math.isnan(float(document['data'][4])) and not  math.isinf(float(document['data'][4])) else 0.,
+              'lead' : float(document['data'][5]) if not math.isnan(float(document['data'][5])) and not  math.isinf(float(document['data'][5])) else 0.,
+              'nfiles' :  int(document['data'][6]),
+              'lockwaitUs' : float(document['data'][7]),
+              'lockcount' : float(document['data'][8])
+            }
         except:
-          pass
+            pass
         datadict['fm_date'] = str(infile.mtime)
         datadict['source'] = self.hostname + '_' + infile.pid
         datadict['mclass'] = self.nprocid
         self.tryIndex('prc-s-state',datadict)
- 
+
     def elasticize_prc_out(self,infile):
         document,ret = self.imbue_jsn(infile)
         if ret<0:return
@@ -247,13 +247,13 @@ class elasticBand():
         document['stream']=stream
         document['source']=self.hostname+'_'+infile.pid
         try:document.pop('definition')
-	except:pass
+        except:pass
         self.prcoutBuffer.setdefault(ls,[]).append(document)
         #self.es.index(self.indexName,'prc-out',document)
         #return int(ls[2:])
 
     def elasticize_fu_out(self,infile):
-        
+
         document,ret = self.imbue_jsn(infile)
         if ret<0:return
         run=infile.run
@@ -264,13 +264,13 @@ class elasticBand():
         #TODO:read output jsd file to decide on the variable format
         values = [int(f) if ((type(f) is str and f.isdigit()) or type(f) is int) else str(f) for f in document['data']]
         if len(values)>9:
-          keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32","TransferDestination","hltErrorEvents"]
-          datadict = dict(zip(keys, values))
+            keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32","TransferDestination","hltErrorEvents"]
+            datadict = dict(zip(keys, values))
         else:
-          keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32","TransferDestination"]
-          datadict = dict(zip(keys, values))
+            keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32","TransferDestination"]
+            datadict = dict(zip(keys, values))
         try:datadict.pop('Filelist')
-	except:pass
+        except:pass
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['stream']=stream
@@ -278,7 +278,7 @@ class elasticBand():
         document['source']=self.hostname
         document['fm_date']=str(infile.mtime)
         try:document.pop('definition')
-	except:pass
+        except:pass
         self.fuoutBuffer.setdefault(ls,[]).append(document)
         #self.es.index(self.indexName,'fu-out',document)
 
@@ -291,9 +291,9 @@ class elasticBand():
 
         document['data'] = [int(f) if f.isdigit() else str(f) for f in document['data']]
         try:
-          data_size=document['data'][1]
+            data_size=document['data'][1]
         except:
-          data_size=0
+            data_size=0
         datadict = {'out':document['data'][0],'size':data_size}
         document['data']=datadict
         document['ls']=int(ls[2:])
@@ -302,7 +302,7 @@ class elasticBand():
         document['source']=self.hostname+'_'+prc
         document['fm_date']=str(infile.mtime)
         try:document.pop('definition')
-	except:pass
+        except:pass
         #self.prcinBuffer.setdefault(ls,[]).append(document)
         self.tryIndex('prc-in',document)
 
@@ -319,7 +319,7 @@ class elasticBand():
         document['host']=self.hostname
         document['fm_date']=timestamp
         self.tryIndex('fu-complete',document)
- 
+
     def flushMonBuffer(self):
         if self.istateBuffer:
             self.logger.info("flushing fast monitor buffer (len: %r) " %len(self.istateBuffer))
@@ -334,9 +334,9 @@ class elasticBand():
         if prcinDocs: self.tryBulkIndex('prc-in',prcinDocs,attempts=2)
         if prcoutDocs: self.tryBulkIndex('prc-out',prcoutDocs,attempts=2)
         if fuoutDocs: self.tryBulkIndex('fu-out',fuoutDocs,attempts=5)
- 
+
     def flushAllLS(self):
-        lslist = list(  set(self.prcinBuffer.keys()) | 
+        lslist = list(  set(self.prcinBuffer.keys()) |
                         set(self.prcoutBuffer.keys()) |
                         set(self.fuoutBuffer.keys()) )
         for ls in lslist:
@@ -346,7 +346,7 @@ class elasticBand():
         self.flushMonBuffer()
         self.flushAllLS()
 
-    def tryIndex(self,docname,document): 
+    def tryIndex(self,docname,document):
         try:
             self.es.index(self.indexName,docname,document)
             #self.updateIndexSettingsMaybe()
@@ -378,4 +378,3 @@ class elasticBand():
                     self.indexFailures+=1
                     if self.indexFailures<2:
                         self.logger.exception(ex)
-

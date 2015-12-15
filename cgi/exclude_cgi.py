@@ -3,7 +3,7 @@ import cgi
 import os
 form = cgi.FieldStorage()
 print "Content-Type: text/html"     # HTML is following
-print            
+print
 print "<TITLE>CGI script exclude</TITLE>"
 
 try:
@@ -12,4 +12,3 @@ except:
     pass
 fp = open('exclude','w+')
 fp.close()
-

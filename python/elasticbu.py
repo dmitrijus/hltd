@@ -30,34 +30,34 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 GENERICJSON,SUMMARYJSON = range(2) #injected JSON range
 
 def getURLwithIP(url,nsslock=None):
-  try:
-      prefix = ''
-      if url.startswith('http://'):
-          prefix='http://'
-          url = url[7:]
-      suffix=''
-      port_pos=url.rfind(':')
-      if port_pos!=-1:
-          suffix=url[port_pos:]
-          url = url[:port_pos]
-  except Exception as ex:
-      logging.error('could not parse URL ' +url)
-      raise(ex)
-  if url!='localhost':
-      if nsslock is not None:
-          try:
-              nsslock.acquire()
-              ip = socket.gethostbyname(url)
-              nsslock.release()
-          except Exception as ex:
-              try:nsslock.release()
-              except:pass
-              raise ex
-      else:
-          ip = socket.gethostbyname(url)
-  else: ip='127.0.0.1'
+    try:
+        prefix = ''
+        if url.startswith('http://'):
+            prefix='http://'
+            url = url[7:]
+        suffix=''
+        port_pos=url.rfind(':')
+        if port_pos!=-1:
+            suffix=url[port_pos:]
+            url = url[:port_pos]
+    except Exception as ex:
+        logging.error('could not parse URL ' +url)
+        raise(ex)
+    if url!='localhost':
+        if nsslock is not None:
+            try:
+                nsslock.acquire()
+                ip = socket.gethostbyname(url)
+                nsslock.release()
+            except Exception as ex:
+                try:nsslock.release()
+                except:pass
+                raise ex
+        else:
+            ip = socket.gethostbyname(url)
+    else: ip='127.0.0.1'
 
-  return prefix+str(ip)+suffix
+    return prefix+str(ip)+suffix
 
 
 class elasticBandBU:
@@ -84,7 +84,7 @@ class elasticBandBU:
         self.nsslock=nsslock
         self.updateIndexMaybe(self.runindex_name,self.runindex_write,self.runindex_read,mappings.central_es_settings,mappings.central_runindex_mapping)
         self.updateIndexMaybe(self.boxinfo_name,self.boxinfo_write,self.boxinfo_read,mappings.central_es_settings,mappings.central_boxinfo_mapping)
-        #silence 
+        #silence
         eslib_logger = logging.getLogger('elasticsearch')
         eslib_logger.setLevel(logging.ERROR)
 
@@ -118,7 +118,7 @@ class elasticBandBU:
                     self.es = ElasticSearch(self.ip_url,timeout=20)
 
                 #check if runindex alias exists
-                if requests.get(self.ip_url+'/_alias/'+alias_write).status_code == 200: 
+                if requests.get(self.ip_url+'/_alias/'+alias_write).status_code == 200:
                     self.logger.info('writing to elastic index '+alias_write + ' on '+self.es_server_url+' - '+self.ip_url )
                     self.createDocMappingsMaybe(alias_write,mapping)
                     break
@@ -143,12 +143,12 @@ class elasticBandBU:
             except (socket.gaierror,ConnectionError,Timeout,RequestsConnectionError,RequestsTimeout) as ex:
                 #try to reconnect with different IP from DNS load balancing
                 if self.runMode and connectionAttempts>100:
-                   self.logger.error('elastic (BU): exiting after 100 connection attempts to '+ self.es_server_url)
-                   sys.exit(1)
+                    self.logger.error('elastic (BU): exiting after 100 connection attempts to '+ self.es_server_url)
+                    sys.exit(1)
                 elif self.runMode==False and connectionAttempts>10:
-                   self.threadEvent.wait(60)
+                    self.threadEvent.wait(60)
                 else:
-                   self.threadEvent.wait(1)
+                    self.threadEvent.wait(1)
                 retry=True
                 continue
 
@@ -181,7 +181,7 @@ class elasticBandBU:
     def read_line(self,fullpath):
         with open(fullpath,'r') as fp:
             return fp.readline()
-    
+
     def elasticize_modulelegend(self,fullpath):
 
         self.logger.info(os.path.basename(fullpath))
@@ -189,44 +189,44 @@ class elasticBandBU:
         document['_parent']= self.runnumber
         document['id']= "microstatelegend_"+self.runnumber
         if fullpath.endswith('.jsn'):
-          try:
-            with open(fullpath,'r') as fp:
-              doc = json.load(fp)
-              document['stateNames'] = doc['names']
-              try:document['reserved'] = doc['reserved']
-              except:document['reserved'] = 33
-              try:document['special'] = doc['special']
-              except:document['special'] = 7
-              nstring = ""
-              cnt = 0
-              outputcnt = 0
-              #fill in also old format for now
-              for sname in doc['names']:
-                  nstring+= str(cnt) + "=" + sname + " "
-                  cnt+=1
-                  if sname.startswith('hltOutput'):outputcnt+=1
-              try:document['output'] = doc['output']
-              except:document['output']=outputcnt
-              document['names'] = nstring
-          except Exception as ex:
-            self.logger.warning("can not parse "+fullpath + ' ' + str(ex))
+            try:
+                with open(fullpath,'r') as fp:
+                    doc = json.load(fp)
+                    document['stateNames'] = doc['names']
+                    try:document['reserved'] = doc['reserved']
+                    except:document['reserved'] = 33
+                    try:document['special'] = doc['special']
+                    except:document['special'] = 7
+                    nstring = ""
+                    cnt = 0
+                    outputcnt = 0
+                    #fill in also old format for now
+                    for sname in doc['names']:
+                        nstring+= str(cnt) + "=" + sname + " "
+                        cnt+=1
+                        if sname.startswith('hltOutput'):outputcnt+=1
+                    try:document['output'] = doc['output']
+                    except:document['output']=outputcnt
+                    document['names'] = nstring
+            except Exception as ex:
+                self.logger.warning("can not parse "+fullpath + ' ' + str(ex))
         else:
-          #old format
-          stub = self.read_line(fullpath)
-          document['names']= self.read_line(fullpath)
-          document['reserved'] = 33
-          document['special'] = 7
-          outputcnt=0
-          for sname in document['names'].split():
-            if "=hltOutput" in sname: outputcnt+=1
-          document['output'] = outputcnt
-          document['stateNames']=[]
-          nameTokens = document['names'].split()
-          for nameToken in nameTokens:
-           if '=' in nameToken:
-             idx,sn = nameToken.split('=')
-             document["stateNames"].append( sn )
-          
+            #old format
+            stub = self.read_line(fullpath)
+            document['names']= self.read_line(fullpath)
+            document['reserved'] = 33
+            document['special'] = 7
+            outputcnt=0
+            for sname in document['names'].split():
+                if "=hltOutput" in sname: outputcnt+=1
+            document['output'] = outputcnt
+            document['stateNames']=[]
+            nameTokens = document['names'].split()
+            for nameToken in nameTokens:
+                if '=' in nameToken:
+                    idx,sn = nameToken.split('=')
+                    document["stateNames"].append( sn )
+
         documents = [document]
         return self.index_documents('microstatelegend',documents)
 
@@ -237,23 +237,23 @@ class elasticBandBU:
         document['_parent']= self.runnumber
         document['id']= "pathlegend_"+self.runnumber
         if fullpath.endswith('.jsn'):
-          try:
-            with open(fullpath,'r') as fp:
-              doc = json.load(fp)
-              document['stateNames'] = doc['names']
-              document['reserved'] = doc['reserved']
-              #put old name format value
-              nstring=""
-              cnt=0
-              for sname in doc['names']:
-                nstring+= str(cnt) + "=" + sname + " "
-                cnt+=1
-              document['names'] = nstring
-          except Exception as ex:
-            self.logger.warning("can not parse "+fullpath)
+            try:
+                with open(fullpath,'r') as fp:
+                    doc = json.load(fp)
+                    document['stateNames'] = doc['names']
+                    document['reserved'] = doc['reserved']
+                    #put old name format value
+                    nstring=""
+                    cnt=0
+                    for sname in doc['names']:
+                        nstring+= str(cnt) + "=" + sname + " "
+                        cnt+=1
+                    document['names'] = nstring
+            except Exception as ex:
+                self.logger.warning("can not parse "+fullpath)
         else:
-          stub = self.read_line(fullpath)
-          document['names']= self.read_line(fullpath)
+            stub = self.read_line(fullpath)
+            document['names']= self.read_line(fullpath)
         documents = [document]
         return self.index_documents('pathlegend',documents)
 
@@ -335,7 +335,7 @@ class elasticBandBU:
             document['appliance']=self.host
             document['instance']=self.conf.instance
             if bu_doc==True:
-              document['blacklist']=self.black_list
+                document['blacklist']=self.black_list
             #only here
             document['host']=basename
             try:document.pop('version')
@@ -351,7 +351,7 @@ class elasticBandBU:
         data = infile.data['data']
         data.insert(0,infile.mtime)
         data.insert(0,infile.ls[2:])
-        
+
         values = [int(f) if f.isdigit() else str(f) for f in data]
         try:
             keys = ["ls","fm_date","NEvents","NFiles","TotalEvents","NLostEvents","NBytes"]
@@ -372,10 +372,10 @@ class elasticBandBU:
         destination_index = ""
         is_box=False
         if name.startswith("boxinfo") or name=='resource_summary':
-          destination_index = self.boxinfo_write
-          is_box=True
+            destination_index = self.boxinfo_write
+            is_box=True
         else:
-          destination_index = self.runindex_write
+            destination_index = self.runindex_write
         while True:
             attempts+=1
             try:
@@ -400,23 +400,23 @@ class elasticBandBU:
                 time.sleep(0.1)
                 if is_box==True:break
         return False
-             
+
 
 class elasticCollectorBU():
-    
+
     def __init__(self, es, inRunDir):
         self.logger = logging.getLogger(self.__class__.__name__)
-        
+
 
         self.insertedModuleLegend = False
         self.insertedPathLegend = False
-	self.inRunDir=inRunDir
-        
+        self.inRunDir=inRunDir
+
         self.stoprequest = threading.Event()
         self.emptyQueue = threading.Event()
         self.source = False
         self.infile = False
-	self.es=es
+        self.es=es
 
     def start(self):
         self.run()
@@ -425,16 +425,16 @@ class elasticCollectorBU():
         self.stoprequest.set()
 
     def run(self):
-	self.logger.info("elasticCollectorBU: start main loop (monitoring:"+self.inRunDir+")")
-	count = 0
-	while not (self.stoprequest.isSet() and self.emptyQueue.isSet()) :
-	    if self.source:
-		try:
-		    event = self.source.get(True,1.0) #blocking with timeout
-		    self.eventtype = event.mask
-		    self.infile = fileHandler(event.fullpath)
-		    self.emptyQueue.clear()
-		    if self.infile.filetype==EOR:
+        self.logger.info("elasticCollectorBU: start main loop (monitoring:"+self.inRunDir+")")
+        count = 0
+        while not (self.stoprequest.isSet() and self.emptyQueue.isSet()) :
+            if self.source:
+                try:
+                    event = self.source.get(True,1.0) #blocking with timeout
+                    self.eventtype = event.mask
+                    self.infile = fileHandler(event.fullpath)
+                    self.emptyQueue.clear()
+                    if self.infile.filetype==EOR:
                         if self.es:
                             try:
                                 dt=os.path.getctime(event.fullpath)
@@ -465,7 +465,7 @@ class elasticCollectorBU():
                         endtime = datetime.datetime.utcnow().isoformat()
                         self.es.elasticize_runend_time(endtime)
                     break
-	self.logger.info("Stop main loop (watching directory " + str(self.inRunDir) + ")")
+        self.logger.info("Stop main loop (watching directory " + str(self.inRunDir) + ")")
 
 
     def setSource(self,source):
@@ -500,7 +500,7 @@ class elasticBoxCollectorBU():
 
     def __init__(self,esbox):
         self.logger = logging.getLogger(self.__class__.__name__)
-        
+
         self.stoprequest = threading.Event()
         self.emptyQueue = threading.Event()
         self.source = False
@@ -515,7 +515,7 @@ class elasticBoxCollectorBU():
         self.stoprequest.set()
 
     def run(self):
-	self.logger.info("elasticBoxCollectorBU: start main loop")
+        self.logger.info("elasticBoxCollectorBU: start main loop")
         while not (self.stoprequest.isSet() and self.emptyQueue.isSet()) :
             if self.source:
                 try:
@@ -525,11 +525,11 @@ class elasticBoxCollectorBU():
                         self.logger.info('box queue size reached: '+str(self.source.qsize())+' - dropping event from queue.')
                         continue
                     if isinstance(event,JsonEvent):
-                        self.processInjected(event) 
+                        self.processInjected(event)
                     else:
                         self.eventtype = event.mask
                         self.infile = fileHandler(event.fullpath)
-                        self.process() 
+                        self.process()
 
                 except (KeyboardInterrupt,Queue.Empty) as e:
                     self.emptyQueue.set()
@@ -580,7 +580,7 @@ class BoxInfoUpdater(threading.Thread):
             self.threadEvent = threading.Event()
 
             boxesDir =  os.path.join(ramdisk,'appliance/boxes')
-            boxesMask = inotify.IN_CLOSE_WRITE 
+            boxesMask = inotify.IN_CLOSE_WRITE
             self.logger.info("starting elastic for "+boxesDir)
 
             self.eventQueue = Queue.Queue()
@@ -660,7 +660,7 @@ class RunCompletedChecker(threading.Thread):
                             self.logger.info("filled in completition time for run "+str(self.runObj.runnumber))
                         except IndexError:
                             # 0 FU resources present in this run, skip writing completition time
-                            pass 
+                            pass
                         except Exception as ex:
                             self.logger.exception(ex)
                         check_es_complete=False
@@ -685,7 +685,7 @@ class RunCompletedChecker(threading.Thread):
 
     def stop(self):
         self.stopping = True
-        self.threadEvent.set() 
+        self.threadEvent.set()
 
 
 if __name__ == "__main__":
@@ -752,8 +752,7 @@ if __name__ == "__main__":
 
     logging.info("Closing notifier")
     if mr is not None:
-      mr.stop_inotifyTimeout(1)
+        mr.stop_inotifyTimeout(1)
 
     logging.info("Quit")
     os._exit(0)
-

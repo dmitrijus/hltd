@@ -18,7 +18,7 @@ class elasticCollector():
     emptyQueue = threading.Event()
     source = False
     infile = False
-    
+
     def __init__(self, esDir, inMonDir):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.esDirName = esDir
@@ -33,7 +33,7 @@ class elasticCollector():
         self.stoprequest.set()
 
     def run(self):
-        self.logger.info("Start main loop") 
+        self.logger.info("Start main loop")
         while not (self.stoprequest.isSet() and self.emptyQueue.isSet()) :
             if self.source:
                 try:
@@ -41,7 +41,7 @@ class elasticCollector():
                     self.eventtype = event.mask
                     self.infile = fileHandler(event.fullpath)
                     self.emptyQueue.clear()
-                    self.process() 
+                    self.process()
                 except (KeyboardInterrupt,Queue.Empty) as e:
                     self.emptyQueue.set()
                 except Exception as ex:
@@ -62,7 +62,7 @@ class elasticCollector():
         self.logger.debug("RECEIVED FILE: %s " %(self.infile.basename))
         infile = self.infile
         filetype = infile.filetype
-        eventtype = self.eventtype    
+        eventtype = self.eventtype
         if eventtype & (inotify.IN_CLOSE_WRITE | inotify.IN_MOVED_TO) :
             if filetype in [FAST,SLOW,QSTATUS]:
                 self.elasticize()
@@ -77,23 +77,23 @@ class elasticCollector():
                     es.flushAllLS()
             elif filetype in [MODULELEGEND]:# and self.movedModuleLegend == False:
                 try:
-                  if not self.infile.basename.endswith(".jsn"):
-                    if not os.path.exists(self.inputMonDir+'/microstatelegend.leg') and os.path.exists(self.inputMonDir):
-                        self.infile.moveFile(self.inputMonDir+'/microstatelegend.leg',silent=True,createDestinationDir=False)
-                  else:
-                    if not os.path.exists(self.inputMonDir+'/microstatelegend.jsn') and os.path.exists(self.inputMonDir):
-                        self.infile.moveFile(self.inputMonDir+'/microstatelegend.jsn',silent=True,createDestinationDir=False)
+                    if not self.infile.basename.endswith(".jsn"):
+                        if not os.path.exists(self.inputMonDir+'/microstatelegend.leg') and os.path.exists(self.inputMonDir):
+                            self.infile.moveFile(self.inputMonDir+'/microstatelegend.leg',silent=True,createDestinationDir=False)
+                    else:
+                        if not os.path.exists(self.inputMonDir+'/microstatelegend.jsn') and os.path.exists(self.inputMonDir):
+                            self.infile.moveFile(self.inputMonDir+'/microstatelegend.jsn',silent=True,createDestinationDir=False)
                 except Exception,ex:
                     logger.error(ex)
                     pass
             elif filetype in [PATHLEGEND]:# and self.movedPathLegend == False:
                 try:
-                  if not self.infile.basename.endswith(".jsn"):
-                    if not os.path.exists(self.inputMonDir+'/pathlegend.leg') and os.path.exists(self.inputMonDir):
-                        self.infile.moveFile(self.inputMonDir+'/pathlegend.leg',silent=True,createDestinationDir=False)
-                  else:
-                    if not os.path.exists(self.inputMonDir+'/pathlegend.jsn') and os.path.exists(self.inputMonDir):
-                        self.infile.moveFile(self.inputMonDir+'/pathlegend.jsn',silent=True,createDestinationDir=False)
+                    if not self.infile.basename.endswith(".jsn"):
+                        if not os.path.exists(self.inputMonDir+'/pathlegend.leg') and os.path.exists(self.inputMonDir):
+                            self.infile.moveFile(self.inputMonDir+'/pathlegend.leg',silent=True,createDestinationDir=False)
+                    else:
+                        if not os.path.exists(self.inputMonDir+'/pathlegend.jsn') and os.path.exists(self.inputMonDir):
+                            self.infile.moveFile(self.inputMonDir+'/pathlegend.jsn',silent=True,createDestinationDir=False)
                 except Exception,ex:
                     logger.error(ex)
                     pass
@@ -114,14 +114,14 @@ class elasticCollector():
         filetype = infile.filetype
         name = infile.name
         if es and os.path.isfile(infile.filepath):
-            if filetype == FAST: 
+            if filetype == FAST:
                 es.elasticize_prc_istate(infile)
                 self.logger.debug(name+" going into prc-istate")
-            elif filetype == SLOW: 
+            elif filetype == SLOW:
                 es.elasticize_prc_sstate(infile)
                 self.logger.debug(name+" going into prc-sstate")
-                self.infile.deleteFile(silent=True)  
-            elif filetype == INDEX: 
+                self.infile.deleteFile(silent=True)
+            elif filetype == INDEX:
                 self.logger.info(name+" going into prc-in")
                 es.elasticize_prc_in(infile)
                 self.infile.deleteFile(silent=True)
@@ -143,7 +143,7 @@ class elasticCollector():
                 es.elasticize_fu_complete(completed)
                 self.infile.deleteFile(silent=True)
                 self.stop()
- 
+
 
     def elasticizeLS(self):
         ls = self.infile.ls
@@ -170,7 +170,7 @@ if __name__ == "__main__":
 
 
     #signal.signal(signal.SIGINT, signalHandler)
-    
+
     eventQueue = Queue.Queue()
 
     dirname = sys.argv[1]
@@ -187,10 +187,10 @@ if __name__ == "__main__":
     pnproc = subprocess.Popen("nproc",shell=True, stdout=subprocess.PIPE)
     pnproc.wait()
     try:
-      nlogical = int(pnproc.stdout.read())
+        nlogical = int(pnproc.stdout.read())
     except:
-      logger.warning('unable to run nproc command')
-      nlogical=0
+        logger.warning('unable to run nproc command')
+        nlogical=0
     nprocid = str(nlogical) + '_' + str(int(nlogical -round(nlogical*(1. - conf.resource_use_fraction))))
 
     monMask = inotify.IN_CLOSE_WRITE | inotify.IN_MOVED_TO
@@ -230,7 +230,7 @@ if __name__ == "__main__":
 
     logging.info("Closing notifier")
     if mr is not None:
-      mr.stop_inotify()
+        mr.stop_inotify()
 
     logging.info("Quit")
     sys.exit(0)

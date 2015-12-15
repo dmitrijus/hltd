@@ -35,7 +35,7 @@ import _inotify as inotify
 
 from elasticbu import BoxInfoUpdater
 from aUtils import fileHandler,ES_DIR_NAME
-from setupES import setupES 
+from setupES import setupES
 from elasticBand import IndexCreator
 
 thishost = os.uname()[1]
@@ -175,7 +175,7 @@ def ignite_cloud():
         else:
             logger.error("cloud igniter start returned code "+str(proc.returncode))
         if proc.returncode>1:
-             logger.error(out)
+            logger.error(out)
 
     except OSError as ex:
         if ex.errno==2:
@@ -253,7 +253,7 @@ def umount_helper(point,attemptsLeft=3,initial=True):
                 return False
             return umount_helper(point,attemptsLeft,initial=False)
     return True
- 
+
 def cleanup_mountpoints(remount=True):
 
     global bu_disk_list_ramdisk
@@ -262,14 +262,14 @@ def cleanup_mountpoints(remount=True):
     global bu_disk_list_output_instance
     global bu_disk_ramdisk_CI
     global bu_disk_ramdisk_CI_instance
- 
+
     bu_disk_list_ramdisk = []
     bu_disk_list_output = []
     bu_disk_list_ramdisk_instance = []
     bu_disk_list_output_instance = []
     bu_disk_ramdisk_CI=None
     bu_disk_ramdisk_CI_instance=None
- 
+
     if conf.bu_base_dir[0] == '/':
         bu_disk_list_ramdisk = [os.path.join(conf.bu_base_dir,conf.ramdisk_subdirectory)]
         bu_disk_list_output = [os.path.join(conf.bu_base_dir,conf.output_subdirectory)]
@@ -279,7 +279,7 @@ def cleanup_mountpoints(remount=True):
         else:
             bu_disk_list_ramdisk_instance = [os.path.join(bu_disk_list_ramdisk[0],conf.instance)]
             bu_disk_list_output_instance = [os.path.join(bu_disk_list_output[0],conf.instance)]
- 
+
         #make subdirectories if necessary and return
         if remount==True:
             try:
@@ -307,12 +307,12 @@ def cleanup_mountpoints(remount=True):
 
             #only attempt this if first umount was successful
             if umount_failure==False and not point.rstrip('/').endswith("-CI"):
-                    umount_failure = umount_helper(os.path.join('/'+point,conf.output_subdirectory))==False
- 
+                umount_failure = umount_helper(os.path.join('/'+point,conf.output_subdirectory))==False
+
             #this will remove directories only if they are empty (as unmounted mount point should be)
             try:
                 if os.path.join('/'+point,conf.ramdisk_subdirectory)!='/':
-	            os.rmdir(os.path.join('/'+point,conf.ramdisk_subdirectory))
+                    os.rmdir(os.path.join('/'+point,conf.ramdisk_subdirectory))
             except Exception as ex:
                 logger.exception(ex)
             try:
@@ -334,8 +334,8 @@ def cleanup_mountpoints(remount=True):
                 lines = fp.readlines()
 
             if len(lines)==0:
-               #exception if invalid bus.config file
-               raise Exception("Missing BU address in bus.config file")
+                #exception if invalid bus.config file
+                raise Exception("Missing BU address in bus.config file")
 
             if conf.mount_control_path and len(lines):
 
@@ -477,8 +477,8 @@ def cleanup_mountpoints(remount=True):
 
                 i+=1
         else:
-          logger.warning('starting hltd without bus.config file!')
-          return False
+            logger.warning('starting hltd without bus.config file!')
+            return False
         #clean up suspended state
         try:
             if remount==True:os.popen('rm -rf '+conf.watch_directory+'/suspend*')
@@ -512,42 +512,42 @@ def submount_size(basedir):
 
 def cleanup_bu_disks(run=None,cleanRamdisk=True,cleanOutput=True):
     if cleanRamdisk:
-      if conf.watch_directory.startswith('/fff') and conf.ramdisk_subdirectory in conf.watch_directory:
-        logger.info('cleanup BU disks: deleting runs in ramdisk ...')
-        tries = 10
-        while tries > 0:
-            tries-=1
-            if run==None:
-                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run*',shell=True)
-            else:
-                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run'+str(run),shell=True)
-            p.wait()
-            if p.returncode==0:
-                logger.info('Ramdisk cleanup performed')
-                break
-            else:
-                logger.info('Failed ramdisk cleanup (return code:'+str(p.returncode)+') in attempt'+str(10-tries))
+        if conf.watch_directory.startswith('/fff') and conf.ramdisk_subdirectory in conf.watch_directory:
+            logger.info('cleanup BU disks: deleting runs in ramdisk ...')
+            tries = 10
+            while tries > 0:
+                tries-=1
+                if run==None:
+                    p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run*',shell=True)
+                else:
+                    p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run'+str(run),shell=True)
+                p.wait()
+                if p.returncode==0:
+                    logger.info('Ramdisk cleanup performed')
+                    break
+                else:
+                    logger.info('Failed ramdisk cleanup (return code:'+str(p.returncode)+') in attempt'+str(10-tries))
 
     if cleanOutput:
-      outdirPath = conf.watch_directory[:conf.watch_directory.find(conf.ramdisk_subdirectory)]+conf.output_subdirectory
-      logger.info('outdirPath:'+ outdirPath + ' '+conf.output_subdirectory)
+        outdirPath = conf.watch_directory[:conf.watch_directory.find(conf.ramdisk_subdirectory)]+conf.output_subdirectory
+        logger.info('outdirPath:'+ outdirPath + ' '+conf.output_subdirectory)
 
-      if outdirPath.startswith('/fff') and conf.output_subdirectory in outdirPath:
-        logger.info('cleanup BU disks: deleting runs in output disk ...')
-        tries = 10
-        while tries > 0:
-            tries-=1
-            if run==None:
-                p = subprocess.Popen("rm -rf " + outdirPath+'/run*',shell=True)
-            else:
-                p = subprocess.Popen("rm -rf " + outdirPath+'/run'+str(run),shell=True)
-            p.wait()
-            if p.returncode==0:
-                logger.info('Output cleanup performed')
-                break
-            else:
-                logger.info('Failed output disk cleanup (return code:'+str(p.returncode)+') in attempt '+str(10-tries))
- 
+        if outdirPath.startswith('/fff') and conf.output_subdirectory in outdirPath:
+            logger.info('cleanup BU disks: deleting runs in output disk ...')
+            tries = 10
+            while tries > 0:
+                tries-=1
+                if run==None:
+                    p = subprocess.Popen("rm -rf " + outdirPath+'/run*',shell=True)
+                else:
+                    p = subprocess.Popen("rm -rf " + outdirPath+'/run'+str(run),shell=True)
+                p.wait()
+                if p.returncode==0:
+                    logger.info('Output cleanup performed')
+                    break
+                else:
+                    logger.info('Failed output disk cleanup (return code:'+str(p.returncode)+') in attempt '+str(10-tries))
+
 
 def calculate_threadnumber():
     global nthreads
@@ -582,7 +582,7 @@ def updateBlacklist(blfile):
                         logger.error("error parsing /etc/appliance/blacklist")
         except:
                 #no blacklist file, this is ok
-                pass
+            pass
         black_list=list(set(black_list))
         try:
             forceUpdate=False
@@ -600,15 +600,15 @@ def updateBlacklist(blfile):
     return True,black_list
 
 def restartLogCollector(instanceParam):
-        global logCollector
-        if logCollector!=None:
-            logger.info("terminating logCollector")
-            logCollector.terminate()
-            logCollector = None
-        logger.info("starting logcollector.py")
-        logcollector_args = ['/opt/hltd/python/logcollector.py']
-        logcollector_args.append(instanceParam)
-        logCollector = subprocess.Popen(logcollector_args,preexec_fn=preexec_function,close_fds=True)
+    global logCollector
+    if logCollector!=None:
+        logger.info("terminating logCollector")
+        logCollector.terminate()
+        logCollector = None
+    logger.info("starting logcollector.py")
+    logcollector_args = ['/opt/hltd/python/logcollector.py']
+    logcollector_args.append(instanceParam)
+    logCollector = subprocess.Popen(logcollector_args,preexec_fn=preexec_function,close_fds=True)
 
 class system_monitor(threading.Thread):
 
@@ -639,7 +639,7 @@ class system_monitor(threading.Thread):
             else:
                 logger.info('Updating box info via data interface')
                 if len(bu_disk_list_ramdisk_instance):
-                  self.directory = [os.path.join(bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
+                    self.directory = [os.path.join(bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
             self.check_file = [os.path.join(x,self.hostname) for x in self.check_directory]
         else:
             self.directory = [os.path.join(conf.watch_directory,'appliance/boxes/')]
@@ -806,7 +806,7 @@ class system_monitor(threading.Thread):
                             else:
                                 if current_runnumber in  edata['activeRuns']:
                                     resource_count_activeRun += edata['used_activeRun']+edata['broken_activeRun']
-                                active_addition =0 
+                                active_addition =0
 
                                 if edata['cloudState'] == "resourcesReleased":
                                     resource_count_pending += edata['idles']
@@ -877,19 +877,19 @@ class system_monitor(threading.Thread):
                     try:boxInfo.ec.injectSummaryJson(res_doc)
                     except:pass
                     try:
-                      if lastFUrun>0:
-                        if not self.highest_run_number or self.highest_run_number<lastFUrun:
-                          self.highest_run_number=lastFUrun
-                        indexCreator.setMasked(True,self.highest_run_number)
-                      else:
-                        indexCreator.setMasked(False,self.highest_run_number)
+                        if lastFUrun>0:
+                            if not self.highest_run_number or self.highest_run_number<lastFUrun:
+                                self.highest_run_number=lastFUrun
+                            indexCreator.setMasked(True,self.highest_run_number)
+                        else:
+                            indexCreator.setMasked(False,self.highest_run_number)
 
                     except:pass
 
                 for mfile in self.file:
                     if conf.role == 'fu':
 
-                        #check if stale file handle (or slow access)
+                            #check if stale file handle (or slow access)
                         if not conf.mount_control_path:
                             self.runStatNFS()
 
@@ -938,11 +938,11 @@ class system_monitor(threading.Thread):
                                 elif exiting_cloud_mode:cloud_state="stopping"
                                 else: cloud_state="on"
                             elif resources_blocked_flag:
-                              cloud_state = "resourcesReleased"
+                                cloud_state = "resourcesReleased"
                             elif masked_resources:
-                              cloud_state = "resourcesMasked"
+                                cloud_state = "resourcesMasked"
                             else:
-                              cloud_state = "off"
+                                cloud_state = "off"
 
                             boxdoc = {
                                 'fm_date':tstring,
@@ -994,7 +994,7 @@ class system_monitor(threading.Thread):
                             "version":self.boxdoc_version
                         }
                         with open(mfile,'w+') as fp:
-                                json.dump(boxdoc,fp,indent=True)
+                            json.dump(boxdoc,fp,indent=True)
 
         except Exception as ex:
             logger.exception(ex)
@@ -1015,7 +1015,7 @@ class system_monitor(threading.Thread):
                 statusDoc = json.load(fp)
                 return str(statusDoc["numQueuedLS"]),str(statusDoc["CMSSWMaxLS"])
         except:
-          return "-1","-1"
+            return "-1","-1"
 
     def stop(self):
         logger.debug("system_monitor: request to stop")
@@ -1104,32 +1104,32 @@ class OnlineResource:
         self.notifyNewRunThread.start()
 
     def NotifyNewRunJoin(self):
-         self.notifyNewRunThread.join()
-         self.notifyNewRunThread=None
+        self.notifyNewRunThread.join()
+        self.notifyNewRunThread=None
 
     def NotifyNewRun(self,runnumber):
         self.runnumber = runnumber
         logger.info("calling start of run on "+self.cpu[0])
         attemptsLeft=3
         while attemptsLeft>0:
-          attemptsLeft-=1
-          try:
-            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)
-            connection.request("GET",'cgi-bin/start_cgi.py?run='+str(runnumber))
-            response = connection.getresponse()
-            #do something intelligent with the response code
-            logger.error("response was "+str(response.status))
-            if response.status > 300: self.hoststate = 1
-            else:
-                logger.info(response.read())
-            break
-          except Exception as ex:
-            if attemptsLeft>0:
-              logger.error(str(ex))
-              logger.info('retrying connection to '+str(self.cpu[0]))
-            else:
-              logger.error('Exhausted attempts to contact '+str(self.cpu[0]))
-              logger.exception(ex)
+            attemptsLeft-=1
+            try:
+                connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)
+                connection.request("GET",'cgi-bin/start_cgi.py?run='+str(runnumber))
+                response = connection.getresponse()
+                #do something intelligent with the response code
+                logger.error("response was "+str(response.status))
+                if response.status > 300: self.hoststate = 1
+                else:
+                    logger.info(response.read())
+                break
+            except Exception as ex:
+                if attemptsLeft>0:
+                    logger.error(str(ex))
+                    logger.info('retrying connection to '+str(self.cpu[0]))
+                else:
+                    logger.error('Exhausted attempts to contact '+str(self.cpu[0]))
+                    logger.exception(ex)
 
     def NotifyShutdown(self):
         try:
@@ -1373,8 +1373,8 @@ class ProcessWatchdog(threading.Thread):
                                  + str(self.resource.retry_attempts))
                     resource_lock.acquire()
                     for cpu in self.resource.cpu:
-                      os.rename(used+cpu,broken+cpu)
-                      self.resource.parent.n_used-=1
+                        os.rename(used+cpu,broken+cpu)
+                        self.resource.parent.n_used-=1
                     resource_lock.release()
                     logger.debug("resource(s) " +str(self.resource.cpu)+
                                   " successfully moved to except")
@@ -1407,10 +1407,10 @@ class ProcessWatchdog(threading.Thread):
             elif returncode == 0 or returncode == None or not configuration_reachable:
 
                 if not configuration_reachable:
-                  logger.info('pid '+str(pid)+' exit 90 (input directory and menu missing) from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
+                    logger.info('pid '+str(pid)+' exit 90 (input directory and menu missing) from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
 
                 else:
-                  logger.info('pid '+str(pid)+' exit 0 from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
+                    logger.info('pid '+str(pid)+' exit 0 from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
 
                 # generate an end-of-run marker if it isn't already there - it will be picked up by the RunRanger
                 endmarker = conf.watch_directory+'/end'+rnsuffix
@@ -1421,7 +1421,7 @@ class ProcessWatchdog(threading.Thread):
                 count=0
                 # wait until the request to end has been handled
                 while not os.path.exists(stoppingmarker):
-                    if os.path.exists(completemarker): 
+                    if os.path.exists(completemarker):
                         break
                     if os.path.exists(abortedmarker) or os.path.exists(abortcompletemarker):
                         logger.warning('quitting watchdog thread because run ' + str(self.resource.runnumber) + ' has been aborted ( pid' + str(pid) + ' resource' + str(self.resource.cpu) + ')')
@@ -1432,15 +1432,15 @@ class ProcessWatchdog(threading.Thread):
                     time.sleep(.1)
                     count+=1
                     if count>=100 and count%100==0:
-                      logger.warning("still waiting for complete marker for run "+str(self.resource.runnumber) + ' in watchdog for resource '+str(self.resource.cpu))
+                        logger.warning("still waiting for complete marker for run "+str(self.resource.runnumber) + ' in watchdog for resource '+str(self.resource.cpu))
 
                 # move back the resource now that it's safe since the run is marked as ended
                 resource_lock.acquire()
                 for cpu in self.resource.cpu:
-                  try:
-                      os.rename(used+cpu,idles+cpu)
-                  except Exception as ex:
-                      logger.warning('problem moving core ' + cpu + ' from used to idle:'+str(ex))
+                    try:
+                        os.rename(used+cpu,idles+cpu)
+                    except Exception as ex:
+                        logger.warning('problem moving core ' + cpu + ' from used to idle:'+str(ex))
                 resource_lock.release()
 
             #logger.info('exiting watchdog thread for '+str(self.resource.cpu))
@@ -1516,13 +1516,13 @@ class Run:
             if paramsPresent():
                 try:
                     with open(self.paramfile_path,'r') as fp:
-                           fffparams = json.load(fp)
+                        fffparams = json.load(fp)
 
-                           self.arch = fffparams['SCRAM_ARCH']
-                           self.version = fffparams['CMSSW_VERSION']
-                           self.transfermode = fffparams['TRANSFER_MODE']
-                           paramsDetected = True
-                           logger.info("Run " + str(self.runnumber) + " uses " + self.version + " ("+self.arch + ") with " + str(conf.menu_name) + ' transferDest:'+self.transfermode)
+                        self.arch = fffparams['SCRAM_ARCH']
+                        self.version = fffparams['CMSSW_VERSION']
+                        self.transfermode = fffparams['TRANSFER_MODE']
+                        paramsDetected = True
+                        logger.info("Run " + str(self.runnumber) + " uses " + self.version + " ("+self.arch + ") with " + str(conf.menu_name) + ' transferDest:'+self.transfermode)
                     break
 
                 except ValueError as ex:
@@ -1649,11 +1649,11 @@ class Run:
     def countOwnedResourcesFrom(self,resourcelist):
         ret = 0
         try:
-          for p in self.online_resource_list:
-            for c in p.cpu:
-                for resourcename in resourcelist:
-                    if resourcename == c:
-                        ret+=1
+            for p in self.online_resource_list:
+                for c in p.cpu:
+                    for resourcename in resourcelist:
+                        if resourcename == c:
+                            ret+=1
         except:pass
         return ret
 
@@ -1665,8 +1665,8 @@ class Run:
                           +" from "+fromstate)
 
             for resourcename in resourcenames:
-              os.rename(idles+resourcename,used+resourcename)
-              self.n_used+=1
+                os.rename(idles+resourcename,used+resourcename)
+                self.n_used+=1
             #TODO:fix core pairing with resource.cpu list (otherwise - restarting will not work properly)
             if not filter(lambda x: sorted(x.cpu)==sorted(resourcenames),self.online_resource_list):
                 logger.debug("resource(s) "+str(resourcenames)
@@ -1726,7 +1726,7 @@ class Run:
                     logger.error('Timeout waiting for directory '+ bldir)
                     break
             if os.path.exists(blpath):
-              update_success,machine_blacklist=updateBlacklist(blpath)
+                update_success,machine_blacklist=updateBlacklist(blpath)
             else:
                 logger.error("unable to find blacklist file in "+bldir)
 
@@ -1747,9 +1747,9 @@ class Run:
                 cpu_group.append(cpu)
                 if conf.role == 'fu':
                     if count == nstreams:
-                      self.AcquireResource(cpu_group,'idle')
-                      cpu_group=[]
-                      count=0
+                        self.AcquireResource(cpu_group,'idle')
+                        cpu_group=[]
+                        count=0
                 else:
                     logger.info("found resource "+cpu+" which is "+str(age)+" seconds old")
                     if age < 10:
@@ -1803,7 +1803,7 @@ class Run:
                 self.changeMarkerMaybe(Run.ACTIVE)
                 #start safeguard monitoring of anelastic.py
                 self.startAnelasticWatchdog()
- 
+
         elif conf.role == 'bu':
             for resource in self.online_resource_list:
                 logger.info('start run '+str(self.runnumber)+' on resources '+str(resource.cpu))
@@ -1863,21 +1863,21 @@ class Run:
     def Stop(self):
         #used to gracefully stop CMSSW and finish scripts
         with open(os.path.join(self.dirname,"temp_CMSSW_STOP"),'w') as f:
-          writedoc = {}
-          bu_lumis = []
-          try:
-            bu_eols_files = filter( lambda x: x.endswith("_EoLS.jsn"),os.listdir(self.rawinputdir))
-            bu_lumis = (sorted([int(x.split('_')[1][2:]) for x in bu_eols_files]))
-          except:
-            logger.error("Unable to parse BU EoLS files")
-          ls_delay=3
-          if len(bu_lumis):
-              logger.info('last closed lumisection in ramdisk is '+str(bu_lumis[-1])+', requesting to close at LS '+ str(bu_lumis[-1]+ls_delay))
-              writedoc['lastLS']=bu_lumis[-1]+ls_delay #current+delay
-          else:  writedoc['lastLS']=ls_delay
-          json.dump(writedoc,f)
+            writedoc = {}
+            bu_lumis = []
+            try:
+                bu_eols_files = filter( lambda x: x.endswith("_EoLS.jsn"),os.listdir(self.rawinputdir))
+                bu_lumis = (sorted([int(x.split('_')[1][2:]) for x in bu_eols_files]))
+            except:
+                logger.error("Unable to parse BU EoLS files")
+            ls_delay=3
+            if len(bu_lumis):
+                logger.info('last closed lumisection in ramdisk is '+str(bu_lumis[-1])+', requesting to close at LS '+ str(bu_lumis[-1]+ls_delay))
+                writedoc['lastLS']=bu_lumis[-1]+ls_delay #current+delay
+            else:  writedoc['lastLS']=ls_delay
+            json.dump(writedoc,f)
         try:
-          os.rename(os.path.join(self.dirname,"temp_CMSSW_STOP"),os.path.join(self.dirname,"CMSSW_STOP"))
+            os.rename(os.path.join(self.dirname,"temp_CMSSW_STOP"),os.path.join(self.dirname,"CMSSW_STOP"))
         except:pass
 
     def startShutdown(self,killJobs=False,killScripts=False):
@@ -1923,7 +1923,7 @@ class Run:
                         logger.info('process '+str(resource.process.pid)+' terminated')
                     except AttributeError:
                         logger.info('terminated process (in another thread)')
-                    time.sleep(.1) 
+                    time.sleep(.1)
                     logger.info(' releasing resource(s) '+str(resource.cpu))
 
             resource_lock.acquire()
@@ -1944,7 +1944,7 @@ class Run:
                 resource.process=None
             resource_lock.release()
             logger.info('completed clearing resource list')
-             
+
             self.online_resource_list = []
             try:
                 self.changeMarkerMaybe(Run.ABORTCOMPLETE)
@@ -2100,7 +2100,7 @@ class Run:
                 else:
                     logger.info("No active runs. moving all resource files to cloud")
                     #give resources to cloud and bail out
-                    entering_cloud_mode=False 
+                    entering_cloud_mode=False
                     #check if cloud mode switch has been aborted in the meantime
                     if abort_cloud_mode:
                         abort_cloud_mode=False
@@ -2196,7 +2196,7 @@ class Run:
         rundirstr = 'run'+ str(self.runnumber).zfill(conf.run_number_padding)
         rundirCheckPath = os.path.join(conf.watch_directory, rundirstr)
         eorCheckPath = os.path.join(rundirCheckPath,rundirstr + '_ls0000_EoR.jsn')
- 
+
         self.threadEvent.wait(10)
         while self.stopThreads == False:
             self.threadEvent.wait(5)
@@ -2265,7 +2265,7 @@ class RunList:
         runNumber = runObj.runnumber
         check = filter(lambda x: runNumber == x.runnumber,self.runs)
         if len(check):
-          raise Exception("Run "+str(runNumber)+" already exists")
+            raise Exception("Run "+str(runNumber)+" already exists")
         #doc = {runNumber:runObj}
         #self.runs.append(doc)
         self.runs.append(runObj)
@@ -2318,7 +2318,7 @@ class RunList:
     def getStateDoc(self):
         docArray = []
         for runObj in self.runs:
-          docArray.append({'run':runObj.runnumber,'totalRes':runObj.n_used,'qRes':runObj.n_quarantined,'ongoing':runObj.is_ongoing_run,'errors':runObj.num_errors})
+            docArray.append({'run':runObj.runnumber,'totalRes':runObj.n_used,'qRes':runObj.n_quarantined,'ongoing':runObj.is_ongoing_run,'errors':runObj.num_errors})
         return docArray
 
 
@@ -2379,7 +2379,7 @@ class RunRanger:
                 if (not conf.dqm_machine) or dqm_processing_criterion:
                     try:
                         logger.info('new run '+str(nr))
-                        #terminate quarantined runs     
+                        #terminate quarantined runs
                         for run in runList.getQuarantinedRuns():
                             #run shutdown waiting for scripts to finish
                             run.startShutdown(True,False)
@@ -2406,7 +2406,7 @@ class RunRanger:
                         #check if this run is a duplicate
                         if runList.getRun(nr)!=None:
                             raise Exception("Attempting to create duplicate run "+str(nr))
- 
+
                         # in case of a DQM machines create an EoR file
                         if conf.dqm_machine and conf.role == 'bu':
                             for run in runList.getOngoingRuns():
@@ -2508,10 +2508,10 @@ class RunRanger:
 
         elif dirname.startswith('herod') or dirname.startswith('tsunami'):
             try:
-              os.remove(fullpath)
+                os.remove(fullpath)
             except:
-              #safety net if cgi script removes herod
-              pass
+                #safety net if cgi script removes herod
+                pass
             if conf.role == 'fu':
                 global q_list
                 logger.info("killing all CMSSW child processes")
@@ -2534,8 +2534,8 @@ class RunRanger:
 
                 #delete input and output BU directories
                 if dirname.startswith('tsunami'):
-                  logger.info('tsunami approaching: cleaning all ramdisk and output run data')
-                  cleanup_bu_disks(None,True,True)
+                    logger.info('tsunami approaching: cleaning all ramdisk and output run data')
+                    cleanup_bu_disks(None,True,True)
 
                 #contact any FU that appears alive
                 boxdir = conf.resource_base +'/boxes/'
@@ -2567,31 +2567,31 @@ class RunRanger:
             except:pass
             nlen = len('cleanoutput')
             if len(dirname)==nlen:
-              logger.info('cleaning output (all run data)') 
-              cleanup_bu_disks(None,False,True)
+                logger.info('cleaning output (all run data)')
+                cleanup_bu_disks(None,False,True)
             else:
-              try:
-                rn = int(dirname[nlen:])
-                logger.info('cleaning output (only for run '+str(rn)+')')
-                cleanup_bu_disks(rn,False,True)
-              except:
-                logger.error('Could not parse '+dirname)
+                try:
+                    rn = int(dirname[nlen:])
+                    logger.info('cleaning output (only for run '+str(rn)+')')
+                    cleanup_bu_disks(rn,False,True)
+                except:
+                    logger.error('Could not parse '+dirname)
 
         elif dirname.startswith('cleanramdisk'):
             try:os.remove(fullpath)
             except:pass
             nlen = len('cleanramdisk')
             if len(dirname)==nlen:
-              logger.info('cleaning ramdisk (all run data)') 
-              cleanup_bu_disks(None,True,False)
+                logger.info('cleaning ramdisk (all run data)')
+                cleanup_bu_disks(None,True,False)
             else:
-              try:
-                rn = int(dirname[nlen:])
-                logger.info('cleaning ramdisk (only for run '+str(rn)+')')
-                cleanup_bu_disks(rn,True,False)
-              except:
-                logger.error('Could not parse '+dirname)
-                
+                try:
+                    rn = int(dirname[nlen:])
+                    logger.info('cleaning ramdisk (only for run '+str(rn)+')')
+                    cleanup_bu_disks(rn,True,False)
+                except:
+                    logger.error('Could not parse '+dirname)
+
         elif dirname.startswith('populationcontrol'):
             if len(runList.runs)>0:
                 logger.info("terminating all ongoing runs via cgi interface (populationcontrol): "+str(runList.getActiveRunNumbers()))
@@ -2647,7 +2647,7 @@ class RunRanger:
             #terminate all ongoing runs
             for run in runList.getActiveRuns():
                 run.Shutdown(True,True)
- 
+
             time.sleep(.5)
             #local request used in case of stale file handle
             if replyport==0:
@@ -2668,7 +2668,7 @@ class RunRanger:
                 except:pass
                 fp = open(fullpath,"w+")
                 fp.close()
-                return 
+                return
 
             #find out BU name from bus_config
             bu_name=None
@@ -2723,9 +2723,9 @@ class RunRanger:
                     break
                 except Exception as ex:
                     try:
-                       logger.info('Failed to contact BU hltd service: ' + str(ex.args[0]) +" "+ str(ex.args[1]))
+                        logger.info('Failed to contact BU hltd service: ' + str(ex.args[0]) +" "+ str(ex.args[1]))
                     except:
-                       logger.info('Failed to contact BU hltd service '+str(ex))
+                        logger.info('Failed to contact BU hltd service '+str(ex))
                     time.sleep(5)
 
             #mount again
@@ -2945,7 +2945,7 @@ class ResourceRanger:
                     """
                     #find all idle cores
                     idlesdir = '/'+resourcepath
-		    try:
+                    try:
                         reslist = os.listdir(idlesdir)
                     except Exception as ex:
                         logger.info("exception encountered in looking for resources")
@@ -2998,7 +2998,7 @@ class ResourceRanger:
                     #todo: debug,write test for this...
                     if resourcestate == 'except':
                         idlesdir = '/'+resourcepath
-		        try:
+                        try:
                             reslist = os.listdir(idlesdir)
                             #put inotify-ed resource as the first item
                             fileFound=False
@@ -3050,16 +3050,16 @@ class ResourceRanger:
             #this should be error (i.e. bus.confg should not be modified during a run)
             bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
             if event.fullpath == bus_config:
-              logger.warning("automatic remounting on changed bus.config is no longer supported. restart hltd to remount")
-              if False:
-                if self.managed_monitor:
-                    self.managed_monitor.stop()
-                    self.managed_monitor.join()
-                cleanup_mountpoints()
-                if self.managed_monitor:
-                    self.managed_monitor = system_monitor()
-                    self.managed_monitor.start()
-                    logger.info("ResouceRanger: managed monitor is "+str(self.managed_monitor))
+                logger.warning("automatic remounting on changed bus.config is no longer supported. restart hltd to remount")
+                if False:
+                    if self.managed_monitor:
+                        self.managed_monitor.stop()
+                        self.managed_monitor.join()
+                    cleanup_mountpoints()
+                    if self.managed_monitor:
+                        self.managed_monitor = system_monitor()
+                        self.managed_monitor.start()
+                        logger.info("ResouceRanger: managed monitor is "+str(self.managed_monitor))
         except Exception as ex:
             logger.error("exception in ResourceRanger")
             logger.error(ex)
@@ -3126,9 +3126,9 @@ class ResourceRanger:
                     if infile.data=={}:emptyBox=True
                     #check which time is later (in case of small clock skew and small difference)
                     if current_datetime >  dateutil.parser.parse(infile.data['fm_date']):
-                        dt = (current_datetime - dateutil.parser.parse(infile.data['fm_date'])).seconds 
+                        dt = (current_datetime - dateutil.parser.parse(infile.data['fm_date'])).seconds
                     else:
-                        dt = -(dateutil.parser.parse(infile.data['fm_date'])-current_datetime).seconds 
+                        dt = -(dateutil.parser.parse(infile.data['fm_date'])-current_datetime).seconds
 
                     if dt > 5:
                         logger.warning('setting stale flag for resource '+basename + ' which is '+str(dt)+' seconds behind')
@@ -3233,9 +3233,9 @@ class hltd(Daemon2,object):
                 while count:
                     os.stat(conf.watch_directory+'/populationcontrol')
                     if count==10:
-                      sys.stdout.write(' o.o')
+                        sys.stdout.write(' o.o')
                     else:
-                      sys.stdout.write('o.o')
+                        sys.stdout.write('o.o')
                     sys.stdout.flush()
                     time.sleep(.5)
                     count-=1
@@ -3323,7 +3323,7 @@ class hltd(Daemon2,object):
                     logger.warning("cloud is on on this host at hltd startup, switching to cloud mode")
                     move_resources_to_cloud()
                     cloud_mode=True
- 
+
         if conf.role == 'bu':
             global machine_blacklist
             #update_success,machine_blacklist=updateBlacklist()
@@ -3449,9 +3449,9 @@ class hltd(Daemon2,object):
             logger.info(threading.enumerate())
             logger.info("unmounting mount points")
             if cleanup_mountpoints(remount=False)==False:
-              time.sleep(1)
-              cleanup_mountpoints(remount=False)
-            
+                time.sleep(1)
+                cleanup_mountpoints(remount=False)
+
             logger.info("shutdown of service (main thread) completed")
         except Exception as ex:
             logger.info("exception encountered in operating hltd")

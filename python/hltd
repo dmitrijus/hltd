@@ -15,108 +15,108 @@ import syslog
 
 
 def startService(daemon,srvInstance):
-   daemon.touchLockFile()
-   proc = Popen(["/opt/hltd/python/hltd.py",srvInstance], stdout=PIPE)
-   output = proc.communicate()[0]
-   tries=3
-   while True:
-       time.sleep(.1)
-       if daemon.silentStatus() and proc.returncode==0:
-           print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
-           daemon.touchLockFile()
-           return
-       else:
-           if proc.returncode==3:sys.exit(0)
-           tries-=1
-           if tries>0:continue
-           print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;31mFAILED\033[0;39m  ]'
-           print output
-           sys.exit(1)
+    daemon.touchLockFile()
+    proc = Popen(["/opt/hltd/python/hltd.py",srvInstance], stdout=PIPE)
+    output = proc.communicate()[0]
+    tries=3
+    while True:
+        time.sleep(.1)
+        if daemon.silentStatus() and proc.returncode==0:
+            print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
+            daemon.touchLockFile()
+            return
+        else:
+            if proc.returncode==3:sys.exit(0)
+            tries-=1
+            if tries>0:continue
+            print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;31mFAILED\033[0;39m  ]'
+            print output
+            sys.exit(1)
 
 if __name__ == "__main__":
 
-  if len(sys.argv) <=2 or sys.argv[2]=="all":
-      try:
-          instances=[]
-          with open('/etc/hltd.instances','r') as fi:
-            for line in fi.readlines():
-              lnstrip = line.strip(' \n')
-              if len(lnstrip)>0 and lnstrip.startswith("#")==False:
-                  instances.append(lnstrip)
-      except:
-          instances = ["main"]
-  else:
-      instances = [sys.argv[2]]
+    if len(sys.argv) <=2 or sys.argv[2]=="all":
+        try:
+            instances=[]
+            with open('/etc/hltd.instances','r') as fi:
+                for line in fi.readlines():
+                    lnstrip = line.strip(' \n')
+                    if len(lnstrip)>0 and lnstrip.startswith("#")==False:
+                        instances.append(lnstrip)
+        except:
+            instances = ["main"]
+    else:
+        instances = [sys.argv[2]]
 
-  for instance in instances:
-    daemon = hltd(instance)
+    for instance in instances:
+        daemon = hltd(instance)
 
-    if len(sys.argv) >= 2:
-        if 'start' == sys.argv[1]:
-            startService(daemon,instance)
+        if len(sys.argv) >= 2:
+            if 'start' == sys.argv[1]:
+                startService(daemon,instance)
 
-        elif 'stop' == sys.argv[1]:
-            sys.stdout.write('Stopping hltd instance '+instance+':')
-            daemon.stop()
+            elif 'stop' == sys.argv[1]:
+                sys.stdout.write('Stopping hltd instance '+instance+':')
+                daemon.stop()
 
-            #determine runlevel
-            std_out=""
-            try:
-                p = Popen("/sbin/runlevel", shell=True, stdout=PIPE)
-                p.wait()
-                std_out=p.stdout.read()
-                from_level = std_out.split('\t')[0].rstrip('\n').strip().split(' ')[0]
-                to_level = std_out.split('\t')[0].rstrip('\n').strip().split(' ')[1]
-                if to_level.isdigit() and int(to_level) in [0,1,6] and str(from_level)!="1":
+                #determine runlevel
+                std_out=""
+                try:
+                    p = Popen("/sbin/runlevel", shell=True, stdout=PIPE)
+                    p.wait()
+                    std_out=p.stdout.read()
+                    from_level = std_out.split('\t')[0].rstrip('\n').strip().split(' ')[0]
+                    to_level = std_out.split('\t')[0].rstrip('\n').strip().split(' ')[1]
+                    if to_level.isdigit() and int(to_level) in [0,1,6] and str(from_level)!="1":
 
-                    if stopFUs(instance)==False:
-                        msg = "Shutdown or reboot is cancelled by hltd - FU umount failed! Switching to runlevel 3..."
-                        syslog.syslog("hltd-"+str(instance)+":"+msg)
-                        time.sleep(2)
-                        p = Popen("init 3", shell=True, stdout=PIPE)
-                        p.wait()
+                        if stopFUs(instance)==False:
+                            msg = "Shutdown or reboot is cancelled by hltd - FU umount failed! Switching to runlevel 3..."
+                            syslog.syslog("hltd-"+str(instance)+":"+msg)
+                            time.sleep(2)
+                            p = Popen("init 3", shell=True, stdout=PIPE)
+                            p.wait()
+                        else:
+                            daemon.removeLockFile()
                     else:
-                        daemon.removeLockFile()
+                        if checkMode(instance)=="fu":
+                            daemon.removeLockFile()
+                        else:
+                            print "Lock file remains. Run stop-appliance to unmount FUs."
+                except:
+                    print "Runlevel:",std_out
+                    syslog.syslog("hltd-"+str(instance)+":Exception when determining runlevel:"+str(std_out))
+
+
+            elif 'stop-appliance' == sys.argv[1]:
+                sys.stdout.write('Stopping hltd instance '+instance+':')
+                daemon.stop()
+
+                if checkMode(instance)=="fu":
+                    print "This command is not supported on FU. Performed only service stop."
+
+                elif stopFUs(instance)==False:
+                    print "FU umount failed, lock file remains."
                 else:
-                    if checkMode(instance)=="fu":
-                        daemon.removeLockFile()
-                    else:
-                        print "Lock file remains. Run stop-appliance to unmount FUs."
-            except:
-                print "Runlevel:",std_out
-                syslog.syslog("hltd-"+str(instance)+":Exception when determining runlevel:"+str(std_out))
+                    daemon.removeLockFile()
 
-
-        elif 'stop-appliance' == sys.argv[1]:
-            sys.stdout.write('Stopping hltd instance '+instance+':')
-            daemon.stop()
-
-            if checkMode(instance)=="fu":
-                print "This command is not supported on FU. Performed only service stop."
-
-            elif stopFUs(instance)==False:
-                print "FU umount failed, lock file remains."
-            else:
+            elif 'stop-light' == sys.argv[1]:
+                sys.stdout.write('Stopping hltd instance '+instance+':')
+                daemon.stop()
                 daemon.removeLockFile()
 
-        elif 'stop-light' == sys.argv[1]:
-            sys.stdout.write('Stopping hltd instance '+instance+':')
-            daemon.stop()
-            daemon.removeLockFile()
+            elif 'restart' == sys.argv[1]:
+                sys.stdout.write('Stopping hltd instance '+instance+':')
+                daemon.stop()
+                startService(daemon,instance)
 
-        elif 'restart' == sys.argv[1]:
-            sys.stdout.write('Stopping hltd instance '+instance+':')
-            daemon.stop()
-            startService(daemon,instance)
+            elif 'status' == sys.argv[1]:
+                daemon.status()
+            else:
+                print "Unknown command"
+                sys.exit(2)
 
-        elif 'status' == sys.argv[1]:
-            daemon.status()
         else:
-            print "Unknown command"
+            print "usage: %s start|stop|stop-light|restart|status |all|main|instance" % sys.argv[0]
             sys.exit(2)
-
-    else:
-        print "usage: %s start|stop|stop-light|restart|status |all|main|instance" % sys.argv[0]
-        sys.exit(2)
 
 sys.exit(0)

@@ -3,7 +3,7 @@ import cgi
 import os
 form = cgi.FieldStorage()
 print "Content-Type: text/html"     # HTML is following
-print            
+print
 print "<TITLE>CGI script suspend</TITLE>"
 
 portsuffix=""
@@ -16,4 +16,3 @@ except:
     pass
 fp = open('suspend'+portsuffix,'w+')
 fp.close()
-

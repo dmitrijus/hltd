@@ -1,8 +1,8 @@
 #!/bin/env python
 
 """
-Set the database entries for the hltd bu-fu appliance. 
-Tables must be empty, to avoid this in future is possibile to read the last eqset_id from DAQ_EQCFG_EQSET 
+Set the database entries for the hltd bu-fu appliance.
+Tables must be empty, to avoid this in future is possibile to read the last eqset_id from DAQ_EQCFG_EQSET
 for start the eqset_id count from.
 
 """
@@ -65,7 +65,7 @@ for bu in SETUP.keys():
         sqlCmd.append("INSERT INTO "+d+" (`eqset_id`, `dnsname`, `nic_id`, `network_name`)  VALUES (" +",".join([eqc,fstr,nic,net])+ ")")
         sqlCmd.append("INSERT INTO "+hn+" (`eqset_id`, `host_id`, `nic_id`) VALUES ("+",".join([eqc,host,nic])+")")
         sqlCmd.append("INSERT INTO "+ha+" (`eqset_id`, `host_id`, `attr_name`, `attr_value`) VALUES ("+",".join([eqc,host,attr,bstr])+")")
-        
+
 
 #for query in sqlCmd:
 #    print query

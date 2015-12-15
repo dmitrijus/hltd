@@ -14,7 +14,7 @@ import _inotify as inotify
 import _zlibextras as zlibextras
 
 ES_DIR_NAME = "TEMP_ES_DIRECTORY"
-UNKNOWN,OUTPUTJSD,DEFINITION,STREAM,INDEX,FAST,SLOW,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,INI,EOLS,BOLS,EOR,COMPLETE,DAT,PDAT,PJSNDATA,PIDPB,PB,CRASH,MODULELEGEND,PATHLEGEND,BOX,QSTATUS,FLUSH,PROCESSING = range(27)            #file types 
+UNKNOWN,OUTPUTJSD,DEFINITION,STREAM,INDEX,FAST,SLOW,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,INI,EOLS,BOLS,EOR,COMPLETE,DAT,PDAT,PJSNDATA,PIDPB,PB,CRASH,MODULELEGEND,PATHLEGEND,BOX,QSTATUS,FLUSH,PROCESSING = range(27)            #file types
 TO_ELASTICIZE = [STREAM,INDEX,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,EOLS,EOR,COMPLETE,FLUSH]
 TEMPEXT = ".recv"
 ZEROLS = 'ls0000'
@@ -27,7 +27,7 @@ jsdCache = {}
 #Output redirection class
 class stdOutLog:
     def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)    
+        self.logger = logging.getLogger(self.__class__.__name__)
     def write(self, message):
         self.logger.debug(message)
 class stdErrorLog:
@@ -73,7 +73,7 @@ class MonitorRanger:
         else:
             self.logger.info("MonitorRanger: Inotify wrapper returned")
             return True
- 
+
     def stop_inotify(self):
         self.logger.info("MonitorRanger: Stop inotify wrapper")
         self.inotifyWrapper.stop()
@@ -113,7 +113,7 @@ class MonitorRanger:
                 self.logger.warning("Problem checking new EoLS filename: "+str(os.path.basename(event.fullpath)) + " error:"+str(ex))
                 try:self.lock.release()
                 except:pass
-            #delete associated BoLS file 
+            #delete associated BoLS file
             try:
                 os.unlink(event.fullpath[:event.fullpath.rfind("_EoLS.jsn")]+"_BoLS.jsn")
             except:
@@ -193,11 +193,11 @@ class fileHandler(object):
         return self.filepath == other.filepath
 
     def __getattr__(self,name):
-        if name not in self.__dict__: 
-            if name in ["dir","ext","basename","name"]: self.getFileInfo() 
+        if name not in self.__dict__:
+            if name in ["dir","ext","basename","name"]: self.getFileInfo()
             elif name in ["filetype"]: self.filetype = self.getFiletype();
             elif name in ["run","ls","stream","index","pid"]: self.getFileHeaders()
-            elif name in ["data"]: self.data = self.getData(); 
+            elif name in ["data"]: self.data = self.getData();
             elif name in ["definitions"]: self.getDefinitions()
             elif name in ["host"]: self.host = os.uname()[1];
         if name in ["ctime"]: self.ctime = self.getTime('c')
@@ -218,10 +218,10 @@ class fileHandler(object):
                 dt=os.path.getctime(self.filepath)
             elif t == 'm':
                 dt=os.path.getmtime(self.filepath)
-            time = datetime.datetime.utcfromtimestamp(dt).isoformat() 
+            time = datetime.datetime.utcfromtimestamp(dt).isoformat()
             return time
-        return None   
-                
+        return None
+
     def getFileInfo(self):
         self.dir = os.path.dirname(self.filepath)
         self.basename = os.path.basename(self.filepath)
@@ -277,7 +277,7 @@ class fileHandler(object):
         elif filetype in [DAT,PB,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT]: self.run,self.ls,self.stream,self.host = splitname
         elif filetype == INDEX: self.run,self.ls,self.index,self.pid = splitname
         elif filetype in [EOLS,BOLS]: self.run,self.ls,self.eols = splitname
-        else: 
+        else:
             self.logger.warning("Bad filetype: %s" %self.filepath)
             self.run,self.ls,self.stream = [None]*3
 
@@ -316,7 +316,7 @@ class fileHandler(object):
     def setJsdfile(self,jsdfile):
         self.jsdfile = jsdfile
         if self.filetype in [OUTPUT,STREAMDQMHISTOUTPUT,CRASH,STREAMERR]: self.initData()
-        
+
     def initData(self):
         defs = self.definitions
         self.data = {}
@@ -326,7 +326,7 @@ class fileHandler(object):
     def nullValue(self,ftype):
         if ftype == "integer": return "0"
         elif ftype  == "string": return ""
-        else: 
+        else:
             self.logger.warning("bad field type %r" %(ftype))
             return "ERR"
 
@@ -335,24 +335,24 @@ class fileHandler(object):
         for item in defs:
             fieldName = item["name"]
             index = defs.index(item)
-            if "source" in item: 
+            if "source" in item:
                 source = item["source"]
                 sIndex,ftype = self.getFieldIndex(fieldName) #TODO:pyflakes gives warning..
                 data[index] = data[sIndex]
 
     def getFieldIndex(self,field):
         defs = self.definitions
-        if defs: 
+        if defs:
             index = next((defs.index(item) for item in defs if item["name"] == field),-1)
             ftype = defs[index]["type"]
             return index,ftype
 
-        
+
     def getFieldByName(self,field):
         index,ftype = self.getFieldIndex(field)
         data = self.data["data"]
         if index > -1:
-            value = int(data[index]) if ftype == "integer" else str(data[index]) 
+            value = int(data[index]) if ftype == "integer" else str(data[index])
             return value
         else:
             self.logger.warning("bad field request %r in %r" %(field,self.definitions))
@@ -378,12 +378,12 @@ class fileHandler(object):
             #    self.logger.error("no definition field in "+str(self.filepath))
             #   self.definitions = {}
             #   return False
-        elif not self.jsdfile: 
+        elif not self.jsdfile:
             self.logger.warning("jsd file not set")
             self.definitions = []
             return False
         if self.jsdfile not in jsdCache.keys():
-          jsdCache[self.jsdfile] = self.getJsonData(self.jsdfile)
+            jsdCache[self.jsdfile] = self.getJsonData(self.jsdfile)
         self.definitions = jsdCache[self.jsdfile]["data"]
         #self.definitions = self.getJsonData(self.jsdfile)["data"]
         return True
@@ -417,46 +417,46 @@ class fileHandler(object):
         #temp name with temporary host name included to avoid conflict between multiple hosts copying at the same time
         newpath_tmp = newpath+'_'+THISHOST+TEMPEXT
         while True:
-          try:
-              if not os.path.isdir(newdir):
-                  if createDestinationDir==False:
-                      if silent==False and missingDirAlert==True:
-                          self.logger.error("Unable to transport file "+str(oldpath)+". Destination directory does not exist: " + str(newdir))
-                      return False,checksum
-                  try:
-                      os.makedirs(newdir)
-                  except:
-                      #repeated check if dir was created in the meantime
-                      if not os.path.isdir(newdir):
-                          os.makedirs(newdir)
+            try:
+                if not os.path.isdir(newdir):
+                    if createDestinationDir==False:
+                        if silent==False and missingDirAlert==True:
+                            self.logger.error("Unable to transport file "+str(oldpath)+". Destination directory does not exist: " + str(newdir))
+                        return False,checksum
+                    try:
+                        os.makedirs(newdir)
+                    except:
+                        #repeated check if dir was created in the meantime
+                        if not os.path.isdir(newdir):
+                            os.makedirs(newdir)
 
-              if adler32:checksum=self.moveFileAdler32(oldpath,newpath_tmp,copy)
-              else:
-                  if copy: shutil.copy(oldpath,newpath_tmp)
-                  else: 
-                      shutil.move(oldpath,newpath_tmp)
-              break
+                if adler32:checksum=self.moveFileAdler32(oldpath,newpath_tmp,copy)
+                else:
+                    if copy: shutil.copy(oldpath,newpath_tmp)
+                    else:
+                        shutil.move(oldpath,newpath_tmp)
+                break
 
-          except (OSError,IOError),e:
-              if silent==False:
-                  if isinstance(e, IOError) and e.errno==2:
-                      self.logger.warning("Error in attempt to copy/move file to destination " + newpath + ":" + str(e))
-                  else:
-                      self.logger.exception(e)
-              retries-=1
-              if retries == 0:
-                  if silent==False:
-                      #do not print this warning if directory was removed
-                      if os.path.isdir(newdir):
-                          self.logger.error("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp))
-                      else:
-                          self.logger.warning("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp)+'.Target directory is gone')
-                  return False,checksum
-              else:
-                  time.sleep(0.5)
-          except Exception, e:
-              self.logger.exception(e)
-              raise e
+            except (OSError,IOError),e:
+                if silent==False:
+                    if isinstance(e, IOError) and e.errno==2:
+                        self.logger.warning("Error in attempt to copy/move file to destination " + newpath + ":" + str(e))
+                    else:
+                        self.logger.exception(e)
+                retries-=1
+                if retries == 0:
+                    if silent==False:
+                        #do not print this warning if directory was removed
+                        if os.path.isdir(newdir):
+                            self.logger.error("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp))
+                        else:
+                            self.logger.warning("Failure to move file "+str(oldpath)+" to "+str(newpath_tmp)+'.Target directory is gone')
+                    return False,checksum
+                else:
+                    time.sleep(0.5)
+            except Exception, e:
+                self.logger.exception(e)
+                raise e
         #renaming
         retries = 5
         while True:
@@ -465,12 +465,12 @@ class fileHandler(object):
                 break
             except (OSError,IOError),e:
                 if silent==False:
-                  if isinstance(e, IOError) and e.errno==2:
-                      self.logger.warning("Error encountered in attempt to copy/move file to destination " + newpath + ":" + str(e))
-                  elif isinstance(e, OSError) and e.errno==18:
-                      self.logger.error("failed attempt to rename " + newpath_tmp + " to " + newpath + " error: "+ str(e))
-                  else:
-                      self.logger.exception(e)
+                    if isinstance(e, IOError) and e.errno==2:
+                        self.logger.warning("Error encountered in attempt to copy/move file to destination " + newpath + ":" + str(e))
+                    elif isinstance(e, OSError) and e.errno==18:
+                        self.logger.error("failed attempt to rename " + newpath_tmp + " to " + newpath + " error: "+ str(e))
+                    else:
+                        self.logger.exception(e)
                 retries-=1
                 if retries == 0:
                     if silent==False:
@@ -491,7 +491,7 @@ class fileHandler(object):
             self.getFileInfo()
         return True,checksum
 
-    #move file (works only on src as file, not directory) 
+    #move file (works only on src as file, not directory)
     def moveFileAdler32(self,src,dst,copy):
 
         if os.path.isdir(src):
@@ -549,10 +549,10 @@ class fileHandler(object):
 
             #if any of 'proper' files has checksum set to -1, disable the check and substitute -1 in output json
             if ifilecksum == -1:
-              ccomb = -1
-              doChecksum = False
+                ccomb = -1
+                doChecksum = False
             if doChecksum:
-              ccomb = zlibextras.adler32_combine(ccomb,ifilecksum,ifilesize)
+                ccomb = zlibextras.adler32_combine(ccomb,ifilecksum,ifilesize)
 
             json_size+=ifilesize
 
@@ -571,16 +571,16 @@ class fileHandler(object):
                     read_len=len(buf)
                     file_size+=read_len
                     if doChecksum:
-                      adler32c=zlib.adler32(buf,adler32c)
+                        adler32c=zlib.adler32(buf,adler32c)
                     dst.write(buf)
             copy_size += file_size
             #adler32c = adler32 & 0xffffffff
             if doChecksum and ifilecksum != (adler32c & 0xffffffff):
-              self.logger.fatal("Checksum mismatch detected while reading file " + ifile + ". expected:"+str(ifilecksum)+" obtained:"+str(adler32c&0xffffffff))
+                self.logger.fatal("Checksum mismatch detected while reading file " + ifile + ". expected:"+str(ifilecksum)+" obtained:"+str(adler32c&0xffffffff))
             if file_size!=ifilesize:
-              self.logger.fatal("Size mismatch is detected while reading file " + ifile + ". expected:"+str(ifilesize)+" obtained:"+str(file_size))
+                self.logger.fatal("Size mismatch is detected while reading file " + ifile + ". expected:"+str(ifilesize)+" obtained:"+str(file_size))
             if doChecksum:
-              adler32accum = zlibextras.adler32_combine(adler32accum,adler32c,ifilesize) #& 0xffffffff
+                adler32accum = zlibextras.adler32_combine(adler32accum,adler32c,ifilesize) #& 0xffffffff
 
         if dst:
             dst.close()
@@ -616,9 +616,9 @@ class fileHandler(object):
                     json.dump(outputData,fi)
         except Exception,e:
             if verbose:
-              self.logger.exception(e)
+                self.logger.exception(e)
             else:
-              self.logger.warning('unable to writeout ' + filepath)
+                self.logger.warning('unable to writeout ' + filepath)
             return False
         return True
 
@@ -662,7 +662,7 @@ class fileHandler(object):
 
 
     def merge(self,infile):
-        defs,oldData = self.definitions,self.data["data"][:]           #TODO: check infile definitions 
+        defs,oldData = self.definitions,self.data["data"][:]           #TODO: check infile definitions
         jsdfile = infile.jsdfile
         host = infile.host
         newData = infile.data["data"][:]
@@ -682,14 +682,14 @@ class fileHandler(object):
                 findex,ftype = self.getFieldIndex("Filelist")
                 flist = newData[findex].split(',')
                 for l in flist:
-                  if l.endswith('.jsndata'):
-                    if (l.startswith('/')==False):
-                      self.inputData.append(os.path.join(self.dir,l))
-                    else:
-                      self.inputData.append(l)
+                    if l.endswith('.jsndata'):
+                        if (l.startswith('/')==False):
+                            self.inputData.append(os.path.join(self.dir,l))
+                        else:
+                            self.inputData.append(l)
             except Exception as ex:
-              self.logger.exception(ex)
-              pass
+                self.logger.exception(ex)
+                pass
             self.writeout()
 
     def updateData(self,infile):
@@ -701,36 +701,36 @@ class fileHandler(object):
 
     def mergeAndMoveJsnDataMaybe(self,outDir, removeInput=True):
         if len(self.inputData):
-          try:
-            outfile = os.path.join(self.dir,self.name+'.jsndata')
-            command_args = ["jsonMerger",outfile]
-            for fid in self.inputData:
-              command_args.append(fid)
-            p = subprocess.Popen(command_args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-            p.wait()
-            if p.returncode!=0:
-              self.logger.error('jsonMerger returned with exit code '+str(p.returncode)+' and response: ' + str(p.communicate()) + '. Merging parameters given:'+str(command_args))
-              return False
-          except Exception as ex:
-              self.logger.exception(ex)
-              return False
-          if removeInput:
-            for f in self.inputData:
-              try:
-                os.remove(f)
-              except:
-                pass
             try:
-              self.setFieldByName("Filesize",str(os.stat(outfile).st_size))
-              self.setFieldByName("FileAdler32","-1")
-              self.writeout() 
-              jsndatFile = fileHandler(outfile)
-              jsndatFile.moveFile(os.path.join(outDir, os.path.basename(outfile)),adler32=False,createDestinationDir=False)
+                outfile = os.path.join(self.dir,self.name+'.jsndata')
+                command_args = ["jsonMerger",outfile]
+                for fid in self.inputData:
+                    command_args.append(fid)
+                p = subprocess.Popen(command_args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+                p.wait()
+                if p.returncode!=0:
+                    self.logger.error('jsonMerger returned with exit code '+str(p.returncode)+' and response: ' + str(p.communicate()) + '. Merging parameters given:'+str(command_args))
+                    return False
             except Exception as ex:
-              self.logger.error("Unable to copy jsonStream data file "+str(outfile)+" to output.")
-              self.logger.exception(ex)
-              return False
-        return True 
+                self.logger.exception(ex)
+                return False
+            if removeInput:
+                for f in self.inputData:
+                    try:
+                        os.remove(f)
+                    except:
+                        pass
+                try:
+                    self.setFieldByName("Filesize",str(os.stat(outfile).st_size))
+                    self.setFieldByName("FileAdler32","-1")
+                    self.writeout()
+                    jsndatFile = fileHandler(outfile)
+                    jsndatFile.moveFile(os.path.join(outDir, os.path.basename(outfile)),adler32=False,createDestinationDir=False)
+                except Exception as ex:
+                    self.logger.error("Unable to copy jsonStream data file "+str(outfile)+" to output.")
+                    self.logger.exception(ex)
+                    return False
+        return True
 
 class Aggregator(object):
     def __init__(self,definitions,newData,oldData):
@@ -744,7 +744,7 @@ class Aggregator(object):
         return self.result
 
     def action(self,definition,data1,data2=None):
-        actionName = "action_"+definition["operation"] 
+        actionName = "action_"+definition["operation"]
         if hasattr(self,actionName):
             try:
                 return getattr(self,actionName)(data1,data2)
@@ -766,7 +766,7 @@ class Aggregator(object):
     def action_merge(self,data1,data2):
         if not data2: return data1
         file1 = fileHandler(data1)
-        
+
         file2 = fileHandler(data2)
         newfilename = "_".join([file2.run,file2.ls,file2.stream,file2.host])+file2.ext
         file2 = fileHandler(newfilename)
@@ -793,7 +793,7 @@ class Aggregator(object):
             return str(data1)
         else:
             return "N/A"
-        
+
     def action_cat(self,data1,data2):
         if data2 and data1: return str(data1)+","+str(data2)
         elif data1: return str(data1)
@@ -802,4 +802,3 @@ class Aggregator(object):
 
     def action_adler32(self,data1,data2):
         return "-1"
-

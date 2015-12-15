@@ -18,22 +18,22 @@ class Daemon2:
     """
 
     def __init__(self, processname, instance, confname=None, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
-                      self.stdin = stdin
-                      self.stdout = stdout
-                      self.stderr = stderr
-                      self.processname = processname
-                      self.instance = instance
-                      if confname==None:confname=processname
-                      if instance=="main": 
-                          instsuffix=""
-                          self.instancemsg=""
-                      else:
-                          instsuffix="-"+instance
-                          self.instancemsg=" instance"+instance
+        self.stdin = stdin
+        self.stdout = stdout
+        self.stderr = stderr
+        self.processname = processname
+        self.instance = instance
+        if confname==None:confname=processname
+        if instance=="main":
+            instsuffix=""
+            self.instancemsg=""
+        else:
+            instsuffix="-"+instance
+            self.instancemsg=" instance"+instance
 
-                      self.pidfile = "/var/run/" + processname + instsuffix + ".pid"
-                      self.conffile = "/etc/" + confname + instsuffix + ".conf"
-                      self.lockfile = '/var/lock/subsys/'+processname + instsuffix
+        self.pidfile = "/var/run/" + processname + instsuffix + ".pid"
+        self.conffile = "/etc/" + confname + instsuffix + ".conf"
+        self.lockfile = '/var/lock/subsys/'+processname + instsuffix
 
 
 
@@ -93,7 +93,7 @@ class Daemon2:
         """
         Start the daemon
         """
-        if not os.path.exists(self.conffile): 
+        if not os.path.exists(self.conffile):
             print "Missing "+self.conffile+" - can not start instance"
             #raise Exception("Missing "+self.conffile)
             sys.exit(4)
@@ -113,8 +113,8 @@ class Daemon2:
         # Start the daemon
         ret = self.daemonize()
         if ret == 0:
-           self.run()
-           ret = 0
+            self.run()
+            ret = 0
         return ret
 
     def status(self):
@@ -206,13 +206,13 @@ class Daemon2:
             #C: not very elegant but it works
             while 1:
                 if timeout <=0.:
-                  sys.stdout.write("\nterminating with -9...")
-                  os.kill(pid,9)
-                  sys.stdout.write("\nterminated after 5 seconds\n")
-                  #let system time to kill the process tree
-                  time.sleep(1)
-                  self.emergencyUmount()
-                  time.sleep(0.5)
+                    sys.stdout.write("\nterminating with -9...")
+                    os.kill(pid,9)
+                    sys.stdout.write("\nterminated after 5 seconds\n")
+                    #let system time to kill the process tree
+                    time.sleep(1)
+                    self.emergencyUmount()
+                    time.sleep(0.5)
                 os.kill(pid,0)
                 sys.stdout.write('.')
                 sys.stdout.flush()
@@ -289,7 +289,7 @@ class Daemon2:
         bu_base_dir=None#/fff/BU0?
         ramdisk_subdirectory = 'ramdisk'
         output_subdirectory = 'output'
-       
+
         for sec in cfg.sections():
             for item,value in cfg.items(sec):
                 if item=='ramdisk_subdiretory':ramdisk_subdirectory=value
@@ -320,6 +320,3 @@ class Daemon2:
             os.unlink(self.lockfile)
         except:
             pass
-
-
- 

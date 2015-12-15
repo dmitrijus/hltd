@@ -7,15 +7,15 @@ import time
 import sys
 
 def clearDir(dir):
-  try:
-    files = os.listdir(dir)
-    for file in files:
-      try:
-        os.unlink(os.path.join(dir,file))
-      except:
+    try:
+        files = os.listdir(dir)
+        for file in files:
+            try:
+                os.unlink(os.path.join(dir,file))
+            except:
+                pass
+    except:
         pass
-  except:
-    pass
 
 conf=hltdconf.hltdConf('/etc/hltd.conf')
 
@@ -40,31 +40,31 @@ if role=='fu' and not conf.dqm_machine:
 
     foundInCloud=len(os.listdir(conf.resource_base+'/cloud'))>0
     clearDir(conf.resource_base+'/cloud')
- 
+
     resource_count = 0
     def fillCores():
-      global resource_count
-      with open('/proc/cpuinfo','r') as fp:
-        for line in fp:
-          if line.startswith('processor'):
-            if foundInCloud and ignoreCloud:
-              open(conf.resource_base+'/cloud/core'+str(resource_count),'a').close()
-            else:
-              open(conf.resource_base+'/quarantined/core'+str(resource_count),'a').close()
-            resource_count+=1
+        global resource_count
+        with open('/proc/cpuinfo','r') as fp:
+            for line in fp:
+                if line.startswith('processor'):
+                    if foundInCloud and ignoreCloud:
+                        open(conf.resource_base+'/cloud/core'+str(resource_count),'a').close()
+                    else:
+                        open(conf.resource_base+'/quarantined/core'+str(resource_count),'a').close()
+                    resource_count+=1
 
     fillCores()
     #fill with more cores for VM environment
     if os.uname()[1].startswith('fu-vm-'):
-      fillCores()
-      fillCores()
-      fillCores()
+        fillCores()
+        fillCores()
+        fillCores()
 
     try:
         os.umask(0)
         os.makedirs(conf.watch_directory)
     except OSError:
-        try: 
+        try:
             os.chmod(conf.watch_directory,0777)
         except:
             pass
@@ -79,4 +79,3 @@ elif role=='bu':
             os.chmod(conf.watch_directory+'/appliance',0777)
         except:
             pass
-

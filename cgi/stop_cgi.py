@@ -3,7 +3,7 @@ import cgi
 import os
 form = cgi.FieldStorage()
 print "Content-Type: text/html"     # HTML is following
-print            
+print
 print "<TITLE>CGI script output</TITLE>"
 if "run" not in form:
     print "<H1>Error</H1>"
@@ -13,5 +13,3 @@ else:
     fp.close()
     print "<H1>run "+str(form["run"].value)+" stopped</H1>"
     print "in dir "+os.getcwd()
-
-

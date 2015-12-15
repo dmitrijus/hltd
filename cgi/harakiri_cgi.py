@@ -11,7 +11,7 @@ how can we handle signaling the daemon ?
 
 form = cgi.FieldStorage()
 print "Content-Type: text/html"     # HTML is following
-print            
+print
 print "<TITLE>CGI script output</TITLE>"
 print "Hey I'm still here !"
 
@@ -24,4 +24,4 @@ except Exception as ex:
     print "exception encountered in operating hltd\n"
     print '<P>'
     print ex
-    raise                    
+    raise

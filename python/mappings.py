@@ -42,7 +42,7 @@ central_es_settings_hltlogs = {
                 'number_of_replicas' : 1
             }
         }
- 
+
 
 central_runindex_mapping = {
             'run' : {
@@ -154,7 +154,7 @@ central_runindex_mapping = {
                     'NBytes'        :{'type':'long'},
                     'appliance'     :{'type':'string','index' : 'not_analyzed'}
                     },
-                '_timestamp' : { 
+                '_timestamp' : {
                     'enabled'   : True,
                     'store'     : "yes",
                     "path"      : "fm_date"
@@ -235,7 +235,7 @@ central_boxinfo_mapping = {
               'blacklist' : {'type':'string',"index":"not_analyzed"}
               #'activeRunsErrors':{'type':'string',"index":"not_analyzed"},#deprecated
               },
-            '_timestamp' : { 
+            '_timestamp' : {
               'enabled'   : True,
               'store'     : "yes",
               "path"      : "fm_date"
@@ -263,7 +263,7 @@ central_boxinfo_mapping = {
               "stale_resources" :            { "type" : "integer" },
               "used" :                       { "type" : "integer" }
               },
-            '_timestamp' : { 
+            '_timestamp' : {
               'enabled'   : True,
               'store'     : "yes",
               "path"      : "fm_date"
@@ -274,7 +274,7 @@ central_boxinfo_mapping = {
 
 central_hltdlogs_mapping = {
             'hltdlog' : {
-                '_timestamp' : { 
+                '_timestamp' : {
                     'enabled'   : True,
                     'store'     : "yes"
                 },
@@ -364,5 +364,3 @@ central_hltdlogs_mapping = {
                     }
             }
 }
-
-

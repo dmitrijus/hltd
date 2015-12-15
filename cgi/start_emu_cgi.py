@@ -3,7 +3,7 @@ import cgi
 import os
 import time
 
-RUNNUMBER_PADDING=6 
+RUNNUMBER_PADDING=6
 
 form = cgi.FieldStorage()
 if "run" not in form:
@@ -26,10 +26,10 @@ else:
     except Exception as ex:
         print "Status:410"
         success = False
-        
+
 
     attempts=0
-    
+
     if success:
         while not os.path.exists(runfilename):
             time.sleep(1.)
@@ -40,9 +40,7 @@ else:
                 break
     if success:
         print "Content-Type: text/html"     # HTML is following
-        print            
+        print
         print "<TITLE>CGI script output</TITLE>"
         print "<H1>emu run "+str(form["run"].value)+" created</H1>"
         print "in dir "+os.getcwd()
-
-

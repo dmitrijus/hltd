@@ -77,15 +77,15 @@ def getmachinetype():
             es_cdaq_list_ip = socket.gethostbyname_ex('es-cdaq')[2]
             es_tribe_list_ip = socket.gethostbyname_ex('es-tribe')[2]
             for es in es_cdaq_list:
-              try:
-                  es_cdaq_list_ip.append(socket.gethostbyname_ex(es)[2][0])
-              except Exception as ex:
-                  print ex
+                try:
+                    es_cdaq_list_ip.append(socket.gethostbyname_ex(es)[2][0])
+                except Exception as ex:
+                    print ex
             for es in es_tribe_list:
-              try:
-                  es_tribe_list_ip.append(socket.gethostbyname_ex(es)[2][0])
-              except Exception as ex:
-                  print ex
+                try:
+                    es_tribe_list_ip.append(socket.gethostbyname_ex(es)[2][0])
+                except Exception as ex:
+                    print ex
 
             myaddr = socket.gethostbyname(myhost)
             if myaddr in es_cdaq_list_ip:
@@ -96,11 +96,11 @@ def getmachinetype():
                 return 'unknown','unknown'
         except socket.gaierror, ex:
             print 'dns lookup error ',str(ex)
-            raise ex  
-    else: 
-       print "unknown machine type"
-       return 'unknown','unknown'
-    
+            raise ex
+    else:
+        print "unknown machine type"
+        return 'unknown','unknown'
+
 
 def getIPs(hostname):
     try:
@@ -130,7 +130,7 @@ def checkModifiedConfigInFile(file):
         if l.strip().startswith("#edited by fff meta rpm"):
             return True
     return False
-    
+
 
 
 def checkModifiedConfig(lines):
@@ -142,11 +142,11 @@ def checkModifiedConfig(lines):
 
 #alternates between two data inteface indices based on host naming convention
 def name_identifier():
-  try:
-      nameParts = os.uname()[1].split('-')
-      return (int(nameParts[-1]) * int(nameParts[-2]/2)) % 2
-  except:
-      return 0
+    try:
+        nameParts = os.uname()[1].split('-')
+        return (int(nameParts[-1]) * int(nameParts[-2]/2)) % 2
+    except:
+        return 0
 
 
 
@@ -155,38 +155,38 @@ def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retr
     #con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_W/'+dbpwd+'@'+dbhost+':10121/int2r_lb.cern.ch',
     try:
 
-      if env_ == "vm":
+        if env_ == "vm":
 
-        try:
+            try:
             #cluster in openstack that is not (yet) in mysql
-            retval = []
-            for bu_hn in vm_override_buHNs[hostname]:
-              retval.append(["myBU",bu_hn])
-            return retval
-        except:
-            pass
-        con = MySQLdb.connect( host= dbhost_, user = dblogin_, passwd = dbpwd_, db = dbsid_)
-      else:
-        session_suffix = hostname.split('-')[0]+hostname.split('-')[1]
-        if parentTag == 'daq2':
-            if dbhost_.strip()=='null':
-                #con = cx_Oracle.connect('CMS_DAQ2_HW_CONF_W','pwd','cms_rcms',
-                con = cx_Oracle.connect(dblogin_,dbpwd_,dbsid_,
-                          cclass="FFFSETUP"+session_suffix,purity = cx_Oracle.ATTR_PURITY_SELF)
-            else:
-                con = cx_Oracle.connect(dblogin_+'/'+dbpwd_+'@'+dbhost_+':10121/'+dbsid_,
-                          cclass="FFFSETUP"+session_suffix,purity = cx_Oracle.ATTR_PURITY_SELF)
+                retval = []
+                for bu_hn in vm_override_buHNs[hostname]:
+                    retval.append(["myBU",bu_hn])
+                return retval
+            except:
+                pass
+            con = MySQLdb.connect( host= dbhost_, user = dblogin_, passwd = dbpwd_, db = dbsid_)
         else:
-            con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_R/'+dbpwd_+'@int2r2-v.cern.ch:10121/int2r_lb.cern.ch',
-                          cclass="FFFSETUP"+session_suffix,purity = cx_Oracle.ATTR_PURITY_SELF)
-    
+            session_suffix = hostname.split('-')[0]+hostname.split('-')[1]
+            if parentTag == 'daq2':
+                if dbhost_.strip()=='null':
+                #con = cx_Oracle.connect('CMS_DAQ2_HW_CONF_W','pwd','cms_rcms',
+                    con = cx_Oracle.connect(dblogin_,dbpwd_,dbsid_,
+                              cclass="FFFSETUP"+session_suffix,purity = cx_Oracle.ATTR_PURITY_SELF)
+                else:
+                    con = cx_Oracle.connect(dblogin_+'/'+dbpwd_+'@'+dbhost_+':10121/'+dbsid_,
+                              cclass="FFFSETUP"+session_suffix,purity = cx_Oracle.ATTR_PURITY_SELF)
+            else:
+                con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_R/'+dbpwd_+'@int2r2-v.cern.ch:10121/int2r_lb.cern.ch',
+                              cclass="FFFSETUP"+session_suffix,purity = cx_Oracle.ATTR_PURITY_SELF)
+
     except Exception as ex:
-      syslog.syslog('setupmachine.py: '+ str(ex))
-      time.sleep(0.1)
-      if retry:
-        return getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retry=False)
-      else:
-        raise ex
+        syslog.syslog('setupmachine.py: '+ str(ex))
+        time.sleep(0.1)
+        if retry:
+            return getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retry=False)
+        else:
+            raise ex
     #print con.version
 
     cur = con.cursor()
@@ -201,7 +201,7 @@ def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retr
                 ha.eqset_id=hn.eqset_id AND \
                 hn.eqset_id=d.eqset_id AND \
                 ha.host_id = hn.host_id AND \
-		ha.attr_name like 'myBU!_%' escape '!' AND \
+                ha.attr_name like 'myBU!_%' escape '!' AND \
                 hn.nic_id = d.nic_id AND \
                 d.dnsname = '" + hostname + "' \
                 AND d.eqset_id = (select eqset_id from DAQ_EQCFG_EQSET \
@@ -216,7 +216,7 @@ def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retr
                 ha.eqset_id=hn.eqset_id AND \
                 hn.eqset_id=d.eqset_id AND \
                 ha.host_id = hn.host_id AND \
-		ha.attr_name like 'myBU!_%' escape '!' AND \
+                ha.attr_name like 'myBU!_%' escape '!' AND \
                 hn.nic_id = d.nic_id AND \
                 d.dnsname = '" + hostname + "' \
                 AND d.eqset_id = (select child.eqset_id from DAQ_EQCFG_EQSET child, DAQ_EQCFG_EQSET \
@@ -225,10 +225,10 @@ def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retr
     #NOTE: to query squid master for the FU, replace 'myBU%' with 'mySquidMaster%'
 
     if eqset_ == 'latest':
-      cur.execute(qstring)
+        cur.execute(qstring)
     else:
-      print "query equipment set",parentTag+'/'+eqset_
-      cur.execute(qstring2)
+        print "query equipment set",parentTag+'/'+eqset_
+        cur.execute(qstring2)
 
     retval = []
     for res in cur:
@@ -244,7 +244,7 @@ def getAllBU(requireFU=False):
     if True:
     #if parentTag == 'daq2':
         if dbhost.strip()=='null':
-            #con = cx_Oracle.connect('CMS_DAQ2_HW_CONF_W','pwd','cms_rcms',
+                #con = cx_Oracle.connect('CMS_DAQ2_HW_CONF_W','pwd','cms_rcms',
             con = cx_Oracle.connect(dblogin,dbpwd,dbsid,
                       cclass="FFFSETUP",purity = cx_Oracle.ATTR_PURITY_SELF)
         else:
@@ -253,7 +253,7 @@ def getAllBU(requireFU=False):
     #else:
     #    con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_W/'+dbpwd+'@int2r2-v.cern.ch:10121/int2r_lb.cern.ch',
     #                  cclass="FFFSETUP",purity = cx_Oracle.ATTR_PURITY_SELF)
- 
+
     cur = con.cursor()
     retval = []
     if requireFU==False:
@@ -263,19 +263,19 @@ def getAllBU(requireFU=False):
 
     else:
         qstring = "select attr_value from \
-	                DAQ_EQCFG_HOST_ATTRIBUTE ha,       \
-	                DAQ_EQCFG_HOST_NIC hn,              \
-	                DAQ_EQCFG_DNSNAME d                  \
-	                where                                 \
-	                ha.eqset_id=hn.eqset_id AND            \
-			hn.eqset_id=d.eqset_id AND              \
-			ha.host_id = hn.host_id AND              \
-			ha.attr_name like 'myBU!_%' escape '!' AND \
-			hn.nic_id = d.nic_id AND                   \
-			d.dnsname like 'fu-%'                       \
-			AND d.eqset_id = (select eqset_id from DAQ_EQCFG_EQSET \
-			where tag='"+parentTag.upper()+"' AND                    \
-			ctime = (SELECT MAX(CTIME) FROM DAQ_EQCFG_EQSET WHERE tag='"+parentTag.upper()+"'))"
+                        DAQ_EQCFG_HOST_ATTRIBUTE ha,       \
+                        DAQ_EQCFG_HOST_NIC hn,              \
+                        DAQ_EQCFG_DNSNAME d                  \
+                        where                                 \
+                        ha.eqset_id=hn.eqset_id AND            \
+                        hn.eqset_id=d.eqset_id AND              \
+                        ha.host_id = hn.host_id AND              \
+                        ha.attr_name like 'myBU!_%' escape '!' AND \
+                        hn.nic_id = d.nic_id AND                   \
+                        d.dnsname like 'fu-%'                       \
+                        AND d.eqset_id = (select eqset_id from DAQ_EQCFG_EQSET \
+                        where tag='"+parentTag.upper()+"' AND                    \
+                        ctime = (SELECT MAX(CTIME) FROM DAQ_EQCFG_EQSET WHERE tag='"+parentTag.upper()+"'))"
 
 
 
@@ -337,9 +337,9 @@ def getInstances(hostname):
     #{"cmsdaq-401b28.cern.ch":{"names":["main","ecal"],"sizes":[40,20]}} #size is in megabytes
     #BU can have multiple instances, FU should have only one specified. If none, any host is assumed to have only main instance
     try:
-       with open('/opt/fff/instances.input','r') as fi:
-           doc = json.load(fi)
-           return doc[hostname]['names'],doc[hostname]['sizes']
+        with open('/opt/fff/instances.input','r') as fi:
+            doc = json.load(fi)
+            return doc[hostname]['names'],doc[hostname]['sizes']
     except:
         return ["main"],0
 
@@ -383,7 +383,7 @@ class FileManager:
             lstrip = l.strip()
             if lstrip.startswith('#'):
                 continue
-                   
+
             try:
                 key = lstrip.split(self.sep)[0].strip()
                 for r in self.regs:
@@ -534,7 +534,7 @@ if __name__ == "__main__":
     if not sys.argv[argvc]:
         print "CMSSW number of framework streams/process is missing"
     nfwkstreams = sys.argv[argvc]
-     #@SM: override 
+     #@SM: override
     #nfwkstreams = 4
     resource_cmsswstreams = nfwkstreams
 
@@ -552,19 +552,19 @@ if __name__ == "__main__":
         cnhostname = os.uname()[1]
     else:
         cnhostname = os.uname()[1]+'.cms'
-       
+
     use_elasticsearch = 'True'
     cmssw_version = 'CMSSW_7_1_4_patch1'
     dqmmachine = 'False'
     execdir = '/opt/hltd'
     auto_clear_quarantined = 'False'
     if resource_cmsswthreads == 1 or resource_cmsswstreams == 1:
-      resourcefract = 0.33
-      resourcefractd = 0.45
+        resourcefract = 0.33
+        resourcefractd = 0.45
     else:
-      resourcefract = 1
-      resourcefractd = 1
-    
+        resourcefract = 1
+        resourcefractd = 1
+
     if cluster == 'daq2val':
         runindex_name = 'dv'
         auto_clear_quarantined = 'True'
@@ -600,7 +600,7 @@ if __name__ == "__main__":
             if type == 'fu':
                 cmsswloglevel = 'ERROR'
                 cmssw_base = '/home/dqmdevlocal'
-                execdir = '/home/dqmdevlocal/output' ##not yet 
+                execdir = '/home/dqmdevlocal/output' ##not yet
     elif cluster == 'hilton':
         runindex_name = 'dv'
         use_elasticsearch = 'False'
@@ -610,24 +610,24 @@ if __name__ == "__main__":
     buDataAddr=[]
 
     if type == 'fu':
-      if cluster == 'daq2val' or cluster == 'daq2': 
-        for addr in getBUAddr(cluster,cnhostname,env,equipmentSet,dbhost,dblogin,dbpwd,dbsid):
-            if buName==None:
-                buName = addr[1].split('.')[0]
-            elif buName != addr[1].split('.')[0]:
-                print "BU name not same for all interfaces:",buName,addr[1].split('.')[0]
-                continue
-            buDataAddr.append(addr[1])
-            #if none are pingable, first one is picked
-            if buName == None or len(buDataAddr)==0:
-                print "no BU found for this FU in the dabatase"
-                sys.exit(-1)
-      elif cluster == 'hilton':
-          pass
-      else:
-          print "FU configuration in cluster",cluster,"not supported yet !!"
-          sys.exit(-2)
- 
+        if cluster == 'daq2val' or cluster == 'daq2':
+            for addr in getBUAddr(cluster,cnhostname,env,equipmentSet,dbhost,dblogin,dbpwd,dbsid):
+                if buName==None:
+                    buName = addr[1].split('.')[0]
+                elif buName != addr[1].split('.')[0]:
+                    print "BU name not same for all interfaces:",buName,addr[1].split('.')[0]
+                    continue
+                buDataAddr.append(addr[1])
+                #if none are pingable, first one is picked
+                if buName == None or len(buDataAddr)==0:
+                    print "no BU found for this FU in the dabatase"
+                    sys.exit(-1)
+        elif cluster == 'hilton':
+            pass
+        else:
+            print "FU configuration in cluster",cluster,"not supported yet !!"
+            sys.exit(-2)
+
     elif type == 'bu':
         if env == "vm":
             buName = os.uname()[1].split(".")[0]
@@ -656,12 +656,12 @@ if __name__ == "__main__":
         #maybe backup vanilla versions
         essysEdited =  checkModifiedConfigInFile(elasticsysconf)
         if essysEdited == False:
-          #print "elasticsearch sysconfig configuration was not yet modified"
-          shutil.copy(elasticsysconf,os.path.join(backup_dir,os.path.basename(elasticsysconf)))
+            #print "elasticsearch sysconfig configuration was not yet modified"
+            shutil.copy(elasticsysconf,os.path.join(backup_dir,os.path.basename(elasticsysconf)))
 
         esEdited =  checkModifiedConfigInFile(elasticconf)
         if esEdited == False:
-          shutil.copy(elasticconf,os.path.join(backup_dir,os.path.basename(elasticconf)))
+            shutil.copy(elasticconf,os.path.join(backup_dir,os.path.basename(elasticconf)))
 
         if type == 'fu' or type == 'bu':
 
@@ -670,8 +670,8 @@ if __name__ == "__main__":
             essyscfg.reg('MAX_LOCKED_MEMORY','unlimited')
             essyscfg.reg('ES_USE_GC_LOGGING','false')
             if type == 'fu':
-              #if myhost.startswith('fu-c2d'):#Megware FU racks
-                #essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log -XX:NewSize=500m -XX:MaxNewSize=600m"')
+                    #if myhost.startswith('fu-c2d'):#Megware FU racks
+                    #essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log -XX:NewSize=500m -XX:MaxNewSize=600m"')
                 essyscfg.reg('ES_JAVA_OPTS','""')
             essyscfg.commit()
 
@@ -733,7 +733,7 @@ if __name__ == "__main__":
             eslogcfg = FileManager(elasticlogconf,':',esEdited,'',' ')
             eslogcfg.reg('es.logger.level','WARN')
             eslogcfg.commit()
- 
+
         if type == 'escdaq':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
             essyscfg.reg('ES_HEAP_SIZE','30G')
@@ -757,169 +757,168 @@ if __name__ == "__main__":
 
     if "hltd" in selection:
 
-      #first prepare bus.config file
-      if type == 'fu':
+        #first prepare bus.config file
+        if type == 'fu':
 
         #permissive:try to remove old bus.config
-        try:os.remove(os.path.join(backup_dir,os.path.basename(busconfig)))
-        except:pass
-        try:os.remove(busconfig)
-        except:pass
+            try:os.remove(os.path.join(backup_dir,os.path.basename(busconfig)))
+            except:pass
+            try:os.remove(busconfig)
+            except:pass
 
-        #write bu ip address
-        if cluster!='hilton': 
-            f = open(busconfig,'w+')
-            #swap entries based on name (only C6100 hosts with two data interfaces):
-            if len(buDataAddr)>1 and name_identifier()==1:
-                temp = buDataAddr[0]
-                buDataAddr[0]=buDataAddr[1]
-                buDataAddr[1]=temp
+            #write bu ip address
+            if cluster!='hilton':
+                f = open(busconfig,'w+')
+                #swap entries based on name (only C6100 hosts with two data interfaces):
+                if len(buDataAddr)>1 and name_identifier()==1:
+                    temp = buDataAddr[0]
+                    buDataAddr[0]=buDataAddr[1]
+                    buDataAddr[1]=temp
 
-            newline=False
-            for addr in buDataAddr:
-                if newline:f.writelines('\n')
-                newline=True
-                try:
-                    nameToWrite = getIPs(addr)[0]
-                except Exception as ex:
-                    print ex
-                    #write bus.config even if name is not yet available by DNS
-                    nameToWrite = addr
-                f.writelines(nameToWrite)
-            f.close()
+                newline=False
+                for addr in buDataAddr:
+                    if newline:f.writelines('\n')
+                    newline=True
+                    try:
+                        nameToWrite = getIPs(addr)[0]
+                    except Exception as ex:
+                        print ex
+                        #write bus.config even if name is not yet available by DNS
+                        nameToWrite = addr
+                    f.writelines(nameToWrite)
+                f.close()
 
-      #FU should have one instance assigned, BUs can have multiple
-      watch_dir_bu = '/fff/ramdisk'
-      out_dir_bu = '/fff/output'
-      log_dir_bu = '/var/log/hltd'
+        #FU should have one instance assigned, BUs can have multiple
+        watch_dir_bu = '/fff/ramdisk'
+        out_dir_bu = '/fff/output'
+        log_dir_bu = '/var/log/hltd'
 
-      instances,sizes=getInstances(os.uname()[1])
-      if len(instances)==0: instances=['main']
+        instances,sizes=getInstances(os.uname()[1])
+        if len(instances)==0: instances=['main']
 
-      hltdEdited = checkModifiedConfigInFile(hltdconf)
+        hltdEdited = checkModifiedConfigInFile(hltdconf)
 
-      if hltdEdited == False:
-        shutil.copy(hltdconf,os.path.join(backup_dir,os.path.basename(hltdconf)))
+        if hltdEdited == False:
+            shutil.copy(hltdconf,os.path.join(backup_dir,os.path.basename(hltdconf)))
 
-      if type=='bu':
-        try:os.remove('/etc/hltd.instances')
-        except:pass
+        if type=='bu':
+            try:os.remove('/etc/hltd.instances')
+            except:pass
 
-        #do major ramdisk cleanup (unmount existing loop mount points, run directories and img files)
-        try:
-            subprocess.check_call(['/opt/hltd/scripts/unmountloopfs.sh','/fff/ramdisk'])
-            #delete existing run directories to ensure there is space (if this machine has a non-main instance)
-            if instances!=["main"]:
-              os.popen('rm -rf /fff/ramdisk/run*')
-        except subprocess.CalledProcessError, err1:
-            print 'failed to cleanup ramdisk',err1
-        except Exception as ex:
-            print 'failed to cleanup ramdisk',ex
- 
-        cgibase=9000
-
-        for idx,val in enumerate(instances):
-          if idx!=0 and val=='main':
-            instances[idx]=instances[0]
-            instances[0]=val
-            break
-        for idx, instance in enumerate(instances):
-
-          watch_dir_bu = '/fff/ramdisk'
-          out_dir_bu = '/fff/output'
-          log_dir_bu = '/var/log/hltd'
-
-          cfile = hltdconf
-          if instance != 'main':
-            cfile = '/etc/hltd-'+instance+'.conf'
-            shutil.copy(hltdconf,cfile)
-            watch_dir_bu = os.path.join(watch_dir_bu,instance)
-            out_dir_bu = os.path.join(out_dir_bu,instance)
-            log_dir_bu = os.path.join(log_dir_bu,instance)
-
-            #run loopback setup for non-main instances (is done on every boot since ramdisk is volatile)
+            #do major ramdisk cleanup (unmount existing loop mount points, run directories and img files)
             try:
-                subprocess.check_call(['/opt/hltd/scripts/makeloopfs.sh','/fff/ramdisk',instance, str(sizes[idx])])
+                subprocess.check_call(['/opt/hltd/scripts/unmountloopfs.sh','/fff/ramdisk'])
+                #delete existing run directories to ensure there is space (if this machine has a non-main instance)
+                if instances!=["main"]:
+                    os.popen('rm -rf /fff/ramdisk/run*')
             except subprocess.CalledProcessError, err1:
-                print 'failed to configure loopback device mount in ramdisk'
+                print 'failed to cleanup ramdisk',err1
+            except Exception as ex:
+                print 'failed to cleanup ramdisk',ex
 
-          soap2file_port='0'
- 
-          if myhost in dqm_list or myhost in dqmtest_list or myhost in detdqm_list or cluster == 'daq2val' or env=='vm':
-              soap2file_port='8010'
+            cgibase=9000
 
-          hltdcfg = FileManager(cfile,'=',hltdEdited,' ',' ')
+            for idx,val in enumerate(instances):
+                if idx!=0 and val=='main':
+                    instances[idx]=instances[0]
+                    instances[0]=val
+                    break
+            for idx, instance in enumerate(instances):
 
-          hltdcfg.reg('enabled','True','[General]')
-          hltdcfg.reg('role','bu','[General]')
-      
-          hltdcfg.reg('user',username,'[General]')
-          hltdcfg.reg('instance',instance,'[General]')
+                watch_dir_bu = '/fff/ramdisk'
+                out_dir_bu = '/fff/output'
+                log_dir_bu = '/var/log/hltd'
 
-          #port for multiple instances
-          hltdcfg.reg('cgi_port',str(cgibase+idx),'[Web]')
-          hltdcfg.reg('cgi_instance_port_offset',str(idx),'[Web]')
-          hltdcfg.reg('soap2file_port',soap2file_port,'[Web]')
+                cfile = hltdconf
+                if instance != 'main':
+                    cfile = '/etc/hltd-'+instance+'.conf'
+                    shutil.copy(hltdconf,cfile)
+                    watch_dir_bu = os.path.join(watch_dir_bu,instance)
+                    out_dir_bu = os.path.join(out_dir_bu,instance)
+                    log_dir_bu = os.path.join(log_dir_bu,instance)
 
-          hltdcfg.reg('elastic_cluster',clusterName,'[Monitoring]')
+                    #run loopback setup for non-main instances (is done on every boot since ramdisk is volatile)
+                    try:
+                        subprocess.check_call(['/opt/hltd/scripts/makeloopfs.sh','/fff/ramdisk',instance, str(sizes[idx])])
+                    except subprocess.CalledProcessError, err1:
+                        print 'failed to configure loopback device mount in ramdisk'
 
-          #only 1 replica in MiniDAQ appliances
-          if myhost in minidaq_list:
-            hltdcfg.reg('force_replicas','0','[Monitoring]')
+                soap2file_port='0'
 
-          hltdcfg.reg('watch_directory',watch_dir_bu,'[General]')
-          #hltdcfg.reg('micromerge_output',out_dir_bu,'[General]')
-          hltdcfg.reg('elastic_runindex_url',elastic_host,'[Monitoring]')
-          hltdcfg.reg('elastic_runindex_name',runindex_name,'[Monitoring]')
-          hltdcfg.reg('use_elasticsearch',use_elasticsearch,'[Monitoring]')
-          hltdcfg.reg('es_cmssw_log_level',cmsswloglevel,'[Monitoring]')
-          hltdcfg.reg('dqm_machine',dqmmachine,'[DQM]')
-          hltdcfg.reg('log_dir',log_dir_bu,'[Logs]')
-          hltdcfg.commit()
+                if myhost in dqm_list or myhost in dqmtest_list or myhost in detdqm_list or cluster == 'daq2val' or env=='vm':
+                    soap2file_port='8010'
 
-        #write all instances in a file
-        if 'main' not in instances or len(instances)>1:
-          with open('/etc/hltd.instances',"w") as fi:
-            for instance in instances: fi.write(instance+"\n")
+                hltdcfg = FileManager(cfile,'=',hltdEdited,' ',' ')
+
+                hltdcfg.reg('enabled','True','[General]')
+                hltdcfg.reg('role','bu','[General]')
+
+                hltdcfg.reg('user',username,'[General]')
+                hltdcfg.reg('instance',instance,'[General]')
+
+                #port for multiple instances
+                hltdcfg.reg('cgi_port',str(cgibase+idx),'[Web]')
+                hltdcfg.reg('cgi_instance_port_offset',str(idx),'[Web]')
+                hltdcfg.reg('soap2file_port',soap2file_port,'[Web]')
+
+                hltdcfg.reg('elastic_cluster',clusterName,'[Monitoring]')
+
+                #only 1 replica in MiniDAQ appliances
+                if myhost in minidaq_list:
+                    hltdcfg.reg('force_replicas','0','[Monitoring]')
+
+                hltdcfg.reg('watch_directory',watch_dir_bu,'[General]')
+                #hltdcfg.reg('micromerge_output',out_dir_bu,'[General]')
+                hltdcfg.reg('elastic_runindex_url',elastic_host,'[Monitoring]')
+                hltdcfg.reg('elastic_runindex_name',runindex_name,'[Monitoring]')
+                hltdcfg.reg('use_elasticsearch',use_elasticsearch,'[Monitoring]')
+                hltdcfg.reg('es_cmssw_log_level',cmsswloglevel,'[Monitoring]')
+                hltdcfg.reg('dqm_machine',dqmmachine,'[DQM]')
+                hltdcfg.reg('log_dir',log_dir_bu,'[Logs]')
+                hltdcfg.commit()
+
+            #write all instances in a file
+            if 'main' not in instances or len(instances)>1:
+                with open('/etc/hltd.instances',"w") as fi:
+                    for instance in instances: fi.write(instance+"\n")
 
 
-      if type=='fu':
-          hltdcfg = FileManager(hltdconf,'=',hltdEdited,' ',' ')
+        if type=='fu':
+            hltdcfg = FileManager(hltdconf,'=',hltdEdited,' ',' ')
 
-          hltdcfg.reg('enabled','True','[General]')
-          hltdcfg.reg('role','fu','[General]')
+            hltdcfg.reg('enabled','True','[General]')
+            hltdcfg.reg('role','fu','[General]')
 
-          hltdcfg.reg('user',username,'[General]')
-          #FU can only have one instance (so we take instance[0] and ignore others)
-          hltdcfg.reg('instance',instances[0],'[General]')
-          if cluster=='hilton':
-              hltdcfg.reg('bu_base_dir','/fff/BU0','[General]')
+            hltdcfg.reg('user',username,'[General]')
+            #FU can only have one instance (so we take instance[0] and ignore others)
+            hltdcfg.reg('instance',instances[0],'[General]')
+            if cluster=='hilton':
+                hltdcfg.reg('bu_base_dir','/fff/BU0','[General]')
 
-          hltdcfg.reg('exec_directory',execdir,'[General]') 
-          hltdcfg.reg('watch_directory','/fff/data','[General]')
-          hltdcfg.reg('cgi_port','9000','[Web]')
-          hltdcfg.reg('cgi_instance_port_offset',"0",'[Web]')
-          hltdcfg.reg('soap2file_port','0','[Web]')
-          hltdcfg.reg('elastic_cluster',clusterName,'[Monitoring]')
-          hltdcfg.reg('es_cmssw_log_level',cmsswloglevel,'[Monitoring]')
-          hltdcfg.reg('elastic_runindex_url',elastic_host,'[Monitoring]')
-          hltdcfg.reg('elastic_runindex_name',runindex_name,'[Monitoring]')
-          hltdcfg.reg('use_elasticsearch',use_elasticsearch,'[Monitoring]')
-          hltdcfg.reg('dqm_machine',dqmmachine,'[DQM]')
-          hltdcfg.reg('auto_clear_quarantined',auto_clear_quarantined,'[Recovery]')
-          hltdcfg.reg('cmssw_base',cmssw_base,'[CMSSW]')
-          hltdcfg.reg('cmssw_default_version',cmssw_version,'[CMSSW]')
-          hltdcfg.reg('cmssw_threads',str(resource_cmsswthreads),'[CMSSW]')
-          hltdcfg.reg('cmssw_streams',str(resource_cmsswstreams),'[CMSSW]')
-          if myhost.startswith('fu-c2d'):
-              hltdcfg.reg('resource_use_fraction',str(resourcefractd),'[Resources]')
-          else:
-              hltdcfg.reg('resource_use_fraction',str(resourcefract),'[Resources]')
-          hltdcfg.commit()
+            hltdcfg.reg('exec_directory',execdir,'[General]')
+            hltdcfg.reg('watch_directory','/fff/data','[General]')
+            hltdcfg.reg('cgi_port','9000','[Web]')
+            hltdcfg.reg('cgi_instance_port_offset',"0",'[Web]')
+            hltdcfg.reg('soap2file_port','0','[Web]')
+            hltdcfg.reg('elastic_cluster',clusterName,'[Monitoring]')
+            hltdcfg.reg('es_cmssw_log_level',cmsswloglevel,'[Monitoring]')
+            hltdcfg.reg('elastic_runindex_url',elastic_host,'[Monitoring]')
+            hltdcfg.reg('elastic_runindex_name',runindex_name,'[Monitoring]')
+            hltdcfg.reg('use_elasticsearch',use_elasticsearch,'[Monitoring]')
+            hltdcfg.reg('dqm_machine',dqmmachine,'[DQM]')
+            hltdcfg.reg('auto_clear_quarantined',auto_clear_quarantined,'[Recovery]')
+            hltdcfg.reg('cmssw_base',cmssw_base,'[CMSSW]')
+            hltdcfg.reg('cmssw_default_version',cmssw_version,'[CMSSW]')
+            hltdcfg.reg('cmssw_threads',str(resource_cmsswthreads),'[CMSSW]')
+            hltdcfg.reg('cmssw_streams',str(resource_cmsswstreams),'[CMSSW]')
+            if myhost.startswith('fu-c2d'):
+                hltdcfg.reg('resource_use_fraction',str(resourcefractd),'[Resources]')
+            else:
+                hltdcfg.reg('resource_use_fraction',str(resourcefract),'[Resources]')
+            hltdcfg.commit()
     if "web" in selection:
-          try:os.rmdir('/var/www/html')
-          except:
-              try:os.unlink('/var/www/html')
-              except:pass
-          os.symlink('/es-web','/var/www/html')
-
+        try:os.rmdir('/var/www/html')
+        except:
+            try:os.unlink('/var/www/html')
+            except:pass
+        os.symlink('/es-web','/var/www/html')

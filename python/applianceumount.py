@@ -20,7 +20,7 @@ class UmountResponseReceiver(threading.Thread):
         self.watch_directory=watchdir
         self.cgi_port=cgiport
         self.finished=False
- 
+
     def run(self):
 
         try:
@@ -49,7 +49,7 @@ class UmountResponseReceiver(threading.Thread):
             return
 
     def stop(self):
-            self.httpd.shutdown()
+        self.httpd.shutdown()
 
 def checkMode(instance):
     try:
@@ -127,10 +127,10 @@ def stopFUs(instance):
                 machinelist.append(machine)
             except:
                 print "Unable to contact machine",machine
- 
+
     usedTimeout=0
     try:
-        while usedTimeout<maxTimeout: 
+        while usedTimeout<maxTimeout:
             activeMachines=[]
             machinePending=False
             newmachinelist = os.listdir(boxinfodir)
@@ -153,30 +153,30 @@ def stopFUs(instance):
         syslog.syslog("hltd-"+str(instance)+": FU suspend was interrupted")
         count=0
         if receiver!=None:
-          while receiver.finished==False:
+            while receiver.finished==False:
+                count+=1
+                if count%100==0:syslog.syslog("hltd-"+str(instance)+": stop: trying to stop suspend receiver HTTP server thread (script interrupted)")
+                try:
+                    receiver.stop()
+                    time.sleep(.1)
+                except:
+                    time.sleep(.5)
+                    pass
+            receiver.join()
+        return False
+
+    count=0
+    if receiver!=None:
+        while receiver.finished==False:
             count+=1
-            if count%100==0:syslog.syslog("hltd-"+str(instance)+": stop: trying to stop suspend receiver HTTP server thread (script interrupted)")
+            if count%100==0:syslog.syslog("hltd-"+str(instance)+": stop: trying to stop suspend receiver HTTP server thread")
             try:
                 receiver.stop()
                 time.sleep(.1)
             except:
                 time.sleep(.5)
                 pass
-          receiver.join()
-        return False
-
-    count=0
-    if receiver!=None:
-      while receiver.finished==False:
-        count+=1
-        if count%100==0:syslog.syslog("hltd-"+str(instance)+": stop: trying to stop suspend receiver HTTP server thread")
-        try:
-            receiver.stop()
-            time.sleep(.1)
-        except:
-            time.sleep(.5)
-            pass
-      receiver.join()
+        receiver.join()
 
     print "Finished FU suspend for:",str(machinelist)
     print "Not successful:",str(activeMachines)
@@ -187,4 +187,3 @@ def stopFUs(instance):
         return False
 
     return True
-

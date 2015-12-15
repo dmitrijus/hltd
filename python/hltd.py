@@ -43,6 +43,8 @@ hostname = os.uname()[1]
 nthreads = None
 nstreams = None
 expected_processes = None
+resource_base = None
+watch_directory = None
 
 bu_disk_list_ramdisk=[]
 bu_disk_list_output=[]
@@ -71,6 +73,7 @@ boxdoc_version = 1
 
 logCollector = None
 indexCreator = None
+boxInfo = None
 bu_emulator = None
 
 q_list = []
@@ -87,15 +90,30 @@ def setFromConf(myinstance):
     global broken
     global quarantined
     global cloud
+    global watch_directory
+    global resource_base
 
     conf=initConf(myinstance)
 
+    #for running from symbolic links
+    watch_directory = os.readlink(conf.watch_directory) if os.path.islink(conf.watch_directory) else conf.watch_directory
 
-    idles = conf.resource_base+'/idle/'
-    used = conf.resource_base+'/online/'
-    broken = conf.resource_base+'/except/'
-    quarantined = conf.resource_base+'/quarantined/'
-    cloud = conf.resource_base+'/cloud/'
+    """
+    the line below is a VERY DIRTY trick to address the fact that
+    BU resources are dynamic hence they should not be under /etc
+    """
+    if conf.role == 'bu':
+        resource_base = os.path.join(watch_directory,'appliance')
+    else:
+        resource_base = conf.resource_base
+    resource_base = os.readlink(resource_base) if os.path.islink(resource_base) else resource_base
+
+    if conf.role == 'fu':
+        idles = os.path.join(conf.resource_base,'idle/')
+        used = os.path.join(conf.resource_base,'online/')
+        broken = os.path.join(conf.resource_base,'except/')
+        quarantined = os.path.join(conf.resource_base,'quarantined/')
+        cloud = os.path.join(conf.resource_base,'cloud/')
 
     #prepare log directory
     if myinstance!='main':
@@ -2277,10 +2295,11 @@ class RunList:
 
 class RunRanger:
 
-    def __init__(self,instance,runList):
+    def __init__(self,instance,runList,resourceRanger):
         self.inotifyWrapper = InotifyWrapper(self)
         self.instance = instance
         self.runList = runList
+        self.rr = resourceRanger
 
     def register_inotify_path(self,path,mask):
         self.inotifyWrapper.registerPath(path,mask)
@@ -2995,10 +3014,6 @@ class ResourceRanger:
             resource_lock.release()
         except:pass
 
-    def process_IN_MODIFY(self, event):
-        logger.debug('ResourceRanger-MODIFY: event '+event.fullpath)
-        return
-
     def process_IN_CREATE(self, event):
         logger.debug('ResourceRanger-CREATE: event '+event.fullpath)
         if conf.dqm_machine:return
@@ -3190,6 +3205,7 @@ class hltd(Daemon2,object):
 
         #read configuration file
         setFromConf(self.instance)
+
         logger.info(" ")
         logger.info(" ")
         logger.info("[[[[ ---- hltd start : instance " + self.instance + " ---- ]]]]")
@@ -3200,7 +3216,6 @@ class hltd(Daemon2,object):
             sys.exit(1)
 
         if conf.role == 'fu':
-
             """
             cleanup resources
             """
@@ -3245,12 +3260,12 @@ class hltd(Daemon2,object):
             #    p = subprocess.Popen("rm -rf " + conf.watch_directory.strip()+'/{run*,end*,quarantined*,exclude,include,suspend*,populationcontrol,herod,logrestart,emu*}',shell=True)
             #    p.wait()
 
-            if conf.watch_directory.startswith('/fff'):
-                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/*',shell=True)
+            if watch_directory.startswith('/fff/'):
+                p = subprocess.Popen("rm -rf " + watch_directory+'/*',shell=True)
                 p.wait()
 
             global fu_watchdir_is_mountpoint
-            if os.path.ismount(conf.watch_directory):fu_watchdir_is_mountpoint=True
+            if os.path.ismount(.watch_directory):fu_watchdir_is_mountpoint=True
 
             #switch to cloud mode if active and hltd did not have cores in cloud directory in the last session
             if not is_in_cloud:
@@ -3259,6 +3274,16 @@ class hltd(Daemon2,object):
                     move_resources_to_cloud()
                     cloud_mode=True
 
+        #startup es log collector
+        if conf.use_elasticsearch == True:
+            time.sleep(.2)
+            restartLogCollector(self.instance)
+
+        #start bu emulator (test)
+        bu_emulator = BUEmu(conf,bu_disk_list_ramdisk_instance,preexec_function)
+
+        #BU mode threads
+        global boxInfo
         if conf.role == 'bu':
             global machine_blacklist
             #update_success,machine_blacklist=updateBlacklist()
@@ -3266,35 +3291,15 @@ class hltd(Daemon2,object):
             global ramdisk_submount_size
             if self.instance == 'main':
                 #if there are other instance mountpoints in ramdisk, they will be subtracted from size estimate
-                ramdisk_submount_size = submount_size(conf.watch_directory)
+                ramdisk_submount_size = submount_size(watch_directory)
 
-        """
-        the line below is a VERY DIRTY trick to address the fact that
-        BU resources are dynamic hence they should not be under /etc
-        """
-        conf.resource_base = conf.watch_directory+'/appliance' if conf.role == 'bu' else conf.resource_base
-
-        #for running from symbolic links
-        watch_directory = os.readlink(conf.watch_directory) if os.path.islink(conf.watch_directory) else conf.watch_directory
-        resource_base = os.readlink(conf.resource_base) if os.path.islink(conf.resource_base) else conf.resource_base
-
-
-        if conf.use_elasticsearch == True:
-            time.sleep(.2)
-            restartLogCollector(self.instance)
-
-        bu_emulator = BUEmu(conf,bu_disk_list_ramdisk_instance,preexec_function)
-
-        #start boxinfo elasticsearch updater
-        global nsslock
-        global boxInfo
-        boxInfo = None
-        if conf.role == 'bu':
-            try:os.makedirs(os.path.join(watch_directory,'appliance/dn'))
+            #start boxinfo elasticsearch updater
+            try:os.makedirs(os.path.join(resource_base,'dn'))
             except:pass
-            try:os.makedirs(os.path.join(watch_directory,'appliance/boxes'))
+            try:os.makedirs(os.path.join(resource_base,'boxes'))
             except:pass
             if conf.use_elasticsearch == True:
+                global nsslock
                 boxInfo = BoxInfoUpdater(watch_directory,conf,nsslock,boxdoc_version)
                 boxInfo.start()
 
@@ -3303,41 +3308,36 @@ class hltd(Daemon2,object):
                 #disabled until tested
                 #indexCreator.start()
 
-
+        #run class
         runList = RunList()
-        runRanger = RunRanger(self.instance,runList)
-        runRanger.register_inotify_path(watch_directory,inotify.IN_CREATE)
-        runRanger.start_inotify()
-        logger.info("started RunRanger  - watch_directory " + watch_directory)
 
-        appliance_base=resource_base
-        if resource_base.endswith('/'):
-            resource_base = resource_base[:-1]
-        if resource_base.rfind('/')>0:
-            appliance_base = resource_base[:resource_base.rfind('/')]
-
+        #start monitoring resources
         rr = ResourceRanger(runList)
+
+        #init resource ranger
         try:
             if conf.role == 'bu':
                 imask  = inotify.IN_CLOSE_WRITE | inotify.IN_DELETE | inotify.IN_CREATE | inotify.IN_MOVED_TO
                 rr.register_inotify_path(resource_base, imask)
-                rr.register_inotify_path(resource_base+'/boxes', imask)
+                rr.register_inotify_path(os.path.join(resource_base,'boxes'), imask)
             else:
-                #status file for cloud
-                #with open(os.path.join(watch_directory,'mode'),'w') as fp:
-                #  json.dump({"mode":"hlt"},fp))
-                #
-                imask_appl  = inotify.IN_MODIFY
                 imask  = inotify.IN_MOVED_TO
-                rr.register_inotify_path(appliance_base, imask_appl)
-                rr.register_inotify_path(resource_base+'/idle', imask)
-                rr.register_inotify_path(resource_base+'/cloud', imask)
-                rr.register_inotify_path(resource_base+'/except', imask)
+                rr.register_inotify_path(os.path.join(resource_base,'idle'), imask)
+                rr.register_inotify_path(os.path.join(resource_base,'cloud'), imask)
+                rr.register_inotify_path(os.path.join(resource_base,'except'), imask)
             rr.start_inotify()
             logger.info("started ResourceRanger - watch_directory "+resource_base)
         except Exception as ex:
             logger.error("Exception caught in starting ResourceRanger notifier")
             logger.error(ex)
+            os._exit(1)
+
+        #start monitoring new runs
+        runRanger = RunRanger(self.instance,runList,rr)
+        runRanger.register_inotify_path(watch_directory,inotify.IN_CREATE)
+        runRanger.start_inotify()
+        logger.info("started RunRanger  - watch_directory " + watch_directory)
+
 
         try:
             cgitb.enable(display=0, logdir="/tmp")

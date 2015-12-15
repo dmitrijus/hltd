@@ -71,6 +71,7 @@ boxinfoFUMap = {}
 boxdoc_version = 1
 
 logCollector = None
+indexCreator = None
 
 q_list = []
 num_excluded=0
@@ -326,6 +327,7 @@ def cleanup_mountpoints(remount=True):
 
         i = 0
         bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
+        busconfig_age = os.path.getmtime(bus_config)
         if os.path.exists(bus_config):
             lines = []
             with open(bus_config) as fp:
@@ -756,10 +758,10 @@ class system_monitor(threading.Thread):
                     except:pass
                     if ramdisk_occ<0:
                         ramdisk_occ=0
-                        logger.info('incorrect ramdisk occupancy',ramdisk_occ)
+                        logger.info('incorrect ramdisk occupancy:' + str(ramdisk_occ))
                     if ramdisk_occ>1:
                         ramdisk_occ=1
-                        logger.info('incorrect ramdisk occupancy',ramdisk_occ)
+                        logger.info('incorrect ramdisk occupancy:' + str(ramdisk_occ))
 
                     #init
                     resource_count_idle = 0
@@ -1035,7 +1037,8 @@ class BUEmu:
         self.runnumber = nr
         configtouse = conf.test_bu_config
         destination_base = None
-        if role == 'fu':
+        if conf.role == 'fu':
+            startindex = 0
             destination_base = bu_disk_list_ramdisk_instance[startindex%len(bu_disk_list_ramdisk_instance)]
         else:
             destination_base = conf.watch_directory
@@ -1130,7 +1133,7 @@ class OnlineResource:
 
     def NotifyShutdown(self):
         try:
-            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - self.cgi_instance_port_offset,timeout=5)
+            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
             connection.request("GET",'cgi-bin/stop_cgi.py?run='+str(self.runnumber))
             time.sleep(0.05)
             response = connection.getresponse()
@@ -2433,7 +2436,8 @@ class RunRanger:
                             #BU mode: failed to get blacklist
                             runList.remove(nr)
                             resource_lock.release()
-                            del(run)
+                            try:del(run)
+                            except:pass
                             return
                         resource_lock.release()
 
@@ -2563,7 +2567,7 @@ class RunRanger:
             except:pass
             nlen = len('cleanoutput')
             if len(dirname)==nlen:
-              logger.info('cleaning output (all run data)'+str(rn)) 
+              logger.info('cleaning output (all run data)') 
               cleanup_bu_disks(None,False,True)
             else:
               try:
@@ -2578,7 +2582,7 @@ class RunRanger:
             except:pass
             nlen = len('cleanramdisk')
             if len(dirname)==nlen:
-              logger.info('cleaning ramdisk (all run data)'+str(rn)) 
+              logger.info('cleaning ramdisk (all run data)') 
               cleanup_bu_disks(None,True,False)
             else:
               try:
@@ -3111,7 +3115,7 @@ class ResourceRanger:
         if resourcepath.endswith('boxes'):
             global boxinfoFUMap
             if basename in machine_blacklist:
-                try:boxinfoFUMap.remove(basename)
+                try:boxinfoFUMap.pop(basename)
                 except:pass
             else:
                 current_time = time.time()

@@ -615,7 +615,7 @@ if __name__ == "__main__":
             if buName==None:
                 buName = addr[1].split('.')[0]
             elif buName != addr[1].split('.')[0]:
-                print "BU name not same for all interfaces:",buName,buNameCheck
+                print "BU name not same for all interfaces:",buName,addr[1].split('.')[0]
                 continue
             buDataAddr.append(addr[1])
             #if none are pingable, first one is picked

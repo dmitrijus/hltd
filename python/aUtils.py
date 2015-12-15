@@ -109,7 +109,7 @@ class MonitorRanger:
                     self.lock.release()
                     #skip if EoL for LS in queue has already been written once (e.g. double file create race)
                     return False
-            except:
+            except Exception as ex:
                 self.logger.warning("Problem checking new EoLS filename: "+str(os.path.basename(event.fullpath)) + " error:"+str(ex))
                 try:self.lock.release()
                 except:pass
@@ -305,12 +305,12 @@ class fileHandler(object):
         try:
             with open(filepath) as fi:
                 data = json.load(fi)
+        except json.scanner.JSONDecodeError,e:
+            self.logger.exception(e)
+            data = {}
         except StandardError,e:
             self.logger.exception(e)
             data = {}
-        except json.scanner.JSONDecodeError,e:
-            self.logger.exception(e)
-            data = None
         return data
 
     def setJsdfile(self,jsdfile):
@@ -337,7 +337,7 @@ class fileHandler(object):
             index = defs.index(item)
             if "source" in item: 
                 source = item["source"]
-                sIndex,ftype = self.getFieldIndex(field)
+                sIndex,ftype = self.getFieldIndex(fieldName) #TODO:pyflakes gives warning..
                 data[index] = data[sIndex]
 
     def getFieldIndex(self,field):
@@ -356,7 +356,7 @@ class fileHandler(object):
             return value
         else:
             self.logger.warning("bad field request %r in %r" %(field,self.definitions))
-            return False
+            return None
 
     def setFieldByName(self,field,value,warning=True):
         index,ftype = self.getFieldIndex(field)
@@ -380,7 +380,7 @@ class fileHandler(object):
             #   return False
         elif not self.jsdfile: 
             self.logger.warning("jsd file not set")
-            self.definitions = {}
+            self.definitions = []
             return False
         if self.jsdfile not in jsdCache.keys():
           jsdCache[self.jsdfile] = self.getJsonData(self.jsdfile)
@@ -495,14 +495,14 @@ class fileHandler(object):
     def moveFileAdler32(self,src,dst,copy):
 
         if os.path.isdir(src):
-            raise Error("source `%s` is a directory")
+            raise shutil.Error("source `%s` is a directory")
 
         if os.path.isdir(dst):
             dst = os.path.join(dst, os.path.basename(src))
 
         try:
             if os.path.samefile(src, dst):
-                raise Error("`%s` and `%s` are the same file" % (src, dst))
+                raise shutil.Error("`%s` and `%s` are the same file" % (src, dst))
         except OSError:
             pass
 

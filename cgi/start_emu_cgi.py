@@ -33,7 +33,8 @@ else:
     if success:
         while not os.path.exists(runfilename):
             time.sleep(1.)
-            if ++attempts > 5:
+            attempts+=1
+            if attempts > 5:
                 print "Status:408"
                 success = False
                 break

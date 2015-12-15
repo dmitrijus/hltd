@@ -19,7 +19,7 @@ from hltdconf import *
 from aUtils import *
 
 
-class LumiSectionRanger():
+class LumiSectionRanger:
     host = os.uname()[1]        
     def __init__(self,mr,tempdir,outdir,run_number):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -55,9 +55,9 @@ class LumiSectionRanger():
         self.logged_early_crash_warning=False
         self.EOLS_list = []
 
-    def join(self, stop=False, timeout=None):
-        if stop: self.stop()
-        super(LumiSectionRanger, self).join(timeout)
+    #def join(self, stop=False, timeout=None):
+    #    if stop: self.stop()
+    #    super(LumiSectionRanger, self).join(timeout)
 
         #remove for threading
     def start(self):

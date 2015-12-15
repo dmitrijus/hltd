@@ -17,7 +17,7 @@ class IndexCreator(threading.Thread):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.daemon=True
-        if not self.isDaemon(): logger.error("Not daemon")
+        if not self.isDaemon(): self.logger.error("Not daemon")
         self.body=None
         try:
             filepath = os.path.join(os.path.dirname((os.path.realpath(__file__))),'../json',"runapplianceTemplate.json")
@@ -29,7 +29,7 @@ class IndexCreator(threading.Thread):
 
             #body.pop('template')
         except Exception as e:
-            logger.error("Exception opening elasticsearch template, "+str(ex))
+            self.logger.error("Exception opening elasticsearch template, "+str(e))
 
         self.indexSuffix = indexSuffix
         self.bufferedList = []
@@ -46,10 +46,10 @@ class IndexCreator(threading.Thread):
     def run(self):
         while True:
             time.sleep(60*5)
-            if masked:continue
+            if self.masked:continue
             if not self.lastActiveRun:continue
             #try create
-            createNextIndexMaybe(self.lastActiveRun)
+            self.createNextIndexMaybe(self.lastActiveRun)
 
 
     def setMasked(self,masked,lastActiveRun=None):
@@ -60,7 +60,7 @@ class IndexCreator(threading.Thread):
     def createNextIndexMaybe(self,lastActiveRun):
         if len(self.bufferedList)>=self.numPreCreate:
           return False
-        result = create(lastActiveRun+1)
+        result = self.create(lastActiveRun+1)
         if result:
                 self.bufferedList.append(lastActiveRun+1)
 
@@ -69,11 +69,11 @@ class IndexCreator(threading.Thread):
           try:
             d_indexName = 'run'+str(self.runPendingDelete[0])+'_'+self.indexSuffix 
             d_res = self.es.delete_index(index = d_indexName)
-            if c_res!={'acknowledged':True}:
+            if d_res!={'acknowledged':True}:
               #todo:handle index doesn't exist (remove
-              self.logger.warning("Failed to delete index "+d_indexName+" with status"+str(c_res))
+              self.logger.warning("Failed to delete index "+d_indexName+" with status"+str(d_res))
             else:
-              delete_index.pop(0)
+              self.runPendingDelete.pop(0)
           except Exception as ex:
               self.logger.warning("Failed to delete index "+d_indexName+" with exception"+str(ex))
         return result
@@ -90,10 +90,10 @@ class IndexCreator(threading.Thread):
         if not self.body:
             self.logger.error("Unable to create index, no local run index template")
             return False
-        indexName = runstring + "_" + indexSuffix
+        indexName = runstring + "_" + self.indexSuffix
         try:
             #c_res = self.es.create_index(index = self.indexName, body = self.body)
-            c_res = self.es.send_request('PUT', [self.indexName], body = self.body)
+            c_res = self.es.send_request('PUT', [indexName], body = self.body)
             if c_res!={'acknowledged':True}:
               self.logger.error("Failed to create index "+indexName+" with status"+str(c_res))
               return False
@@ -126,7 +126,7 @@ class elasticBand():
             with open(filepath,'r') as fpi:
                 body = json.load(fpi)
             if forceReplicas>=0:
-              self.body['settings']['index']['number_of_replicas']=forceReplicas
+              body['settings']['index']['number_of_replicas']=forceReplicas
 
             #body.pop('template')
             #c_res = self.es.create_index(index = self.indexName, body = body)

@@ -624,18 +624,18 @@ class BoxInfoUpdater(threading.Thread):
 
 class RunCompletedChecker(threading.Thread):
 
-    def __init__(self,conf,run):
+    def __init__(self,conf,runObj):
         self.logger = logging.getLogger(self.__class__.__name__)
         threading.Thread.__init__(self)
         self.conf = conf
-        self.run = run
-        rundirstr = 'run'+ str(run.runnumber).zfill(conf.run_number_padding)
+        self.runObj = runObj
+        rundirstr = 'run'+ str(runObj.runnumber).zfill(conf.run_number_padding)
         self.indexPrefix = rundirstr + '_' + conf.elastic_cluster
         self.url =       'http://'+conf.es_local+':9200/' + self.indexPrefix + '*/fu-complete/_count'
         self.urlclose =  'http://'+conf.es_local+':9200/' + self.indexPrefix + '*/_close'
         self.urlsearch = 'http://'+conf.es_local+':9200/' + self.indexPrefix + '*/fu-complete/_search?size=1'
         self.url_query = '{  "query": { "filtered": {"query": {"match_all": {}}}}, "sort": { "fm_date": { "order": "desc" }}}'
-        self.stop = False
+        self.stopping = False
         self.threadEvent = threading.Event()
 
     def run(self):
@@ -643,21 +643,21 @@ class RunCompletedChecker(threading.Thread):
         check_es_complete=True
         total_es_elapsed=0
 
-        while self.stop==False:
+        while self.stopping==False:
 
             if check_es_complete:
                 try:
                     resp = requests.post(self.url, '',timeout=5)
                     data = json.loads(resp.content)
-                    if int(data['count']) >= len(self.run.online_resource_list):
+                    if int(data['count']) >= len(self.runObj.online_resource_list):
                         try:
                             respq = requests.post(self.urlsearch,self.url_query,timeout=5)
                             dataq = json.loads(respq.content)
                             fm_time = str(dataq['hits']['hits'][0]['_source']['fm_date'])
                             #fill in central index completition time
-                            postq = "{runNumber\":\"" + str(self.nr) + "\",\"completedTime\" : \"" + fm_time + "\"}"
+                            postq = "{runNumber\":\"" + str(self.runObj.runnumber) + "\",\"completedTime\" : \"" + fm_time + "\"}"
                             requests.post(self.conf.elastic_runindex_url+'/'+"runindex_"+self.conf.elastic_runindex_name+'_write/run',postq,timeout=5)
-                            self.logger.info("filled in completition time for run "+str(self.nr))
+                            self.logger.info("filled in completition time for run "+str(self.runObj.runnumber))
                         except IndexError:
                             # 0 FU resources present in this run, skip writing completition time
                             pass 
@@ -684,7 +684,7 @@ class RunCompletedChecker(threading.Thread):
             self.threadEvent.wait(10)
 
     def stop(self):
-        self.stop = True
+        self.stopping = True
         self.threadEvent.set() 
 
 

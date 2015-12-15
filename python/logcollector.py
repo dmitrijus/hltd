@@ -183,7 +183,7 @@ class CMSSWLogEvent(object):
         self.document['severityVal']=self.severity
 
     def decode(self):
-        self.fillComon()
+        self.fillCommon()
         self.document['message']=self.message[0]
         self.document['lexicalId']=calculateLexicalId(self.message[0])
 
@@ -475,11 +475,11 @@ class CMSSWLogParser(threading.Thread):
 
             #store N logs before the problematic one
             if saveHistory and event.severity >= WARNINGLEVEL:
-                while historyFIFO.count():
-                    e = historyFIFO.popleft()
+                while self.historyFIFO.count():
+                    e = self.historyFIFO.popleft()
                     try:
                         e.decode()
-                        mainQueue.put(e)
+                        self.mainQueue.put(e)
                     except Exception,ex:
                         self.logger.error('failed to parse message contentent')
                         self.logger.exception(ex)

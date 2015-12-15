@@ -44,8 +44,6 @@ nthreads = None
 nstreams = None
 expected_processes = None
 
-runList = None
-
 bu_disk_list_ramdisk=[]
 bu_disk_list_output=[]
 bu_disk_list_ramdisk_instance=[]
@@ -617,7 +615,7 @@ def restartLogCollector(instanceParam):
 
 class system_monitor(threading.Thread):
 
-    def __init__(self):
+    def __init__(self,runList):
         threading.Thread.__init__(self)
         self.running = True
         self.hostname = os.uname()[1]
@@ -631,6 +629,7 @@ class system_monitor(threading.Thread):
         self.stale_flag=False
         self.boxdoc_version = boxdoc_version
         self.highest_run_number = None
+        self.runList = runList
         if conf.mount_control_path:
             self.startStatNFS()
 
@@ -788,7 +787,7 @@ class system_monitor(threading.Thread):
                     current_time = time.time()
                     stale_machines = []
                     try:
-                        current_runnumber = runList.getLastRun().runnumber
+                        current_runnumber = self.runList.getLastRun().runnumber
                     except:
                         current_runnumber=0
                     for key in boxinfoFUMap:
@@ -910,7 +909,7 @@ class system_monitor(threading.Thread):
                             d_used = int(out)>>10
                             d_total = conf.max_local_disk_usage
 
-                        lastrun = runList.getLastRun()
+                        lastrun = self.runList.getLastRun()
                         n_used_activeRun=0
                         n_broken_activeRun=0
 
@@ -961,10 +960,10 @@ class system_monitor(threading.Thread):
                                 'usedDataDir' : d_used,
                                 'totalDataDir' : d_total,
                                 'fuDataAlarm' : d_used > 0.9*d_total,
-                                'activeRuns' :   runList.getActiveRunNumbers(),
+                                'activeRuns' :   self.runList.getActiveRunNumbers(),
                                 'activeRunNumQueuedLS':numQueuedLumis,
                                 'activeRunCMSSWMaxLS':maxCMSSWLumi,
-                                'activeRunStats':runList.getStateDoc(),
+                                'activeRunStats':self.runList.getStateDoc(),
                                 'cloudState':cloud_state,
                                 'detectedStaleHandle':self.stale_flag,
                                 'version':self.boxdoc_version
@@ -995,7 +994,7 @@ class system_monitor(threading.Thread):
                             'totalRamdisk':(ramdisk.f_blocks*ramdisk.f_bsize - ramdisk_submount_size)>>20,
                             'usedOutput':((outdir.f_blocks - outdir.f_bavail)*outdir.f_bsize)>>20,
                             'totalOutput':(outdir.f_blocks*outdir.f_bsize)>>20,
-                            'activeRuns':runList.getActiveRunNumbers(),
+                            'activeRuns':self.runList.getActiveRunNumbers(),
                             "version":self.boxdoc_version
                         }
                         with open(mfile,'w+') as fp:
@@ -1015,7 +1014,7 @@ class system_monitor(threading.Thread):
     def getLumiQueueStat(self):
         try:
             with open(os.path.join(conf.watch_directory,
-                                   'run'+str(runList.getLastRun().runnumber).zfill(conf.run_number_padding),
+                                   'run'+str(self.runList.getLastRun().runnumber).zfill(conf.run_number_padding),
                                    'open','queue_status.jsn'),'r') as fp:
 
                 #fcntl.flock(fp, fcntl.LOCK_EX)
@@ -1418,15 +1417,17 @@ class Run:
 
     VALID_MARKERS = [STARTING,ACTIVE,STOPPING,COMPLETE,ABORTED,ABORTCOMPLETE]
 
-    def __init__(self,nr,dirname,bu_dir,instance):
+    def __init__(self,nr,dirname,bu_dir,instance,runList):
 
         self.pending_shutdown=False
         self.is_ongoing_run=True
         self.num_errors = 0
 
-        self.instance = instance
         self.runnumber = nr
         self.dirname = dirname
+        self.instance = instance
+        self.runList = runList
+
         self.online_resource_list = []
         self.anelastic_monitor = None
         self.elastic_monitor = None
@@ -1942,7 +1943,7 @@ class Run:
 
         resource_lock.acquire()
         try:
-            runList.remove(self.runnumber)
+            self.runList.remove(self.runnumber)
         except Exception as ex:
             logger.exception(ex)
         resource_lock.release()
@@ -1972,7 +1973,7 @@ class Run:
 
         resource_lock.acquire()
         try:
-            runList.remove(self.runnumber)
+            self.runList.remove(self.runnumber)
         except Exception as ex:
             logger.exception(ex)
         resource_lock.release()
@@ -2037,20 +2038,19 @@ class Run:
                 except Exception as ex:
                     logger.exception(ex)
 
-            global runList
             #todo:clear this external thread
             resource_lock.acquire()
-            logger.info("active runs.."+str(runList.getActiveRunNumbers()))
+            logger.info("active runs.."+str(self.runList.getActiveRunNumbers()))
             try:
-                runList.remove(self.runnumber)
+                self.runList.remove(self.runnumber)
             except Exception as ex:
                 logger.exception(ex)
-            logger.info("new active runs.."+str(runList.getActiveRunNumbers()))
+            logger.info("new active runs.."+str(self.runList.getActiveRunNumbers()))
 
             global resources_blocked_flag
             if cloud_mode==True:
-                if len(runList.getActiveRunNumbers())>=1:
-                    logger.info("VM mode: waiting for runs: " + str(runList.getActiveRunNumbers()) + " to finish")
+                if len(self.runList.getActiveRunNumbers())>=1:
+                    logger.info("VM mode: waiting for runs: " + str(self.runList.getActiveRunNumbers()) + " to finish")
                 else:
                     logger.info("No active runs. moving all resource files to cloud")
                     #give resources to cloud and bail out
@@ -2164,7 +2164,7 @@ class Run:
             if success and runFound==False:
                 resource_lock.acquire()
                 try:
-                    runList.remove(self.runnumber)
+                    self.runList.remove(self.runnumber)
                 except Exception as ex:
                     logger.exception(ex)
                 resource_lock.release()
@@ -2277,9 +2277,10 @@ class RunList:
 
 class RunRanger:
 
-    def __init__(self,instance):
+    def __init__(self,instance,runList):
         self.inotifyWrapper = InotifyWrapper(self)
         self.instance = instance
+        self.runList = runList
 
     def register_inotify_path(self,path,mask):
         self.inotifyWrapper.registerPath(path,mask)
@@ -2294,7 +2295,6 @@ class RunRanger:
 
     def process_IN_CREATE(self, event):
         nr=0
-        global runList
         global cloud_mode
         global entering_cloud_mode
         global exiting_cloud_mode
@@ -2333,7 +2333,7 @@ class RunRanger:
                     try:
                         logger.info('new run '+str(nr))
                         #terminate quarantined runs
-                        for run in runList.getQuarantinedRuns():
+                        for run in self.runList.getQuarantinedRuns():
                             #run shutdown waiting for scripts to finish
                             run.startShutdown(True,False)
                             time.sleep(.1)
@@ -2357,12 +2357,12 @@ class RunRanger:
                             bu_dir = ''
 
                         #check if this run is a duplicate
-                        if runList.getRun(nr)!=None:
+                        if self.runList.getRun(nr)!=None:
                             raise Exception("Attempting to create duplicate run "+str(nr))
 
                         # in case of a DQM machines create an EoR file
                         if conf.dqm_machine and conf.role == 'bu':
-                            for run in runList.getOngoingRuns():
+                            for run in self.runList.getOngoingRuns():
                                 EoR_file_name = run.dirname + '/' + 'run' + str(run.runnumber).zfill(conf.run_number_padding) + '_ls0000_EoR.jsn'
                                 if run.is_ongoing_run and not os.path.exists(EoR_file_name):
                                     # create an EoR file that will trigger all the running jobs to exit nicely
@@ -2375,7 +2375,7 @@ class RunRanger:
                             del run
                             return
                         resource_lock.acquire()
-                        runList.add(run)
+                        self.runList.add(run)
                         try:
                             if conf.role=='fu' and not entering_cloud_mode and not has_active_resources():
                                 logger.error('trying to start a run '+str(run.runnumber)+ ' without any available resources - this requires manual intervention !')
@@ -2387,7 +2387,7 @@ class RunRanger:
                             run.Start()
                         else:
                             #BU mode: failed to get blacklist
-                            runList.remove(nr)
+                            self.runList.remove(nr)
                             resource_lock.release()
                             try:del run
                             except:pass
@@ -2429,7 +2429,7 @@ class RunRanger:
                 nr=int(dirname[3:])
                 if nr!=0:
                     try:
-                        endingRun = runList.getRun(nr)
+                        endingRun = self.runList.getRun(nr)
                         if endingRun==None:
                             logger.warning('request to end run '+str(nr)
                                           +' which does not exist')
@@ -2468,7 +2468,7 @@ class RunRanger:
             if conf.role == 'fu':
                 global q_list
                 logger.info("killing all CMSSW child processes")
-                for run in runList.getActiveRuns():
+                for run in self.runList.getActiveRuns():
                     run.Shutdown(True,False)
                 time.sleep(.2)
                 #clear all quarantined cores
@@ -2481,7 +2481,7 @@ class RunRanger:
                 q_list=[]
 
             elif conf.role == 'bu':
-                for run in runList.getActiveRuns():
+                for run in self.runList.getActiveRuns():
                     run.createEmptyEoRMaybe()
                     run.ShutdownBU()
 
@@ -2546,9 +2546,9 @@ class RunRanger:
                     logger.error('Could not parse '+dirname)
 
         elif dirname.startswith('populationcontrol'):
-            if len(runList.runs)>0:
-                logger.info("terminating all ongoing runs via cgi interface (populationcontrol): "+str(runList.getActiveRunNumbers()))
-                for run in runList.getActiveRuns():
+            if len(self.runList.runs)>0:
+                logger.info("terminating all ongoing runs via cgi interface (populationcontrol): "+str(self.runList.getActiveRunNumbers()))
+                for run in self.runList.getActiveRuns():
                     if conf.role=='fu':
                         run.Shutdown(True,True)
                     elif conf.role=='bu':
@@ -2580,9 +2580,9 @@ class RunRanger:
                 nr=int(dirname[11:])
                 if nr!=0:
                     try:
-                        run = runList.getRun(nr)
+                        run = self.runList.getRun(nr)
                         if run.checkQuarantinedLimit():
-                            if runList.isLatestRun(run):
+                            if self.runList.isLatestRun(run):
                                 logger.info('reached quarantined limit - pending Shutdown for run:'+str(nr))
                                 run.pending_shutdown=True
                             else:
@@ -2598,7 +2598,7 @@ class RunRanger:
             suspended=True
 
             #terminate all ongoing runs
-            for run in runList.getActiveRuns():
+            for run in self.runList.getActiveRuns():
                 run.Shutdown(True,True)
 
             time.sleep(.5)
@@ -2698,9 +2698,9 @@ class RunRanger:
 
             #shut down any quarantined runs
             try:
-                for run in runList.getQuarantinedRuns():
+                for run in self.runList.getQuarantinedRuns():
                     run.Shutdown(True,False)
-                listOfActiveRuns = runList.getActiveRuns()
+                listOfActiveRuns = self.runList.getActiveRuns()
                 for run in listOfActiveRuns:
                     if not run.pending_shutdown:
                         if len(run.online_resource_list)==0:
@@ -2741,11 +2741,11 @@ class RunRanger:
 
             #shut down any quarantined runs
             try:
-                for run in runList.getQuarantinedRuns():
+                for run in self.runList.getQuarantinedRuns():
                     run.Shutdown(True,False)
 
                 requested_stop=False
-                listOfActiveRuns = runList.getActiveRuns()
+                listOfActiveRuns = self.runList.getActiveRuns()
                 for run in listOfActiveRuns:
                     if not run.pending_shutdown:
                         if len(run.online_resource_list)==0:
@@ -2837,10 +2837,10 @@ class RunRanger:
 
 class ResourceRanger:
 
-    def __init__(self):
+    def __init__(self,runList):
         self.inotifyWrapper = InotifyWrapper(self)
-
-        self.managed_monitor = system_monitor()
+        self.runList = runList
+        self.managed_monitor = system_monitor(runList)
         self.managed_monitor.start()
         self.regpath = []
 
@@ -2890,7 +2890,7 @@ class ResourceRanger:
                     time.sleep(1)
                     return
 
-                run = runList.getLastOngoingRun()
+                run = self.runList.getLastOngoingRun()
                 if run is not None:
                     logger.info("ResourceRanger: found active run "+str(run.runnumber)+ " when received inotify MOVED event for "+event.fullpath)
                     """grab resources that become available
@@ -2997,25 +2997,7 @@ class ResourceRanger:
 
     def process_IN_MODIFY(self, event):
         logger.debug('ResourceRanger-MODIFY: event '+event.fullpath)
-        basename = os.path.basename(event.fullpath)
-        if basename.startswith('resource_summary'):return
-        try:
-            #this should be error (i.e. bus.confg should not be modified during a run)
-            bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
-            if event.fullpath == bus_config:
-                logger.warning("automatic remounting on changed bus.config is no longer supported. restart hltd to remount")
-                if False:
-                    if self.managed_monitor:
-                        self.managed_monitor.stop()
-                        self.managed_monitor.join()
-                    cleanup_mountpoints()
-                    if self.managed_monitor:
-                        self.managed_monitor = system_monitor()
-                        self.managed_monitor.start()
-                        logger.info("ResouceRanger: managed monitor is "+str(self.managed_monitor))
-        except Exception as ex:
-            logger.error("exception in ResourceRanger")
-            logger.error(ex)
+        return
 
     def process_IN_CREATE(self, event):
         logger.debug('ResourceRanger-CREATE: event '+event.fullpath)
@@ -3029,7 +3011,7 @@ class ResourceRanger:
         try:
             resourceage = os.path.getmtime(event.fullpath)
             resource_lock.acquire()
-            lrun = runList.getLastRun()
+            lrun = self.runList.getLastRun()
             newRes = None
             if lrun!=None:
                 if lrun.checkStaleResourceFile(event.fullpath):
@@ -3296,8 +3278,6 @@ class hltd(Daemon2,object):
         watch_directory = os.readlink(conf.watch_directory) if os.path.islink(conf.watch_directory) else conf.watch_directory
         resource_base = os.readlink(conf.resource_base) if os.path.islink(conf.resource_base) else conf.resource_base
 
-        global runList
-        runList = RunList()
 
         if conf.use_elasticsearch == True:
             time.sleep(.2)
@@ -3324,7 +3304,8 @@ class hltd(Daemon2,object):
                 #indexCreator.start()
 
 
-        runRanger = RunRanger(self.instance)
+        runList = RunList()
+        runRanger = RunRanger(self.instance,runList)
         runRanger.register_inotify_path(watch_directory,inotify.IN_CREATE)
         runRanger.start_inotify()
         logger.info("started RunRanger  - watch_directory " + watch_directory)
@@ -3335,7 +3316,7 @@ class hltd(Daemon2,object):
         if resource_base.rfind('/')>0:
             appliance_base = resource_base[:resource_base.rfind('/')]
 
-        rr = ResourceRanger()
+        rr = ResourceRanger(runList)
         try:
             if conf.role == 'bu':
                 imask  = inotify.IN_CLOSE_WRITE | inotify.IN_DELETE | inotify.IN_CREATE | inotify.IN_MOVED_TO

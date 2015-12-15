@@ -32,6 +32,7 @@ from daemon2 import Daemon2
 from hltdconf import hltdConf,initConf
 from inotifywrapper import InotifyWrapper
 import _inotify as inotify
+from mountManager import MountManager
 
 from elasticbu import BoxInfoUpdater
 from aUtils import fileHandler,ES_DIR_NAME
@@ -43,34 +44,28 @@ hostname = os.uname()[1]
 nthreads = None
 nstreams = None
 expected_processes = None
+
 resource_base = None
 watch_directory = None
 
-bu_disk_list_ramdisk=[]
-bu_disk_list_output=[]
-bu_disk_list_ramdisk_instance=[]
-bu_disk_list_output_instance=[]
-bu_disk_ramdisk_CI = None
-bu_disk_ramdisk_CI_instance = None
-
 resource_lock = threading.Lock()
 nsslock = threading.Lock()
+
+#various state flags
 suspended=False
 entering_cloud_mode=False
 exiting_cloud_mode=False
 cloud_mode=False
 abort_cloud_mode=False
-cached_pending_run = None
 resources_blocked_flag=False
 disabled_resource_allocation=False
 masked_resources=False
 
-fu_watchdir_is_mountpoint=False
-ramdisk_submount_size=0
 machine_blacklist=[]
 boxinfoFUMap = {}
 boxdoc_version = 1
 
+#class instances
 logCollector = None
 indexCreator = None
 boxInfo = None
@@ -138,27 +133,29 @@ def preexec_function():
     prctl.set_pdeathsig(SIGKILL)
     #    os.setpgrp()
 
+def resmove(sourcedir,destdir,res):
+    os.rename(os.path.join(sourcedir,res),os.path.join(destdir,res))
 
 def cleanup_resources():
     try:
         dirlist = os.listdir(cloud)
         for cpu in dirlist:
-            os.rename(cloud+cpu,idles+cpu)
+            resmove(cloud,idles,cpu)
         dirlist = os.listdir(broken)
         for cpu in dirlist:
-            os.rename(broken+cpu,idles+cpu)
+            resmove(broken,idles,cpu)
         dirlist = os.listdir(used)
         for cpu in dirlist:
-            os.rename(used+cpu,idles+cpu)
+            resmove(used,idles,cpu)
         dirlist = os.listdir(quarantined)
         for cpu in dirlist:
-            os.rename(quarantined+cpu,idles+cpu)
+            resmove(quarantined,idles,cpu)
         dirlist = os.listdir(idles)
         #quarantine files beyond use fraction limit (rounded to closest integer)
         global num_excluded
         num_excluded = int(round(len(dirlist)*(1.-conf.resource_use_fraction)))
         for i in range(0,int(num_excluded)):
-            os.rename(idles+dirlist[i],quarantined+dirlist[i])
+            rename_res(idles,quarantined,dirlist[i])
         return True
     except Exception as ex:
         logger.warning(str(ex))
@@ -168,20 +165,20 @@ def move_resources_to_cloud():
     global q_list
     dirlist = os.listdir(broken)
     for cpu in dirlist:
-        os.rename(broken+cpu,cloud+cpu)
+        resmove(broken,cloud,cpu)
     dirlist = os.listdir(used)
     for cpu in dirlist:
-        os.rename(used+cpu,cloud+cpu)
+        resmove(used,cloud,cpu)
     dirlist = os.listdir(quarantined)
     for cpu in dirlist:
-        os.rename(quarantined+cpu,cloud+cpu)
+        resmove(quarantined,cloud,cpu)
     q_list=[]
     dirlist = os.listdir(idles)
     for cpu in dirlist:
-        os.rename(idles+cpu,cloud+cpu)
+        resmove(idles,cloud,cpu)
     dirlist = os.listdir(idles)
     for cpu in dirlist:
-        os.rename(idles+cpu,cloud+cpu)
+        resmove(idles,cloud,cpu)
 
 def has_active_resources():
     return len(os.listdir(broken))+len(os.listdir(used))+len(os.listdir(idles)) > 0
@@ -239,337 +236,6 @@ def is_cloud_inactive():
             logger.exception(ex)
         return 100
     return proc.returncode
-
-def umount_helper(point,attemptsLeft=3,initial=True):
-
-    if initial:
-        try:
-            logger.info('calling umount of '+point)
-            subprocess.check_call(['umount',point])
-        except subprocess.CalledProcessError, err1:
-            if err1.returncode<2:return True
-            if attemptsLeft<=0:
-                logger.error('Failed to perform umount of '+point+'. returncode:'+str(err1.returncode))
-                return False
-            logger.warning("umount failed, trying to kill users of mountpoint "+point)
-            try:
-                nsslock.acquire()
-                #try to kill all unpriviledged child processes using the mount point
-                f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
-                nsslock.release()
-                f_user.wait()
-            except:
-                try:nsslock.release()
-                except:pass
-            return umount_helper(point,attemptsLeft-1,initial=False)
-    else:
-        attemptsLeft-=1
-        time.sleep(.5)
-        try:
-            logger.info("trying umount -f of "+point)
-            subprocess.check_call(['umount','-f',point])
-        except subprocess.CalledProcessError, err2:
-            if err2.returncode<2:return True
-            if attemptsLeft<=0:
-                logger.error('Failed to perform umount -f of '+point+'. returncode:'+str(err2.returncode))
-                return False
-            return umount_helper(point,attemptsLeft,initial=False)
-    return True
-
-def cleanup_mountpoints(remount=True):
-
-    global bu_disk_list_ramdisk
-    global bu_disk_list_ramdisk_instance
-    global bu_disk_list_output
-    global bu_disk_list_output_instance
-    global bu_disk_ramdisk_CI
-    global bu_disk_ramdisk_CI_instance
-
-    bu_disk_list_ramdisk = []
-    bu_disk_list_output = []
-    bu_disk_list_ramdisk_instance = []
-    bu_disk_list_output_instance = []
-    bu_disk_ramdisk_CI=None
-    bu_disk_ramdisk_CI_instance=None
-
-    if conf.bu_base_dir[0] == '/':
-        bu_disk_list_ramdisk = [os.path.join(conf.bu_base_dir,conf.ramdisk_subdirectory)]
-        bu_disk_list_output = [os.path.join(conf.bu_base_dir,conf.output_subdirectory)]
-        if conf.instance=="main":
-            bu_disk_list_ramdisk_instance = bu_disk_list_ramdisk
-            bu_disk_list_output_instance = bu_disk_list_output
-        else:
-            bu_disk_list_ramdisk_instance = [os.path.join(bu_disk_list_ramdisk[0],conf.instance)]
-            bu_disk_list_output_instance = [os.path.join(bu_disk_list_output[0],conf.instance)]
-
-        #make subdirectories if necessary and return
-        if remount==True:
-            try:
-                #there is no BU mount, so create subdirectory structure on FU
-                os.makedirs(os.path.join(conf.bu_base_dir,conf.ramdisk_subdirectory,'appliance','boxes'))
-            except OSError:
-                pass
-            try:
-                os.makedirs(os.path.join(conf.bu_base_dir,conf.output_subdirectory))
-            except OSError:
-                pass
-        return True
-    try:
-        process = subprocess.Popen(['mount'],stdout=subprocess.PIPE)
-        out = process.communicate()[0]
-        mounts = re.findall('/'+conf.bu_base_dir+'[0-9]+',out) + re.findall('/'+conf.bu_base_dir+'-CI/',out)
-
-        mounts = sorted(list(set(mounts)))
-        logger.info("cleanup_mountpoints: found following mount points: ")
-        logger.info(mounts)
-        umount_failure=False
-        for mpoint in mounts:
-            point = mpoint.rstrip('/')
-            umount_failure = umount_helper(os.path.join('/'+point,conf.ramdisk_subdirectory))==False
-
-            #only attempt this if first umount was successful
-            if umount_failure==False and not point.rstrip('/').endswith("-CI"):
-                umount_failure = umount_helper(os.path.join('/'+point,conf.output_subdirectory))==False
-
-            #this will remove directories only if they are empty (as unmounted mount point should be)
-            try:
-                if os.path.join('/'+point,conf.ramdisk_subdirectory)!='/':
-                    os.rmdir(os.path.join('/'+point,conf.ramdisk_subdirectory))
-            except Exception as ex:
-                logger.exception(ex)
-            try:
-                if os.path.join('/'+point,conf.output_subdirectory)!='/':
-                    if not point.rstrip('/').endswith("-CI"):
-                        os.rmdir(os.path.join('/'+point,conf.output_subdirectory))
-            except Exception as ex:
-                logger.exception(ex)
-        if remount==False:
-            if umount_failure:return False
-            return True
-
-        i = 0
-        bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
-        busconfig_age = os.path.getmtime(bus_config)
-        if os.path.exists(bus_config):
-            lines = []
-            with open(bus_config) as fp:
-                lines = fp.readlines()
-
-            if len(lines)==0:
-                #exception if invalid bus.config file
-                raise Exception("Missing BU address in bus.config file")
-
-            if conf.mount_control_path and len(lines):
-
-                try:
-                    os.makedirs(os.path.join('/'+conf.bu_base_dir+'-CI',conf.ramdisk_subdirectory))
-                except OSError:
-                    pass
-                try:
-                    mountaddr = lines[0].split('.')[0]+'.cms'
-                    #VM fallback
-                    if lines[0].endswith('.cern.ch'): mountaddr = lines[0]
-                    logger.info("found BU to mount (CI) at " + mountaddr)
-                except Exception as ex:
-                    logger.fatal('Unable to parse bus.config file')
-                    logger.exception(ex)
-                    sys.exit(1)
-                attemptsLeft = 8
-                while attemptsLeft>0:
-                    #by default ping waits 10 seconds
-                    p_begin = datetime.datetime.now()
-                    if os.system("ping -c 1 "+mountaddr)==0:
-                        break
-                    else:
-                        p_end = datetime.datetime.now()
-                        logger.warning('unable to ping '+mountaddr)
-                        dt = p_end - p_begin
-                        if dt.seconds < 10:
-                            time.sleep(10-dt.seconds)
-                    attemptsLeft-=1
-                    if attemptsLeft==0:
-                        logger.fatal('hltd was unable to ping BU '+mountaddr)
-                        #check if bus.config has been updated
-                        if (os.path.getmtime(bus_config) - busconfig_age)>1:
-                            return cleanup_mountpoints(remount)
-                        attemptsLeft=8
-                        #sys.exit(1)
-                if True:
-                    logger.info("trying to mount (CI) "+mountaddr+':/fff/'+conf.ramdisk_subdirectory+' '+os.path.join('/'+conf.bu_base_dir+'-CI',conf.ramdisk_subdirectory))
-                    try:
-                        subprocess.check_call(
-                            [conf.mount_command,
-                             '-t',
-                             conf.mount_type,
-                             '-o',
-                             conf.mount_options_ramdisk,
-                             mountaddr+':/fff/'+conf.ramdisk_subdirectory,
-                             os.path.join('/'+conf.bu_base_dir+'-CI',conf.ramdisk_subdirectory)]
-                            )
-                        toappend = os.path.join('/'+conf.bu_base_dir+'-CI',conf.ramdisk_subdirectory)
-                        bu_disk_ramdisk_CI=toappend
-                        if conf.instance=="main":
-                            bu_disk_ramdisk_CI_instance = toappend
-                        else:
-                            bu_disk_ramdisk_CI_instance = os.path.join(toappend,conf.instance)
-                    except subprocess.CalledProcessError, err2:
-                        logger.exception(err2)
-                        logger.fatal("Unable to mount ramdisk - exiting.")
-                        sys.exit(1)
-
-
-
-
-            busconfig_age = os.path.getmtime(bus_config)
-            for line in lines:
-                logger.info("found BU to mount at "+line.strip())
-                try:
-                    os.makedirs(os.path.join('/'+conf.bu_base_dir+str(i),conf.ramdisk_subdirectory))
-                except OSError:
-                    pass
-                try:
-                    os.makedirs(os.path.join('/'+conf.bu_base_dir+str(i),conf.output_subdirectory))
-                except OSError:
-                    pass
-
-                attemptsLeft = 8
-                while attemptsLeft>0:
-                    #by default ping waits 10 seconds
-                    p_begin = datetime.datetime.now()
-                    if os.system("ping -c 1 "+line.strip())==0:
-                        break
-                    else:
-                        p_end = datetime.datetime.now()
-                        logger.warning('unable to ping '+line.strip())
-                        dt = p_end - p_begin
-                        if dt.seconds < 10:
-                            time.sleep(10-dt.seconds)
-                    attemptsLeft-=1
-                    if attemptsLeft==0:
-                        logger.fatal('hltd was unable to ping BU '+line.strip())
-                        #check if bus.config has been updated
-                        if (os.path.getmtime(bus_config) - busconfig_age)>1:
-                            return cleanup_mountpoints(remount)
-                        attemptsLeft=8
-                        #sys.exit(1)
-                if True:
-                    logger.info("trying to mount "+line.strip()+':/fff/'+conf.ramdisk_subdirectory+' '+os.path.join('/'+conf.bu_base_dir+str(i),conf.ramdisk_subdirectory))
-                    try:
-                        subprocess.check_call(
-                            [conf.mount_command,
-                             '-t',
-                             conf.mount_type,
-                             '-o',
-                             conf.mount_options_ramdisk,
-                             line.strip()+':/fff/'+conf.ramdisk_subdirectory,
-                             os.path.join('/'+conf.bu_base_dir+str(i),conf.ramdisk_subdirectory)]
-                            )
-                        toappend = os.path.join('/'+conf.bu_base_dir+str(i),conf.ramdisk_subdirectory)
-                        bu_disk_list_ramdisk.append(toappend)
-                        if conf.instance=="main":
-                            bu_disk_list_ramdisk_instance.append(toappend)
-                        else:
-                            bu_disk_list_ramdisk_instance.append(os.path.join(toappend,conf.instance))
-                    except subprocess.CalledProcessError, err2:
-                        logger.exception(err2)
-                        logger.fatal("Unable to mount ramdisk - exiting.")
-                        sys.exit(1)
-
-                    logger.info("trying to mount "+line.strip()+':/fff/'+conf.output_subdirectory+' '+os.path.join('/'+conf.bu_base_dir+str(i),conf.output_subdirectory))
-                    try:
-                        subprocess.check_call(
-                            [conf.mount_command,
-                             '-t',
-                             conf.mount_type,
-                             '-o',
-                             conf.mount_options_output,
-                             line.strip()+':/fff/'+conf.output_subdirectory,
-                             os.path.join('/'+conf.bu_base_dir+str(i),conf.output_subdirectory)]
-                            )
-                        toappend = os.path.join('/'+conf.bu_base_dir+str(i),conf.output_subdirectory)
-                        bu_disk_list_output.append(toappend)
-                        if conf.instance=="main" or conf.instance_same_destination==True:
-                            bu_disk_list_output_instance.append(toappend)
-                        else:
-                            bu_disk_list_output_instance.append(os.path.join(toappend,conf.instance))
-                    except subprocess.CalledProcessError, err2:
-                        logger.exception(err2)
-                        logger.fatal("Unable to mount output - exiting.")
-                        sys.exit(1)
-
-                i+=1
-        else:
-            logger.warning('starting hltd without bus.config file!')
-            return False
-        #clean up suspended state
-        try:
-            if remount==True:os.popen('rm -rf '+conf.watch_directory+'/suspend*')
-        except:pass
-        return True
-    except Exception as ex:
-        logger.error("Exception in cleanup_mountpoints")
-        logger.exception(ex)
-        if remount==True:
-            logger.fatal("Unable to handle (un)mounting")
-            return False
-        else:return False
-
-def submount_size(basedir):
-    loop_size=0
-    try:
-        p = subprocess.Popen("mount", shell=False, stdout=subprocess.PIPE)
-        p.wait()
-        std_out=p.stdout.read().split("\n")
-        for l in std_out:
-            try:
-                ls = l.strip()
-                toks = l.split()
-                if toks[0].startswith(basedir) and toks[2].startswith(basedir) and 'loop' in toks[5]:
-                    imgstat = os.stat(toks[0])
-                    imgsize = imgstat.st_size
-                    loop_size+=imgsize
-            except:pass
-    except:pass
-    return loop_size
-
-def cleanup_bu_disks(run=None,cleanRamdisk=True,cleanOutput=True):
-    if cleanRamdisk:
-        if conf.watch_directory.startswith('/fff') and conf.ramdisk_subdirectory in conf.watch_directory:
-            logger.info('cleanup BU disks: deleting runs in ramdisk ...')
-            tries = 10
-            while tries > 0:
-                tries-=1
-                if run==None:
-                    p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run*',shell=True)
-                else:
-                    p = subprocess.Popen("rm -rf " + conf.watch_directory+'/run'+str(run),shell=True)
-                p.wait()
-                if p.returncode==0:
-                    logger.info('Ramdisk cleanup performed')
-                    break
-                else:
-                    logger.info('Failed ramdisk cleanup (return code:'+str(p.returncode)+') in attempt'+str(10-tries))
-
-    if cleanOutput:
-        outdirPath = conf.watch_directory[:conf.watch_directory.find(conf.ramdisk_subdirectory)]+conf.output_subdirectory
-        logger.info('outdirPath:'+ outdirPath + ' '+conf.output_subdirectory)
-
-        if outdirPath.startswith('/fff') and conf.output_subdirectory in outdirPath:
-            logger.info('cleanup BU disks: deleting runs in output disk ...')
-            tries = 10
-            while tries > 0:
-                tries-=1
-                if run==None:
-                    p = subprocess.Popen("rm -rf " + outdirPath+'/run*',shell=True)
-                else:
-                    p = subprocess.Popen("rm -rf " + outdirPath+'/run'+str(run),shell=True)
-                p.wait()
-                if p.returncode==0:
-                    logger.info('Output cleanup performed')
-                    break
-                else:
-                    logger.info('Failed output disk cleanup (return code:'+str(p.returncode)+') in attempt '+str(10-tries))
-
 
 def calculate_threadnumber():
     global nthreads
@@ -633,7 +299,7 @@ def restartLogCollector(instanceParam):
 
 class system_monitor(threading.Thread):
 
-    def __init__(self,runList):
+    def __init__(self,runList,mountMgr):
         threading.Thread.__init__(self)
         self.running = True
         self.hostname = os.uname()[1]
@@ -648,20 +314,21 @@ class system_monitor(threading.Thread):
         self.boxdoc_version = boxdoc_version
         self.highest_run_number = None
         self.runList = runList
+        self.mm = mountMgr
         if conf.mount_control_path:
             self.startStatNFS()
 
     def rehash(self):
         if conf.role == 'fu':
-            self.check_directory = [os.path.join(x,'appliance','dn') for x in bu_disk_list_ramdisk_instance]
+            self.check_directory = [os.path.join(x,'appliance','dn') for x in self.mm.bu_disk_list_ramdisk_instance]
             #write only in one location
             if conf.mount_control_path:
                 logger.info('Updating box info via control interface')
-                self.directory = [os.path.join(bu_disk_ramdisk_CI_instance,'appliance','boxes')]
+                self.directory = [os.path.join(self.mm.bu_disk_ramdisk_CI_instance,'appliance','boxes')]
             else:
                 logger.info('Updating box info via data interface')
-                if len(bu_disk_list_ramdisk_instance):
-                    self.directory = [os.path.join(bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
+                if len(self.mm.bu_disk_list_ramdisk_instance):
+                    self.directory = [os.path.join(self.mm.bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
             self.check_file = [os.path.join(x,self.hostname) for x in self.check_directory]
         else:
             self.directory = [os.path.join(conf.watch_directory,'appliance/boxes/')]
@@ -693,12 +360,12 @@ class system_monitor(threading.Thread):
             err_detected = False
             try:
                 #check for NFS stale file handle
-                for disk in  bu_disk_list_ramdisk:
+                for disk in  self.mm.bu_disk_list_ramdisk:
                     mpstat = os.stat(disk)
-                for disk in  bu_disk_list_output:
+                for disk in  self.mm.bu_disk_list_output:
                     mpstat = os.stat(disk)
-                if bu_disk_ramdisk_CI:
-                    disk = bu_disk_ramdisk_CI
+                if self.mm.bu_disk_ramdisk_CI:
+                    disk = self.mm.bu_disk_ramdisk_CI
                     mpstat = os.stat(disk)
                 #no issue if we reached this point
                 fu_stale_counter = 0
@@ -758,13 +425,13 @@ class system_monitor(threading.Thread):
         try:
             logger.debug('entered system monitor thread ')
             global suspended
-            global ramdisk_submount_size
             global masked_resources
             res_path_temp = os.path.join(conf.watch_directory,'appliance','resource_summary_temp')
             res_path = os.path.join(conf.watch_directory,'appliance','resource_summary')
             selfhost = os.uname()[1]
             boxinfo_update_attempts=0
             counter=0
+            fu_watchdir_is_mountpoint = os.path.ismount(watch_directory)
             while self.running:
                 self.threadEvent.wait(5 if counter>0 else 1)
                 counter+=1
@@ -776,7 +443,10 @@ class system_monitor(threading.Thread):
                 if conf.role == 'bu':
                     ramdisk = os.statvfs(conf.watch_directory)
                     ramdisk_occ=1
-                    try:ramdisk_occ = float((ramdisk.f_blocks - ramdisk.f_bavail)*ramdisk.f_bsize - ramdisk_submount_size)/float(ramdisk.f_blocks*ramdisk.f_bsize - ramdisk_submount_size)
+                    try:
+                      ramdisk_occ_num = float((ramdisk.f_blocks - ramdisk.f_bavail)*ramdisk.f_bsize - self.mm.ramdisk_submount_size)
+                      ramdisk_occ_den = float(ramdisk.f_blocks*ramdisk.f_bsize - self.mm.ramdisk_submount_size)
+                      ramdisk_occ = ramdisk_occ_num/ramdisk_occ_den
                     except:pass
                     if ramdisk_occ<0:
                         ramdisk_occ=0
@@ -1008,8 +678,8 @@ class system_monitor(threading.Thread):
                         outdir = os.statvfs('/fff/output')
                         boxdoc = {
                             'fm_date':tstring,
-                            'usedRamdisk':((ramdisk.f_blocks - ramdisk.f_bavail)*ramdisk.f_bsize - ramdisk_submount_size)>>20,
-                            'totalRamdisk':(ramdisk.f_blocks*ramdisk.f_bsize - ramdisk_submount_size)>>20,
+                            'usedRamdisk':((ramdisk.f_blocks - ramdisk.f_bavail)*ramdisk.f_bsize - self.mm.ramdisk_submount_size)>>20,
+                            'totalRamdisk':(ramdisk.f_blocks*ramdisk.f_bsize - self.mm.ramdisk_submount_size)>>20,
                             'usedOutput':((outdir.f_blocks - outdir.f_bavail)*outdir.f_bsize)>>20,
                             'totalOutput':(outdir.f_blocks*outdir.f_bsize)>>20,
                             'activeRuns':self.runList.getActiveRunNumbers(),
@@ -1114,7 +784,7 @@ class OnlineResource:
         except Exception as ex:
             logger.exception(ex)
 
-    def StartNewProcess(self, runnumber, startindex, arch, version, menu, transfermode, num_threads, num_streams):
+    def StartNewProcess(self, runnumber, input_disk, arch, version, menu, transfermode, num_threads, num_streams):
         logger.debug("OnlineResource: StartNewProcess called")
         self.runnumber = runnumber
 
@@ -1123,7 +793,6 @@ class OnlineResource:
         independent mounts of the BU - it should not be necessary in due course
         IFF it is necessary, it should address "any" number of mounts, not just 2
         """
-        input_disk = bu_disk_list_ramdisk_instance[startindex%len(bu_disk_list_ramdisk_instance)]
         inputdirpath = os.path.join(input_disk,'run'+str(runnumber).zfill(conf.run_number_padding))
         #run_dir = input_disk + '/run' + str(self.runnumber).zfill(conf.run_number_padding)
         logger.info("starting process with "+version+" and run number "+str(runnumber)+ ' threads:'+str(num_threads)+' streams:'+str(num_streams))
@@ -1175,13 +844,11 @@ class OnlineResource:
                 logging.info('Not able to determine the DQM run key from the "global" file. Default value from the input source will be used.')
 
         try:
-#            dem = demote.demote(conf.user)
             self.process = subprocess.Popen(new_run_args,
                                             preexec_fn=preexec_function,
                                             close_fds=True
                                             )
             logger.info("arg array "+str(new_run_args).translate(None, "'")+' started with pid '+str(self.process.pid))
-#            time.sleep(1.)
             if self.watchdog==None:
                 self.processstate = 100
                 self.watchdog = ProcessWatchdog(self,self.lock,inputdirpath)
@@ -1216,7 +883,7 @@ class OnlineResource:
         try:
             for cpu in self.quarantined:
                 logger.info('Clearing quarantined resource '+cpu)
-                os.rename(quarantined+cpu,idles+cpu)
+                resmove(quarantined,idles,cpu)
                 retq.append(cpu)
             self.quarantined = []
             self.parent.n_used=0
@@ -1258,7 +925,7 @@ class ProcessWatchdog(threading.Thread):
                 try:
                     for cpu in self.resource.cpu:
                         try:
-                            os.rename(used+cpu,idles+cpu)
+                            resmove(used,idles,cpu)
                             self.resource.parent.n_used-=1
                         except Exception as ex:
                             logger.exception(ex)
@@ -1344,7 +1011,7 @@ class ProcessWatchdog(threading.Thread):
                                  + str(self.resource.retry_attempts))
                     resource_lock.acquire()
                     for cpu in self.resource.cpu:
-                        os.rename(used+cpu,broken+cpu)
+                        resmove(used,broken,cpu)
                         self.resource.parent.n_used-=1
                     resource_lock.release()
                     logger.debug("resource(s) " +str(self.resource.cpu)+
@@ -1357,7 +1024,7 @@ class ProcessWatchdog(threading.Thread):
                                   )
                     resource_lock.acquire()
                     for cpu in self.resource.cpu:
-                        os.rename(used+cpu,quarantined+cpu)
+                        resmove(used,quarantined,cpu)
                         self.resource.quarantined.append(cpu)
                         self.resource.parent.n_quarantined+=1
                     resource_lock.release()
@@ -1409,7 +1076,7 @@ class ProcessWatchdog(threading.Thread):
                 resource_lock.acquire()
                 for cpu in self.resource.cpu:
                     try:
-                        os.rename(used+cpu,idles+cpu)
+                        resmove(used,idles,cpu)
                     except Exception as ex:
                         logger.warning('problem moving core ' + cpu + ' from used to idle:'+str(ex))
                 resource_lock.release()
@@ -1435,7 +1102,7 @@ class Run:
 
     VALID_MARKERS = [STARTING,ACTIVE,STOPPING,COMPLETE,ABORTED,ABORTCOMPLETE]
 
-    def __init__(self,nr,dirname,bu_dir,instance,runList):
+    def __init__(self,nr,dirname,bu_dir,instance,runList,mountMgr):
 
         self.pending_shutdown=False
         self.is_ongoing_run=True
@@ -1445,6 +1112,7 @@ class Run:
         self.dirname = dirname
         self.instance = instance
         self.runList = runList
+        self.mm = mountMgr
 
         self.online_resource_list = []
         self.anelastic_monitor = None
@@ -1552,7 +1220,7 @@ class Run:
             except Exception, ex:
                 logger.error("could not create mon dir inside the run input directory")
         else:
-            self.rawinputdir= os.path.join(bu_disk_list_ramdisk_instance[0],'run' + str(self.runnumber).zfill(conf.run_number_padding))
+            self.rawinputdir= os.path.join(self.mm.bu_disk_list_ramdisk_instance[0],'run' + str(self.runnumber).zfill(conf.run_number_padding))
 
         #verify existence of the input directory
         if conf.role=='fu':
@@ -1591,7 +1259,7 @@ class Run:
         if conf.role == "fu" and conf.dqm_machine==False:
             try:
                 logger.info("starting anelastic.py with arguments:"+self.dirname)
-                elastic_args = ['/opt/hltd/python/anelastic.py',self.dirname,str(self.runnumber), self.rawinputdir,bu_disk_list_output_instance[0]]
+                elastic_args = ['/opt/hltd/python/anelastic.py',self.dirname,str(self.runnumber), self.rawinputdir,self.mm.bu_disk_list_output_instance[0]]
                 self.anelastic_monitor = subprocess.Popen(elastic_args,
                                                     preexec_fn=preexec_function,
                                                     close_fds=True
@@ -1638,7 +1306,7 @@ class Run:
                           +" from "+fromstate)
 
             for resourcename in resourcenames:
-                os.rename(idles+resourcename,used+resourcename)
+                resmove(idles,used,resourcename)
                 self.n_used+=1
             #TODO:fix core pairing with resource.cpu list (otherwise - restarting will not work properly)
             if not filter(lambda x: sorted(x.cpu)==sorted(resourcenames),self.online_resource_list):
@@ -1822,8 +1490,9 @@ class Run:
     def StartOnResource(self, resource):
         logger.debug("StartOnResource called")
         resource.assigned_run_dir=conf.watch_directory+'/run'+str(self.runnumber).zfill(conf.run_number_padding)
+        new_index = self.online_resource_list.index(resource)%len(self.mm.bu_disk_list_ramdisk_instance)
         resource.StartNewProcess(self.runnumber,
-                                 self.online_resource_list.index(resource),
+                                 self.mm.bu_disk_list_ramdisk_instance[new_index],
                                  self.arch,
                                  self.version,
                                  self.menu_path,
@@ -1906,7 +1575,7 @@ class Run:
                 for cpu in resource.cpu:
                     if cpu not in cleared_q:
                         try:
-                            os.rename(used+cpu,idles+cpu)
+                            os.resmove(used,idles,cpu)
                             self.n_used-=1
                         except OSError:
                             #@SM:can happen if it was quarantined
@@ -2295,11 +1964,12 @@ class RunList:
 
 class RunRanger:
 
-    def __init__(self,instance,runList,resourceRanger):
+    def __init__(self,instance,runList,resourceRanger,mountMgr):
         self.inotifyWrapper = InotifyWrapper(self)
         self.instance = instance
         self.runList = runList
         self.rr = resourceRanger
+        self.mm = mountMgr
 
     def register_inotify_path(self,path,mask):
         self.inotifyWrapper.registerPath(path,mask)
@@ -2319,9 +1989,9 @@ class RunRanger:
         global exiting_cloud_mode
         global abort_cloud_mode
         global resources_blocked_flag
-        global cached_pending_run
         global disabled_resource_allocation
         global masked_resources
+        cached_pending_run = None
         fullpath = event.fullpath
         logger.info('RunRanger: event '+fullpath)
         dirname=fullpath[fullpath.rfind("/")+1:]
@@ -2365,7 +2035,7 @@ class RunRanger:
                             os.rmdir(fullpath)
                             return
                         if conf.role == 'fu':
-                            bu_dir = bu_disk_list_ramdisk_instance[0]+'/'+dirname
+                            bu_dir = self.mm.bu_disk_list_ramdisk_instance[0]+'/'+dirname
                             try:
                                 os.symlink(bu_dir+'/jsd',fullpath+'/jsd')
                             except:
@@ -2387,7 +2057,7 @@ class RunRanger:
                                     # create an EoR file that will trigger all the running jobs to exit nicely
                                     open(EoR_file_name, 'w').close()
 
-                        run = Run(nr,fullpath,bu_dir,self.instance)
+                        run = Run(nr,fullpath,bu_dir,self.instance,self.runList,self.mm)
                         if not run.inputdir_exists and conf.role=='fu':
                             logger.info('skipping '+ fullpath + ' with raw input directory missing')
                             shutil.rmtree(fullpath)
@@ -2494,7 +2164,7 @@ class RunRanger:
                 for cpu in q_list:
                     try:
                         logger.info('Clearing quarantined resource '+cpu)
-                        os.rename(quarantined+cpu,idles+cpu)
+                        os.resmove(quarantined,idles,cpu)
                     except:
                         logger.info('Quarantined resource was already cleared: '+cpu)
                 q_list=[]
@@ -2507,7 +2177,7 @@ class RunRanger:
                 #delete input and output BU directories
                 if dirname.startswith('tsunami'):
                     logger.info('tsunami approaching: cleaning all ramdisk and output run data')
-                    cleanup_bu_disks(None,True,True)
+                    self.mm.cleanup_bu_disks(None,True,True)
 
                 #contact any FU that appears alive
                 boxdir = conf.resource_base +'/boxes/'
@@ -2540,12 +2210,12 @@ class RunRanger:
             nlen = len('cleanoutput')
             if len(dirname)==nlen:
                 logger.info('cleaning output (all run data)')
-                cleanup_bu_disks(None,False,True)
+                self.mm.cleanup_bu_disks(None,False,True)
             else:
                 try:
                     rn = int(dirname[nlen:])
                     logger.info('cleaning output (only for run '+str(rn)+')')
-                    cleanup_bu_disks(rn,False,True)
+                    self.mm.cleanup_bu_disks(rn,False,True)
                 except:
                     logger.error('Could not parse '+dirname)
 
@@ -2555,12 +2225,12 @@ class RunRanger:
             nlen = len('cleanramdisk')
             if len(dirname)==nlen:
                 logger.info('cleaning ramdisk (all run data)')
-                cleanup_bu_disks(None,True,False)
+                self.mm.cleanup_bu_disks(None,True,False)
             else:
                 try:
                     rn = int(dirname[nlen:])
                     logger.info('cleaning ramdisk (only for run '+str(rn)+')')
-                    cleanup_bu_disks(rn,True,False)
+                    mm.cleanup_bu_disks(rn,True,False)
                 except:
                     logger.error('Could not parse '+dirname)
 
@@ -2623,14 +2293,14 @@ class RunRanger:
             time.sleep(.5)
             #local request used in case of stale file handle
             if replyport==0:
-                umount_success = cleanup_mountpoints()
+                umount_success = self.mm.cleanup_mountpoints(conf,nsslock)
                 try:os.remove(fullpath)
                 except:pass
                 suspended=False
                 logger.info("Remount requested locally is performed.")
                 return
 
-            umount_success = cleanup_mountpoints(remount=False)
+            umount_success = self.mm.cleanup_mountpoints(conf,nsslock,remount=False)
 
             if umount_success==False:
                 time.sleep(1)
@@ -2701,7 +2371,7 @@ class RunRanger:
                     time.sleep(5)
 
             #mount again
-            cleanup_mountpoints()
+            self.mm.cleanup_mountpoints(conf,nsslock)
             try:os.remove(fullpath)
             except:pass
             suspended=False
@@ -2994,7 +2664,7 @@ class ResourceRanger:
                                     break
                             if len(resourcenames) == nstreams:
                                 for resname in resourcenames:
-                                    os.rename(broken+resname,idles+resname)
+                                    resmove(broken,idles,resname)
 
                         except Exception as ex:
                             logger.info("exception encountered in looking for resources in except")
@@ -3123,7 +2793,6 @@ class ResourceRanger:
         #all box data are valid, run not found
         return True,False
 
-
     def checkBoxes(self,runNumber):
         checkSuccessful=True
         runFound=False
@@ -3177,8 +2846,7 @@ class hltd(Daemon2,object):
             try:
                 if os.path.exists(conf.watch_directory+'/populationcontrol'):
                     os.remove(conf.watch_directory+'/populationcontrol')
-                fp = open(conf.watch_directory+'/populationcontrol','w+')
-                fp.close()
+                with  open(conf.watch_directory+'/populationcontrol','w+') as fp: pass
                 count = 10
                 while count:
                     os.stat(conf.watch_directory+'/populationcontrol')
@@ -3191,10 +2859,8 @@ class hltd(Daemon2,object):
                     count-=1
             except OSError, err:
                 time.sleep(.1)
-                pass
             except IOError, err:
                 time.sleep(.1)
-                pass
         super(hltd,self).stop()
 
     def run(self):
@@ -3214,6 +2880,9 @@ class hltd(Daemon2,object):
         if conf.enabled==False:
             logger.warning("Service is currently disabled.")
             sys.exit(1)
+
+        global nsslock
+        mm = MountManager()
 
         if conf.role == 'fu':
             """
@@ -3244,14 +2913,15 @@ class hltd(Daemon2,object):
             (notice that hltd does not NEED to be restarted since it is watching the file all the time)
             """
 
-            if not cleanup_mountpoints():
+            if not mm.cleanup_mountpoints(conf,nsslock):
                 logger.fatal("error mounting - terminating service")
                 os._exit(10)
 
             calculate_threadnumber()
 
+            #?
             try:
-                os.makedirs(conf.watch_directory)
+                os.makedirs(watch_directory)
             except:
                 pass
 
@@ -3263,9 +2933,6 @@ class hltd(Daemon2,object):
             if watch_directory.startswith('/fff/'):
                 p = subprocess.Popen("rm -rf " + watch_directory+'/*',shell=True)
                 p.wait()
-
-            global fu_watchdir_is_mountpoint
-            if os.path.ismount(.watch_directory):fu_watchdir_is_mountpoint=True
 
             #switch to cloud mode if active and hltd did not have cores in cloud directory in the last session
             if not is_in_cloud:
@@ -3280,7 +2947,7 @@ class hltd(Daemon2,object):
             restartLogCollector(self.instance)
 
         #start bu emulator (test)
-        bu_emulator = BUEmu(conf,bu_disk_list_ramdisk_instance,preexec_function)
+        bu_emulator = BUEmu(conf,mm.bu_disk_list_ramdisk_instance,preexec_function)
 
         #BU mode threads
         global boxInfo
@@ -3288,10 +2955,10 @@ class hltd(Daemon2,object):
             global machine_blacklist
             #update_success,machine_blacklist=updateBlacklist()
             machine_blacklist=[]
-            global ramdisk_submount_size
+            mm.ramdisk_submount_size=0
             if self.instance == 'main':
                 #if there are other instance mountpoints in ramdisk, they will be subtracted from size estimate
-                ramdisk_submount_size = submount_size(watch_directory)
+                mm.submount_size(watch_directory)
 
             #start boxinfo elasticsearch updater
             try:os.makedirs(os.path.join(resource_base,'dn'))
@@ -3299,7 +2966,6 @@ class hltd(Daemon2,object):
             try:os.makedirs(os.path.join(resource_base,'boxes'))
             except:pass
             if conf.use_elasticsearch == True:
-                global nsslock
                 boxInfo = BoxInfoUpdater(watch_directory,conf,nsslock,boxdoc_version)
                 boxInfo.start()
 
@@ -3333,7 +2999,7 @@ class hltd(Daemon2,object):
             os._exit(1)
 
         #start monitoring new runs
-        runRanger = RunRanger(self.instance,runList,rr)
+        runRanger = RunRanger(self.instance,runList,rr,mm)
         runRanger.register_inotify_path(watch_directory,inotify.IN_CREATE)
         runRanger.start_inotify()
         logger.info("started RunRanger  - watch_directory " + watch_directory)
@@ -3384,9 +3050,9 @@ class hltd(Daemon2,object):
             httpd.socket.close()
             logger.info(threading.enumerate())
             logger.info("unmounting mount points")
-            if cleanup_mountpoints(remount=False)==False:
+            if not mm.cleanup_mountpoints(conf,nsslock,remount=False):
                 time.sleep(1)
-                cleanup_mountpoints(remount=False)
+                mm.cleanup_mountpoints(conf,nsslock,remount=False)
 
             logger.info("shutdown of service (main thread) completed")
         except Exception as ex:

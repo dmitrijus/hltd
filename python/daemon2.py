@@ -1,6 +1,6 @@
 import sys, os, time, atexit
 import subprocess
-from signal import SIGINT
+from signal import SIGINT,SIGKILL
 from aUtils import * #for stdout and stderr redirection
 import ConfigParser
 import re
@@ -206,8 +206,8 @@ class Daemon2:
             #C: not very elegant but it works
             while 1:
                 if timeout <=0.:
-                    sys.stdout.write("\nterminating with -9...")
-                    os.kill(pid,9)
+                    sys.stdout.write("\nterminating with SIGKILL...")
+                    os.kill(pid,SIGKILL)
                     sys.stdout.write("\nterminated after 5 seconds\n")
                     #let system time to kill the process tree
                     time.sleep(1)

@@ -10,7 +10,7 @@ import Queue
 
 import elasticBand
 
-from hltdconf import *
+from hltdconf import hltdConf,initConf
 from aUtils import *
 
 class elasticCollector():

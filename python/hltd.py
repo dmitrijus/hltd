@@ -29,7 +29,7 @@ import prctl
 
 #modules which are part of hltd
 from daemon2 import Daemon2
-from hltdconf import *
+from hltdconf import hltdConf,initConf
 from inotifywrapper import InotifyWrapper
 import _inotify as inotify
 
@@ -37,8 +37,9 @@ from elasticbu import BoxInfoUpdater
 from aUtils import fileHandler,ES_DIR_NAME
 from setupES import setupES
 from elasticBand import IndexCreator
+from buemu import BUEmu
 
-thishost = os.uname()[1]
+hostname = os.uname()[1]
 nthreads = None
 nstreams = None
 expected_processes = None
@@ -72,6 +73,7 @@ boxdoc_version = 1
 
 logCollector = None
 indexCreator = None
+bu_emulator = None
 
 q_list = []
 num_excluded=0
@@ -99,8 +101,10 @@ def setFromConf(myinstance):
 
     #prepare log directory
     if myinstance!='main':
-        if not os.path.exists(conf.log_dir): os.makedirs(conf.log_dir)
-        if not os.path.exists(os.path.join(conf.log_dir,'pid')): os.makedirs(os.path.join(conf.log_dir,'pid'))
+        if not os.path.exists(conf.log_dir):
+            os.makedirs(conf.log_dir)
+        if not os.path.exists(os.path.join(conf.log_dir,'pid')):
+            os.makedirs(os.path.join(conf.log_dir,'pid'))
         os.chmod(conf.log_dir,0777)
         os.chmod(os.path.join(conf.log_dir,'pid'),0777)
 
@@ -117,9 +121,6 @@ def preexec_function():
     dem()
     prctl.set_pdeathsig(SIGKILL)
     #    os.setpgrp()
-
-from buemu import BUEmu
-bu_emulator = BUEmu(conf,bu_disk_list_ramdisk_instance,preexec_function)
 
 
 def cleanup_resources():
@@ -237,6 +238,7 @@ def umount_helper(point,attemptsLeft=3,initial=True):
             logger.warning("umount failed, trying to kill users of mountpoint "+point)
             try:
                 nsslock.acquire()
+                #try to kill all unpriviledged child processes using the mount point
                 f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
                 nsslock.release()
                 f_user.wait()
@@ -661,7 +663,7 @@ class system_monitor(threading.Thread):
 
     def startStatNFS(self):
         if conf.role == "fu":
-            self.statThread = threading.Thread(target = self.runStatNFS)
+            self.statThread = threading.Thread(target=self.runStatNFS)
             self.statThread.start()
 
     def runStatNFS(self):
@@ -1012,8 +1014,10 @@ class system_monitor(threading.Thread):
 
     def getLumiQueueStat(self):
         try:
-            with open(os.path.join(conf.watch_directory,'run'+str(runList.getLastRun().runnumber).zfill(conf.run_number_padding),
-                      'open','queue_status.jsn'),'r') as fp:
+            with open(os.path.join(conf.watch_directory,
+                                   'run'+str(runList.getLastRun().runnumber).zfill(conf.run_number_padding),
+                                   'open','queue_status.jsn'),'r') as fp:
+
                 #fcntl.flock(fp, fcntl.LOCK_EX)
                 statusDoc = json.load(fp)
                 return str(statusDoc["numQueuedLS"]),str(statusDoc["CMSSWMaxLS"])
@@ -1050,7 +1054,7 @@ class OnlineResource:
 
     def NotifyNewRunStart(self,runnumber):
         self.runnumber = runnumber
-        self.notifyNewRunThread = threading.Thread(target = self.NotifyNewRun,args=[runnumber])
+        self.notifyNewRunThread = threading.Thread(target=self.NotifyNewRun,args=[runnumber])
         self.notifyNewRunThread.start()
 
     def NotifyNewRunJoin(self):
@@ -1093,7 +1097,7 @@ class OnlineResource:
         except Exception as ex:
             logger.exception(ex)
 
-    def StartNewProcess(self ,runnumber, startindex, arch, version, menu,transfermode,num_threads,num_streams):
+    def StartNewProcess(self, runnumber, startindex, arch, version, menu, transfermode, num_threads, num_streams):
         logger.debug("OnlineResource: StartNewProcess called")
         self.runnumber = runnumber
 
@@ -1816,7 +1820,7 @@ class Run:
             writedoc = {}
             bu_lumis = []
             try:
-                bu_eols_files = filter( lambda x: x.endswith("_EoLS.jsn"),os.listdir(self.rawinputdir))
+                bu_eols_files = filter(lambda x: x.endswith("_EoLS.jsn"),os.listdir(self.rawinputdir))
                 bu_lumis = (sorted([int(x.split('_')[1][2:]) for x in bu_eols_files]))
             except:
                 logger.error("Unable to parse BU EoLS files")
@@ -1831,7 +1835,7 @@ class Run:
         except:pass
 
     def startShutdown(self,killJobs=False,killScripts=False):
-        self.runShutdown = threading.Thread(target = self.Shutdown,args=[killJobs,killScripts])
+        self.runShutdown = threading.Thread(target=self.Shutdown,args=[killJobs,killScripts])
         self.runShutdown.start()
 
     def joinShutdown(self):
@@ -1890,7 +1894,7 @@ class Run:
                             logger.warning('Unable to find resource '+used+cpu)
                         except Exception as ex:
                             resource_lock.release()
-                            raise(ex)
+                            raise ex
                 resource.process=None
             resource_lock.release()
             logger.info('completed clearing resource list')
@@ -1927,7 +1931,7 @@ class Run:
                 except OSError as ex:
                     if ex.errno==3:
                         logger.info("elastic.py for run " + str(self.runnumber) + " is not running")
-                    else :logger.exception(ex)
+                    else:logger.exception(ex)
                 except Exception as ex:
                     logger.exception(ex)
             if self.waitForEndThread is not None:
@@ -1980,7 +1984,7 @@ class Run:
         self.is_ongoing_run = False
         self.changeMarkerMaybe(Run.STOPPING)
         try:
-            self.waitForEndThread = threading.Thread(target = self.WaitForEnd)
+            self.waitForEndThread = threading.Thread(target=self.WaitForEnd)
             self.waitForEndThread.start()
         except Exception as ex:
             logger.info("exception encountered in starting run end thread")
@@ -2098,7 +2102,7 @@ class Run:
 
     def startAnelasticWatchdog(self):
         try:
-            self.anelasticWatchdog = threading.Thread(target = self.runAnelasticWatchdog)
+            self.anelasticWatchdog = threading.Thread(target=self.runAnelasticWatchdog)
             self.anelasticWatchdog.start()
         except Exception as ex:
             logger.info("exception encountered in starting anelastic watchdog thread")
@@ -2118,7 +2122,7 @@ class Run:
 
     def startElasticBUWatchdog(self):
         try:
-            self.elasticBUWatchdog = threading.Thread(target = self.runElasticBUWatchdog)
+            self.elasticBUWatchdog = threading.Thread(target=self.runElasticBUWatchdog)
             self.elasticBUWatchdog.start()
         except Exception as ex:
             logger.info("exception encountered in starting elasticbu watchdog thread")
@@ -2135,7 +2139,7 @@ class Run:
 
         try:
             logger.info('start checking completion of run '+str(self.runnumber))
-            self.completedChecker = threading.Thread(target = self.runCompletedChecker)
+            self.completedChecker = threading.Thread(target=self.runCompletedChecker)
             self.completedChecker.start()
         except Exception,ex:
             logger.error('failure to start run completion checker:')
@@ -2188,7 +2192,7 @@ class Run:
         keys = boxinfoFUMap.keys()
         c_time = time.time()
         for key in keys:
-            #if key==thishost:continue #checked in inotify thread
+            #if key==hostname:continue #checked in inotify thread
             try:
                 edata,etime,lastStatus = boxinfoFUMap[key]
             except:
@@ -2368,7 +2372,7 @@ class RunRanger:
                         if not run.inputdir_exists and conf.role=='fu':
                             logger.info('skipping '+ fullpath + ' with raw input directory missing')
                             shutil.rmtree(fullpath)
-                            del(run)
+                            del run
                             return
                         resource_lock.acquire()
                         runList.add(run)
@@ -2385,7 +2389,7 @@ class RunRanger:
                             #BU mode: failed to get blacklist
                             runList.remove(nr)
                             resource_lock.release()
-                            try:del(run)
+                            try:del run
                             except:pass
                             return
                         resource_lock.release()
@@ -3104,7 +3108,7 @@ class ResourceRanger:
         keys = boxinfoFUMap.keys()
         c_time = time.time()
         for key in keys:
-            #if key==thishost:continue #checked in inotify thread
+            #if key==hostname:continue #checked in inotify thread
             try:
                 edata,etime,lastStatus = boxinfoFUMap[key]
             except:
@@ -3131,7 +3135,7 @@ class ResourceRanger:
         files = os.listdir(self.regpath[-1])
         c_time = time.time()
         for file in files:
-            if file == thishost:continue
+            if file == hostname:continue
             #ignore file if it is too old (FU with a problem)
             filename = os.path.join(dir,file)
             if c_time - os.path.getmtime(filename) > 20:continue
@@ -3288,7 +3292,7 @@ class hltd(Daemon2,object):
         """
         conf.resource_base = conf.watch_directory+'/appliance' if conf.role == 'bu' else conf.resource_base
 
-        #@SM:is running from symbolic links still needed?
+        #for running from symbolic links
         watch_directory = os.readlink(conf.watch_directory) if os.path.islink(conf.watch_directory) else conf.watch_directory
         resource_base = os.readlink(conf.resource_base) if os.path.islink(conf.resource_base) else conf.resource_base
 
@@ -3298,6 +3302,8 @@ class hltd(Daemon2,object):
         if conf.use_elasticsearch == True:
             time.sleep(.2)
             restartLogCollector(self.instance)
+
+        bu_emulator = BUEmu(conf,bu_disk_list_ramdisk_instance,preexec_function)
 
         #start boxinfo elasticsearch updater
         global nsslock

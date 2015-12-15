@@ -7,7 +7,6 @@ import shutil
 import subprocess
 
 import filecmp
-from inotifywrapper import InotifyWrapper
 import _inotify as inotify
 import threading
 import Queue
@@ -15,7 +14,7 @@ import simplejson as json
 import logging
 
 
-from hltdconf import *
+from hltdconf import hltdConf,initConf
 from aUtils import *
 
 
@@ -190,7 +189,7 @@ class LumiSectionRanger:
             run,ls = (self.infile.run,self.infile.ls)
             key = (run,ls)
             ls_num=int(ls[2:])
-            if filetype == EOLS :
+            if filetype==EOLS:
                 if ls_num in self.EOLS_list:
                     self.logger.warning("EoLS file for this lumisection has already been received before")
                     self.mr.notifyLumi(ls_num,self.maxReceivedEoLS,self.maxClosedLumi,self.getNumOpenLumis())
@@ -336,8 +335,8 @@ class LumiSectionRanger:
             if stream not in self.activeStreams:
                 self.activeStreams.append(stream)
                 self.streamCounters[stream]=0
-            self.infile.moveFile(newpath = localfilepath)
-            self.infile.moveFile(newpath = remotefilepath,copy = True,createDestinationDir=False,missingDirAlert=False)
+            self.infile.moveFile(newpath=localfilepath)
+            self.infile.moveFile(newpath=remotefilepath,copy=True,createDestinationDir=False,missingDirAlert=False)
         else:
             self.logger.debug("compare %s , %s " %(localfilepath,filepath))
             if not filecmp.cmp(localfilepath,filepath,False):
@@ -367,7 +366,7 @@ class LumiSectionRanger:
             #find stream token
             #copy to output with rename
             if not stream:
-                self.infile.moveFile(os.path.join(outputDir,run,os.path.basename(newpath)),copy = True,adler32=False,
+                self.infile.moveFile(os.path.join(outputDir,run,os.path.basename(newpath)),copy=True,adler32=False,
                                    silent=True,createDestinationDir=False,missingDirAlert=False)
             else:
                 remotefiledir = os.path.join(outputDir,run,stream)
@@ -603,7 +602,7 @@ class LumiSectionHandler():
 
         if pid not in self.pidList:
             processed = infile.getFieldByName("Processed")
-            if processed != 0 :
+            if processed!=0:
                 self.logger.critical("Received stream output file with processed events and no seen indices by this process, pid "+str(pid))
                 return False
             elif not self.emptyLS:
@@ -690,7 +689,7 @@ class LumiSectionHandler():
                 #this case can be ignored for DQM stream (missing fastHadd)
                 if STREAMDQMHISTNAME.upper() not in stream.upper():
                     self.logger.exception(ex)
-                    raise(ex)
+                    raise ex
                 return True
 
             #update output files
@@ -952,7 +951,7 @@ class LumiSectionHandler():
 
         numErr = errfile.getFieldByName("ErrorEvents") or 0
         total = self.totalEvent
-        errfile.setFieldByName("Processed", str(total - numErr) )
+        errfile.setFieldByName("Processed", str(total - numErr))
         errfile.setFieldByName("FileAdler32", "-1", warning=False)
         errfile.setFieldByName("TransferDestination","ErrorArea",warning=False)
         errfile.writeout()
@@ -979,9 +978,9 @@ class LumiSectionHandler():
 
     def writeLumiInfo(self):
         #populating EoL information back into empty EoLS file (disabled)
-        document = { 'data':[str(self.totalEvent),str(self.totalFiles),str(self.totalEvent)],
-                     'definition':'',
-                     'source':os.uname()[1] }
+        document = {'data':[str(self.totalEvent),str(self.totalFiles),str(self.totalEvent)],
+                    'definition':'',
+                    'source':os.uname()[1]}
         try:
             if os.stat(self.EOLS.filepath).st_size==0:
                 with open(self.EOLS.filepath,"w+") as fi:

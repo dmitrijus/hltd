@@ -1020,7 +1020,7 @@ class DQMMerger(threading.Thread):
         while self.abort == False:
             try:
                 dqmJson = self.dqmQueue.get(True,0.5)
-                dqmJson.dqmMerge(self.outDir)
+                dqmJson.mergeDQM(self.outDir)
             except Queue.Empty as e:
                 if self.finish:break
                 continue

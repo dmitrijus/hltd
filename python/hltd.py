@@ -92,6 +92,7 @@ def setFromConf(myinstance):
 
     #for running from symbolic links
     watch_directory = os.readlink(conf.watch_directory) if os.path.islink(conf.watch_directory) else conf.watch_directory
+    conf.watch_directory = watch_directory
 
     """
     the line below is a VERY DIRTY trick to address the fact that
@@ -102,13 +103,14 @@ def setFromConf(myinstance):
     else:
         resource_base = conf.resource_base
     resource_base = os.readlink(resource_base) if os.path.islink(resource_base) else resource_base
+    conf.resource_base = resource_base
 
     if conf.role == 'fu':
-        idles = os.path.join(conf.resource_base,'idle/')
-        used = os.path.join(conf.resource_base,'online/')
-        broken = os.path.join(conf.resource_base,'except/')
-        quarantined = os.path.join(conf.resource_base,'quarantined/')
-        cloud = os.path.join(conf.resource_base,'cloud/')
+        idles = os.path.join(resource_base,'idle/')
+        used = os.path.join(resource_base,'online/')
+        broken = os.path.join(resource_base,'except/')
+        quarantined = os.path.join(resource_base,'quarantined/')
+        cloud = os.path.join(resource_base,'cloud/')
 
     #prepare log directory
     if myinstance!='main':
@@ -155,7 +157,7 @@ def cleanup_resources():
         global num_excluded
         num_excluded = int(round(len(dirlist)*(1.-conf.resource_use_fraction)))
         for i in range(0,int(num_excluded)):
-            rename_res(idles,quarantined,dirlist[i])
+            resmove(idles,quarantined,dirlist[i])
         return True
     except Exception as ex:
         logger.warning(str(ex))
@@ -305,7 +307,6 @@ class system_monitor(threading.Thread):
         self.hostname = os.uname()[1]
         self.directory = []
         self.file = []
-        self.rehash()
         self.create_file=True
         self.threadEvent = threading.Event()
         self.threadEventStat = threading.Event()
@@ -315,6 +316,7 @@ class system_monitor(threading.Thread):
         self.highest_run_number = None
         self.runList = runList
         self.mm = mountMgr
+        self.rehash()
         if conf.mount_control_path:
             self.startStatNFS()
 
@@ -1299,7 +1301,7 @@ class Run:
         return ret
 
     def AcquireResource(self,resourcenames,fromstate):
-        idles = conf.resource_base+'/'+fromstate+'/'
+        idles = resource_base+'/'+fromstate+'/'
         try:
             logger.debug("Trying to acquire resource "
                           +str(resourcenames)
@@ -1341,15 +1343,14 @@ class Run:
         self.online_resource_list.remove(res)
 
     def AcquireResources(self,mode):
-        logger.info("acquiring resources from "+conf.resource_base)
-        idles = conf.resource_base
-        idles += '/idle/' if conf.role == 'fu' else '/boxes/'
+        logger.info("acquiring resources from "+resource_base)
+        res_dir = idles if conf.role == 'fu' else os.path.join(resource_base,'boxes')
         try:
-            dirlist = os.listdir(idles)
+            dirlist = os.listdir(res_dir)
+            logger.info(str(dirlist))
         except Exception as ex:
             logger.info("exception encountered in looking for resources")
             logger.info(ex)
-        logger.info(str(dirlist))
         current_time = time.time()
         count = 0
         cpu_group=[]
@@ -1378,13 +1379,13 @@ class Run:
                 if cpu in machine_blacklist:
                     logger.info("skipping blacklisted resource "+str(cpu))
                     continue
-                if self.checkStaleResourceFile(idles+cpu):
+                if self.checkStaleResourceFile(os.path.join(res_dir,cpu)):
                     logger.error("Skipping stale resource "+str(cpu))
                     continue
 
             count = count+1
             try:
-                age = current_time - os.path.getmtime(idles+cpu)
+                age = current_time - os.path.getmtime(os.path.join(res_dir,cpu))
                 cpu_group.append(cpu)
                 if conf.role == 'fu':
                     if count == nstreams:
@@ -1575,7 +1576,7 @@ class Run:
                 for cpu in resource.cpu:
                     if cpu not in cleared_q:
                         try:
-                            os.resmove(used,idles,cpu)
+                            resmove(used,idles,cpu)
                             self.n_used-=1
                         except OSError:
                             #@SM:can happen if it was quarantined
@@ -2164,7 +2165,7 @@ class RunRanger:
                 for cpu in q_list:
                     try:
                         logger.info('Clearing quarantined resource '+cpu)
-                        os.resmove(quarantined,idles,cpu)
+                        resmove(quarantined,idles,cpu)
                     except:
                         logger.info('Quarantined resource was already cleared: '+cpu)
                 q_list=[]
@@ -2180,7 +2181,7 @@ class RunRanger:
                     self.mm.cleanup_bu_disks(None,True,True)
 
                 #contact any FU that appears alive
-                boxdir = conf.resource_base +'/boxes/'
+                boxdir = resource_base +'/boxes/'
                 try:
                     dirlist = os.listdir(boxdir)
                     current_time = time.time()
@@ -2230,7 +2231,7 @@ class RunRanger:
                 try:
                     rn = int(dirname[nlen:])
                     logger.info('cleaning ramdisk (only for run '+str(rn)+')')
-                    mm.cleanup_bu_disks(rn,True,False)
+                    self.mm.cleanup_bu_disks(rn,True,False)
                 except:
                     logger.error('Could not parse '+dirname)
 
@@ -2293,14 +2294,14 @@ class RunRanger:
             time.sleep(.5)
             #local request used in case of stale file handle
             if replyport==0:
-                umount_success = self.mm.cleanup_mountpoints(conf,nsslock)
+                umount_success = self.mm.cleanup_mountpoints(nsslock)
                 try:os.remove(fullpath)
                 except:pass
                 suspended=False
                 logger.info("Remount requested locally is performed.")
                 return
 
-            umount_success = self.mm.cleanup_mountpoints(conf,nsslock,remount=False)
+            umount_success = self.mm.cleanup_mountpoints(nsslock,remount=False)
 
             if umount_success==False:
                 time.sleep(1)
@@ -2314,7 +2315,7 @@ class RunRanger:
 
             #find out BU name from bus_config
             bu_name=None
-            bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
+            bus_config = os.path.join(os.path.dirname(resource_base.rstrip(os.path.sep)),'bus.config')
             try:
                 if os.path.exists(bus_config):
                     for line in open(bus_config,'r'):
@@ -2341,7 +2342,7 @@ class RunRanger:
                 try:
                     #reopen bus.config in case is modified or moved around
                     bu_name=None
-                    bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
+                    bus_config = os.path.join(os.path.dirname(resource_base.rstrip(os.path.sep)),'bus.config')
                     if os.path.exists(bus_config):
                         try:
                             for line in open(bus_config):
@@ -2371,7 +2372,7 @@ class RunRanger:
                     time.sleep(5)
 
             #mount again
-            self.mm.cleanup_mountpoints(conf,nsslock)
+            self.mm.cleanup_mountpoints(nsslock)
             try:os.remove(fullpath)
             except:pass
             suspended=False
@@ -2526,12 +2527,13 @@ class RunRanger:
 
 class ResourceRanger:
 
-    def __init__(self,runList):
+    def __init__(self,runList,mountMgr):
         self.inotifyWrapper = InotifyWrapper(self)
         self.runList = runList
-        self.managed_monitor = system_monitor(runList)
+        self.managed_monitor = system_monitor(runList,mountMgr)
         self.managed_monitor.start()
         self.regpath = []
+        self.mm = mountMgr
 
     def register_inotify_path(self,path,mask):
         self.inotifyWrapper.registerPath(path,mask)
@@ -2882,7 +2884,7 @@ class hltd(Daemon2,object):
             sys.exit(1)
 
         global nsslock
-        mm = MountManager()
+        mm = MountManager(conf,preexec_function)
 
         if conf.role == 'fu':
             """
@@ -2913,7 +2915,7 @@ class hltd(Daemon2,object):
             (notice that hltd does not NEED to be restarted since it is watching the file all the time)
             """
 
-            if not mm.cleanup_mountpoints(conf,nsslock):
+            if not mm.cleanup_mountpoints(nsslock):
                 logger.fatal("error mounting - terminating service")
                 os._exit(10)
 
@@ -2978,7 +2980,7 @@ class hltd(Daemon2,object):
         runList = RunList()
 
         #start monitoring resources
-        rr = ResourceRanger(runList)
+        rr = ResourceRanger(runList,mm)
 
         #init resource ranger
         try:
@@ -3050,9 +3052,9 @@ class hltd(Daemon2,object):
             httpd.socket.close()
             logger.info(threading.enumerate())
             logger.info("unmounting mount points")
-            if not mm.cleanup_mountpoints(conf,nsslock,remount=False):
+            if not mm.cleanup_mountpoints(nsslock,remount=False):
                 time.sleep(1)
-                mm.cleanup_mountpoints(conf,nsslock,remount=False)
+                mm.cleanup_mountpoints(nsslock,remount=False)
 
             logger.info("shutdown of service (main thread) completed")
         except Exception as ex:

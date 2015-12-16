@@ -750,7 +750,7 @@ class fileHandler(object):
         for f in self.inputs:
 #           try:
             fname = f.getFieldByName('Filelist')
-            fullpath = os.path.join(watchDir,fname)
+            fullpath = os.path.join(outDir,fname)
             try:
                 proc = f.getFieldByName('Processed')
                 acc = f.getFieldByName('Accepted')

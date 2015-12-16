@@ -32,7 +32,7 @@ from daemon2 import Daemon2
 from hltdconf import hltdConf,initConf
 from inotifywrapper import InotifyWrapper
 import _inotify as inotify
-from mountManager import MountManager
+from mountmanager import MountManager
 
 from elasticbu import BoxInfoUpdater
 from aUtils import fileHandler,ES_DIR_NAME

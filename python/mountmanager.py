@@ -258,10 +258,12 @@ class MountManager:
                             )
                         toappend = os.path.join('/'+self.conf.bu_base_dir+str(i),self.conf.output_subdirectory)
                         self.bu_disk_list_output.append(toappend)
-                        if self.conf.instance=="main" or self.conf.instance_same_destination==True:
-                            self.bu_disk_list_output_instance.append(toappend)
-                        else:
-                            self.bu_disk_list_output_instance.append(os.path.join(toappend,self.conf.instance))
+                        #if self.conf.instance=="main" or self.conf.instance_same_destination:
+                        #    self.bu_disk_list_output_instance.append(toappend)
+                        #else:
+                        #    self.bu_disk_list_output_instance.append(os.path.join(toappend,self.conf.instance))
+                        self.bu_disk_list_output_instance.append(toappend)
+
                     except subprocess.CalledProcessError, err2:
                         self.logger.exception(err2)
                         self.logger.fatal("Unable to mount output - exiting.")

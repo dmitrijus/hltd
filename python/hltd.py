@@ -29,7 +29,7 @@ import prctl
 
 #modules which are part of hltd
 from daemon2 import Daemon2
-from hltdconf import hltdConf,initConf
+from hltdconf import initConf
 from inotifywrapper import InotifyWrapper
 import _inotify as inotify
 from mountmanager import MountManager
@@ -2835,35 +2835,6 @@ class hltd(Daemon2,object):
     def __init__(self, instance):
         self.instance=instance
         Daemon2.__init__(self,'hltd',instance,'hltd')
-
-    def stop(self):
-        #read configuration file
-        try:
-            setFromConf(self.instance)
-        except Exception as ex:
-            print " CONFIGURATION error:",str(ex),"(check configuration file) [  \033[1;31mFAILED\033[0;39m  ]"
-            sys.exit(4)
-
-        if self.silentStatus():
-            try:
-                if os.path.exists(conf.watch_directory+'/populationcontrol'):
-                    os.remove(conf.watch_directory+'/populationcontrol')
-                with  open(conf.watch_directory+'/populationcontrol','w+') as fp: pass
-                count = 10
-                while count:
-                    os.stat(conf.watch_directory+'/populationcontrol')
-                    if count==10:
-                        sys.stdout.write(' o.o')
-                    else:
-                        sys.stdout.write('o.o')
-                    sys.stdout.flush()
-                    time.sleep(.5)
-                    count-=1
-            except OSError, err:
-                time.sleep(.1)
-            except IOError, err:
-                time.sleep(.1)
-        super(hltd,self).stop()
 
     def run(self):
         """

@@ -5,7 +5,8 @@
 import os,sys
 sys.path.append('/opt/hltd/python')
 sys.path.append('/opt/hltd/lib')
-from hltd import hltd
+from daemon2 import Daemon2
+from hltdconf import initConf
 from subprocess import Popen
 from subprocess import PIPE
 from applianceumount import stopFUs
@@ -49,7 +50,7 @@ if __name__ == "__main__":
         instances = [sys.argv[2]]
 
     for instance in instances:
-        daemon = hltd(instance)
+        daemon = Daemon2('hltd',instance)
 
         if len(sys.argv) >= 2:
             if 'start' == sys.argv[1]:
@@ -57,7 +58,8 @@ if __name__ == "__main__":
 
             elif 'stop' == sys.argv[1]:
                 sys.stdout.write('Stopping hltd instance '+instance+':')
-                daemon.stop()
+                stopHelper(daemon,instance)
+                #daemon.stop()
 
                 #determine runlevel
                 std_out=""
@@ -118,5 +120,35 @@ if __name__ == "__main__":
         else:
             print "usage: %s start|stop|stop-light|restart|status |all|main|instance" % sys.argv[0]
             sys.exit(2)
+
+def stopHelper(daemon,instance):
+    #read configuration file to find location to write stop file
+    try:
+        conf = initConf(instance)
+    except Exception as ex:
+        print " CONFIGURATION error:",str(ex),"(check configuration file) [  \033[1;31mFAILED\033[0;39m  ]"
+        sys.exit(4)
+
+    if daemon.silentStatus():
+        try:
+            if os.path.exists(conf.watch_directory+'/populationcontrol'):
+                os.remove(conf.watch_directory+'/populationcontrol')
+            with  open(conf.watch_directory+'/populationcontrol','w+') as fp: pass
+            count = 10
+            while count:
+                os.stat(conf.watch_directory+'/populationcontrol')
+                if count==10:
+                    sys.stdout.write(' o.o')
+                else:
+                    sys.stdout.write('o.o')
+                sys.stdout.flush()
+                time.sleep(.5)
+                count-=1
+        except OSError, err:
+            time.sleep(.1)
+        except IOError, err:
+            time.sleep(.1)
+        daemon.stop()
+
 
 sys.exit(0)

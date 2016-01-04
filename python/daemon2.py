@@ -320,3 +320,4 @@ class Daemon2:
             os.unlink(self.lockfile)
         except:
             pass
+

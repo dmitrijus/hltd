@@ -567,7 +567,7 @@ class elasticBoxCollectorBU():
 
 class BoxInfoUpdater(threading.Thread):
 
-    def __init__(self,ramdisk,conf,nsslock,box_version):
+    def __init__(self,conf,nsslock,box_version):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.stopping = False
         self.es=None
@@ -579,7 +579,7 @@ class BoxInfoUpdater(threading.Thread):
             threading.Thread.__init__(self)
             self.threadEvent = threading.Event()
 
-            boxesDir =  os.path.join(ramdisk,'appliance/boxes')
+            boxesDir =  os.path.join(conf.watch_directory,'appliance/boxes')
             boxesMask = inotify.IN_CLOSE_WRITE
             self.logger.info("starting elastic for "+boxesDir)
 

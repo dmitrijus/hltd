@@ -28,9 +28,9 @@ class hltdConf:
 
         #default
         try:
-          self.run_number_padding = cfg.getint('General','run_number_padding')
+            self.run_number_padding = cfg.getint('General','run_number_padding')
         except:
-        self.run_number_padding = 6
+            self.run_number_padding = 6
 
         self.delete_run_dir = cfg.getboolean('General','delete_run_dir')
         self.output_adler32 = cfg.getboolean('General','output_adler32')
@@ -65,12 +65,12 @@ class hltdConf:
         #read cluster name from elastic search configuration file (if not set up directly)
         if not self.elastic_cluster and self.use_elasticsearch:
             try:
-                with open('/etc/elasticsearch/elasticsearch.yml') as fi
-                lines = fi.readlines()
-                for line in lines:
-                    sline = line.strip()
-                    if line.startswith("cluster.name"):
-                        self.elastic_cluster = line.split(':')[1].strip()
+                with open('/etc/elasticsearch/elasticsearch.yml') as fi:
+                    lines = fi.readlines()
+                    for line in lines:
+                        sline = line.strip()
+                        if line.startswith("cluster.name"):
+                            self.elastic_cluster = line.split(':')[1].strip()
             except:
                 pass
 

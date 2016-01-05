@@ -1,9 +1,34 @@
+import os
+import time
+import simplejson as json
+import re
+import httplib
+import subprocess
+import threading
 import logging
+
+from HLTDCommon import dqm_globalrun_filepattern,preexec_function
+
+class RunCommon:
+
+    STARTING = 'starting'
+    ACTIVE = 'active'
+    STOPPING = 'stopping'
+    ABORTED = 'aborted'
+    COMPLETE = 'complete'
+    ABORTCOMPLETE = 'abortcomplete'
+
+    VALID_MARKERS = [STARTING,ACTIVE,STOPPING,COMPLETE,ABORTED,ABORTCOMPLETE]
+
+
 
 class OnlineResource:
 
     def __init__(self,parent,resourcenames,resource_lock):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.parent = parent
+        global conf
+        conf = self.parent.conf
         self.resInfo = parent.resInfo
         #self.hoststate = 0 #@@MO what is this used for?
         self.cpu = resourcenames
@@ -31,7 +56,7 @@ class OnlineResource:
 
     def NotifyNewRun(self,runnumber):
         self.runnumber = runnumber
-        logger.info("calling start of run on "+self.cpu[0])
+        self.logger.info("calling start of run on "+self.cpu[0])
         attemptsLeft=3
         while attemptsLeft>0:
             attemptsLeft-=1
@@ -40,18 +65,18 @@ class OnlineResource:
                 connection.request("GET",'cgi-bin/start_cgi.py?run='+str(runnumber))
                 response = connection.getresponse()
                 #do something intelligent with the response code
-                logger.error("response was "+str(response.status))
+                self.logger.error("response was "+str(response.status))
                 if response.status > 300: pass #self.hoststate = 1
                 else:
-                    logger.info(response.read())
+                    self.logger.info(response.read())
                 break
             except Exception as ex:
                 if attemptsLeft>0:
-                    logger.error(str(ex))
-                    logger.info('retrying connection to '+str(self.cpu[0]))
+                    self.logger.error(str(ex))
+                    self.logger.info('retrying connection to '+str(self.cpu[0]))
                 else:
-                    logger.error('Exhausted attempts to contact '+str(self.cpu[0]))
-                    logger.exception(ex)
+                    self.logger.error('Exhausted attempts to contact '+str(self.cpu[0]))
+                    self.logger.exception(ex)
 
     def NotifyShutdown(self):
         try:
@@ -63,10 +88,10 @@ class OnlineResource:
             #do something intelligent with the response code
             #if response.status > 300: self.hoststate = 0
         except Exception as ex:
-            logger.exception(ex)
+            self.logger.exception(ex)
 
     def StartNewProcess(self, runnumber, input_disk, arch, version, menu, transfermode, num_threads, num_streams):
-        logger.debug("OnlineResource: StartNewProcess called")
+        self.logger.debug("OnlineResource: StartNewProcess called")
         self.runnumber = runnumber
 
         """
@@ -76,7 +101,7 @@ class OnlineResource:
         """
         inputdirpath = os.path.join(input_disk,'run'+str(runnumber).zfill(conf.run_number_padding))
         #run_dir = input_disk + '/run' + str(self.runnumber).zfill(conf.run_number_padding)
-        logger.info("starting process with "+version+" and run number "+str(runnumber)+ ' threads:'+str(num_threads)+' streams:'+str(num_streams))
+        self.logger.info("starting process with "+version+" and run number "+str(runnumber)+ ' threads:'+str(num_threads)+' streams:'+str(num_streams))
 
         if "_patch" in version:
             full_release="cmssw-patch"
@@ -129,7 +154,7 @@ class OnlineResource:
                                             preexec_fn=preexec_function,
                                             close_fds=True
                                             )
-            logger.info("arg array "+str(new_run_args).translate(None, "'")+' started with pid '+str(self.process.pid))
+            self.logger.info("arg array "+str(new_run_args).translate(None, "'")+' started with pid '+str(self.process.pid))
 
             if self.watchdog:
                 #release lock while joining thread to let it complete
@@ -140,14 +165,14 @@ class OnlineResource:
             self.processstate = 100
             self.watchdog = ProcessWatchdog(self,inputdirpath)
             self.watchdog.start()
-            logger.debug("watchdog thread restarted for "+str(self.process.pid)+" is alive " + str(self.watchdog.is_alive()))
+            self.logger.debug("watchdog thread restarted for "+str(self.process.pid)+" is alive " + str(self.watchdog.is_alive()))
 
         except Exception as ex:
-            logger.info("OnlineResource: exception encountered in forking hlt slave")
-            logger.info(ex)
+            self.logger.info("OnlineResource: exception encountered in forking hlt slave")
+            self.logger.info(ex)
 
     def join(self):
-        logger.debug('calling join on thread ' +self.watchdog.name)
+        self.logger.debug('calling join on thread ' +self.watchdog.name)
         self.watchdog.join()
 
     def clearQuarantined(self,doLock=True,restore=True):
@@ -158,14 +183,14 @@ class OnlineResource:
         if doLock:self.resource_lock.acquire()
         try:
             for cpu in self.quarantined:
-                logger.info('Clearing quarantined resource '+cpu)
-                resInfo.resmove(self.resInfo.quarantined,self.resInfo.idles,cpu)
+                self.logger.info('Clearing quarantined resource '+cpu)
+                self.resInfo.resmove(self.resInfo.quarantined,self.resInfo.idles,cpu)
                 retq.append(cpu)
             self.quarantined = []
             self.parent.n_used=0
             self.parent.n_quarantined=0
         except Exception as ex:
-            logger.exception(ex)
+            self.logger.exception(ex)
         if doLock:self.resource_lock.release()
         return retq
 
@@ -174,10 +199,10 @@ class OnlineResource:
         try:
             for cpu in self.cpu:
                 try:
-                    resInfo.resmove(self.resInfo.used,self.resInfo.idles,cpu)
+                    self.resInfo.resmove(self.resInfo.used,self.resInfo.idles,cpu)
                     self.parent.n_used-=1
                 except Exception as ex:
-                    logger.warning('problem moving core ' + cpu + ' from used to idle:'+str(ex))
+                    self.logger.warning('problem moving core ' + cpu + ' from used to idle:'+str(ex))
         finally:
             self.resource_lock.release()
 
@@ -186,11 +211,11 @@ class OnlineResource:
         try:
             for cpu in self.cpu:
                 try:
-                    resInfo.resmove(self.resInfo.used,self.resInfo.quarantined,cpu)
+                    self.resInfo.resmove(self.resInfo.used,self.resInfo.quarantined,cpu)
                     self.quarantined.append(cpu)
                     self.parent.n_quarantined+=1
                 except Exception as ex:
-                    logger.warning('problem moving core ' + cpu + ' from used to quarantined:'+str(ex))
+                    self.logger.warning('problem moving core ' + cpu + ' from used to quarantined:'+str(ex))
         finally:
             self.resource_lock.release()
 
@@ -199,16 +224,17 @@ class OnlineResource:
         try:
             for cpu in self.cpu:
                 try:
-                    resInfo.resmove(self.resInfo.used,self.resInfo.broken,cpu)
+                    self.resInfo.resmove(self.resInfo.used,self.resInfo.broken,cpu)
                     self.parent.n_used-=1
                 except Exception as ex:
-                    logger.warning('problem moving core ' + cpu + ' from used to except:'+str(ex))
+                    self.logger.warning('problem moving core ' + cpu + ' from used to except:'+str(ex))
         finally:
             self.resource_lock.release()
 
 class ProcessWatchdog(threading.Thread):
     def __init__(self,resource,inputdirpath):
         threading.Thread.__init__(self)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.resource = resource
         self.inputdirpath=inputdirpath
         self.retry_limit = conf.process_restart_limit
@@ -217,7 +243,7 @@ class ProcessWatchdog(threading.Thread):
 
     def run(self):
         try:
-            logger.info('watchdog thread for process '+str(self.resource.process.pid) + ' on resource '+str(self.resource.cpu)+" for run "+str(self.resource.runnumber) + ' started ')
+            self.logger.info('watchdog thread for process '+str(self.resource.process.pid) + ' on resource '+str(self.resource.cpu)+" for run "+str(self.resource.runnumber) + ' started ')
             self.resource.process.wait()
             returncode = self.resource.process.returncode
             pid = self.resource.process.pid
@@ -226,10 +252,10 @@ class ProcessWatchdog(threading.Thread):
             self.resource.processstate=returncode
 
             outdir = self.resource.assigned_run_dir
-            abortedmarker = os.path.join(outdir,Run.ABORTED)
-            stoppingmarker = os.path.join(outdir,Run.STOPPING)
-            abortcompletemarker = os.path.join(outdir,Run.ABORTCOMPLETE)
-            completemarker = os.path.join(outdir,Run.COMPLETE)
+            abortedmarker = os.path.join(outdir,RunCommon.ABORTED)
+            stoppingmarker = os.path.join(outdir,RunCommon.STOPPING)
+            abortcompletemarker = os.path.join(outdir,RunCommon.ABORTCOMPLETE)
+            completemarker = os.path.join(outdir,RunCommon.COMPLETE)
             rnsuffix = str(self.resource.runnumber).zfill(conf.run_number_padding)
 
             if os.path.exists(abortedmarker):
@@ -243,7 +269,7 @@ class ProcessWatchdog(threading.Thread):
 
             if conf.dqm_machine==False and returncode==90 and inputdir_exists:
                 if not os.path.exists(os.path.join(self.inputdirpath,'hlt','HltConfig.py')):
-                    logger.error("input run dir exists, but " + str(os.path.join(self.inputdirpath,'hlt','HltConfig.py')) + " is not present (cmsRun exit code 90)")
+                    self.logger.error("input run dir exists, but " + str(os.path.join(self.inputdirpath,'hlt','HltConfig.py')) + " is not present (cmsRun exit code 90)")
                     configuration_reachable=False
 
             #cleanup actions- remove process from list and attempt restart on same resource
@@ -253,14 +279,14 @@ class ProcessWatchdog(threading.Thread):
                 self.resource.parent.num_errors+=1
 
                 if returncode < 0:
-                    logger.error("process "+str(pid)
+                    self.logger.error("process "+str(pid)
                               +" for run "+str(self.resource.runnumber)
                               +" on resource(s) " + str(self.resource.cpu)
                               +" exited with signal "
                               +str(returncode) + ', retries left: '+str(self.retry_limit-self.resource.retry_attempts)
                               )
                 else:
-                    logger.error("process "+str(pid)
+                    self.logger.error("process "+str(pid)
                               +" for run "+str(self.resource.runnumber)
                               +" on resource(s) " + str(self.resource.cpu)
                               +" exited with code "
@@ -274,14 +300,14 @@ class ProcessWatchdog(threading.Thread):
                 if conf.dqm_machine==False and returncode in quit_codes:
                     if self.resource.retry_attempts < self.retry_limit:
 
-                        logger.warning('for this type of error, restarting this process is disabled')
+                        self.logger.warning('for this type of error, restarting this process is disabled')
                         self.resource.retry_attempts=self.retry_limit
                     if returncode==127:
-                        logger.fatal('Exit code indicates that CMSSW environment might not be available (cmsRun executable not in path).')
+                        self.logger.fatal('Exit code indicates that CMSSW environment might not be available (cmsRun executable not in path).')
                     elif returncode==90:
-                        logger.fatal('Exit code indicates that there might be a python error in the CMSSW configuration.')
+                        self.logger.fatal('Exit code indicates that there might be a python error in the CMSSW configuration.')
                     else:
-                        logger.fatal('Exit code indicates that there might be a C/C++ error in the CMSSW configuration.')
+                        self.logger.fatal('Exit code indicates that there might be a C/C++ error in the CMSSW configuration.')
 
                 #generate crashed pid json file like: run000001_ls0000_crash_pid12345.jsn
                 oldpid = "pid"+str(pid).zfill(5)
@@ -293,8 +319,8 @@ class ProcessWatchdog(threading.Thread):
                 try:
                     with open(filepath,"w+") as fi:
                         json.dump(document,fi)
-                except: logger.exception("unable to create %r" %filename)
-                logger.info("pid crash file: %r" %filename)
+                except: self.logger.exception("unable to create %r" %filename)
+                self.logger.info("pid crash file: %r" %filename)
 
 
                 if self.resource.retry_attempts < self.retry_limit:
@@ -307,14 +333,14 @@ class ProcessWatchdog(threading.Thread):
                     self.resource.process = None
                     self.resource.retry_attempts += 1
 
-                    logger.info("try to restart process for resource(s) "
+                    self.logger.info("try to restart process for resource(s) "
                                  +str(self.resource.cpu) + " attempt " + str(self.resource.retry_attempts))
 
                     self.resource.moveUsedToBroken()
-                    logger.debug("resource(s) " +str(self.resource.cpu)+ " successfully moved to except(broken)")
+                    self.logger.debug("resource(s) " +str(self.resource.cpu)+ " successfully moved to except(broken)")
 
                 elif self.resource.retry_attempts >= self.retry_limit:
-                    logger.info("process for run " + str(self.resource.runnumber)
+                    self.logger.info("process for run " + str(self.resource.runnumber)
                                   +" on resources " + str(self.resource.cpu)
                                   +" reached max retry limit ")
                     
@@ -329,15 +355,15 @@ class ProcessWatchdog(threading.Thread):
                         with open(conf.watch_directory+'/quarantined'+rnsuffix,'w+') as fp:
                             pass
                     except Exception as ex:
-                        logger.exception(ex)
+                        self.logger.exception(ex)
 
             #successful end= release resource (TODO:maybe should mark aborted for non-0 error codes)
             elif returncode == 0 or returncode == None or not configuration_reachable:
 
                 if not configuration_reachable:
-                    logger.info('pid '+str(pid)+' exit 90 (input directory and menu missing) from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
+                    self.logger.info('pid '+str(pid)+' exit 90 (input directory and menu missing) from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
                 else:
-                    logger.info('pid '+str(pid)+' exit 0 from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
+                    self.logger.info('pid '+str(pid)+' exit 0 from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
 
                 # generate an end-of-run marker if it isn't already there - it will be picked up by the RunRanger
                 endmarker = conf.watch_directory+'/end'+rnsuffix
@@ -351,24 +377,24 @@ class ProcessWatchdog(threading.Thread):
                     if os.path.exists(completemarker):
                         break
                     if os.path.exists(abortedmarker) or os.path.exists(abortcompletemarker):
-                        logger.warning('quitting watchdog thread because run ' + str(self.resource.runnumber) + ' has been aborted ( pid' + str(pid) + ' resource' + str(self.resource.cpu) + ')')
+                        self.logger.warning('quitting watchdog thread because run ' + str(self.resource.runnumber) + ' has been aborted ( pid' + str(pid) + ' resource' + str(self.resource.cpu) + ')')
                         break
                     if not os.path.exists(outdir):
-                        logger.warning('quitting watchdog thread because run directory ' + outdir  + ' has disappeared ( pid' + str(pid) + ' resource' + str(self.resource.cpu) + ')')
+                        self.logger.warning('quitting watchdog thread because run directory ' + outdir  + ' has disappeared ( pid' + str(pid) + ' resource' + str(self.resource.cpu) + ')')
                         break
                     time.sleep(.1)
                     count+=1
                     if count>=100 and count%100==0:
-                        logger.warning("still waiting for complete marker for run "+str(self.resource.runnumber) + ' in watchdog for resource '+str(self.resource.cpu))
+                        self.logger.warning("still waiting for complete marker for run "+str(self.resource.runnumber) + ' in watchdog for resource '+str(self.resource.cpu))
 
                 # release resources for this case
                 self.resource.moveUsedToIdles()
 
-            #logger.info('exiting watchdog thread for '+str(self.resource.cpu))
+            #self.logger.info('exiting watchdog thread for '+str(self.resource.cpu))
 
         except Exception as ex:
-            logger.info("OnlineResource watchdog: exception")
-            logger.exception(ex)
+            self.logger.info("OnlineResource watchdog: exception")
+            self.logger.exception(ex)
             try:self.resource.resource_lock.release()
             except:pass
         return

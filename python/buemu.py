@@ -1,12 +1,13 @@
-import os, subprocess
+import os
+import subprocess
+from HLTDCommon import preexec_function
 
 class BUEmu:
-    def __init__(self,conf,disklist,preexec_func):
+    def __init__(self,conf):
         self.process=None
         self.runnumber = None
         self.conf = conf
         self.disklist = disklist
-        self.preexec_func = preexec_func
 
     def startNewRun(self,nr):
         if self.runnumber:

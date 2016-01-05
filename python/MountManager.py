@@ -5,13 +5,14 @@ import re
 import time
 import datetime
 
+from HLTDCommon import preexec_function
+
 class MountManager:
 
-    def __init__(self,conf,preexec_func):
+    def __init__(self,conf):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.conf = conf
         self.reset()
-        self.preexec_function = preexec_func
 
     def reset(self):
         self.bu_disk_list_ramdisk = []
@@ -36,7 +37,7 @@ class MountManager:
             try:
                 if nsslock:nsslock.acquire()
                 #try to kill all unpriviledged child processes using the mount point
-                f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,self.conf.ramdisk_subdirectory)],shell=False,preexec_fn=self.preexec_function,close_fds=True)
+                f_user = subprocess.Popen(['fuser','-km',os.path.join('/'+point,self.conf.ramdisk_subdirectory)],shell=False,preexec_fn=preexec_function,close_fds=True)
                 if nsslock:nsslock.release()
                 f_user.wait()
             except:

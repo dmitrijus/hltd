@@ -3,9 +3,12 @@ import time
 from signal import SIGKILL
 import httplib
 import logging
-import Run
+import shutil
 
-from HLTDCommon import restartLogCollector,preexec_function
+import Run
+from HLTDCommon import restartLogCollector,preexec_function,dqm_globalrun_filepattern
+from inotifywrapper import InotifyWrapper
+from buemu import BUEmu
 
 class RunRanger:
 
@@ -43,7 +46,6 @@ class RunRanger:
         dirname=fullpath[fullpath.rfind("/")+1:]
         self.logger.info('new filename '+dirname)
         nr=0
-        conf = self.conf
         if dirname.startswith('run'):
             if dirname.endswith('.reprocess'):
                 #reprocessing triggered
@@ -105,7 +107,7 @@ class RunRanger:
                                     # create an EoR file that will trigger all the running jobs to exit nicely
                                     open(EoR_file_name, 'w').close()
 
-                        run = Run.Run(nr,fullpath,bu_dir,self.instance,conf,self.resInfo,self.runList,self.rr,self.mm,self.nsslock,self.resource_lock)
+                        run = Run.Run(nr,fullpath,bu_dir,self.instance,conf,self.state,self.resInfo,self.runList,self.rr,self.mm,self.nsslock,self.resource_lock)
                         if not run.inputdir_exists and conf.role=='fu':
                             self.logger.info('skipping '+ fullpath + ' with raw input directory missing')
                             shutil.rmtree(fullpath)

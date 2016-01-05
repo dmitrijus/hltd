@@ -14,7 +14,6 @@ from applianceumount import checkMode
 import time
 import syslog
 
-
 def startService(daemon,srvInstance):
     daemon.touchLockFile()
     proc = Popen(["/opt/hltd/python/hltd.py",srvInstance], stdout=PIPE)
@@ -33,6 +32,35 @@ def startService(daemon,srvInstance):
             print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;31mFAILED\033[0;39m  ]'
             print output
             sys.exit(1)
+
+def stopHelper(daemon,instance):
+    #read configuration file to find location to write stop file
+    try:
+        conf = initConf(instance)
+    except Exception as ex:
+        print " CONFIGURATION error:",str(ex),"(check configuration file) [  \033[1;31mFAILED\033[0;39m  ]"
+        sys.exit(4)
+
+    if daemon.silentStatus():
+        try:
+            if os.path.exists(conf.watch_directory+'/populationcontrol'):
+                os.remove(conf.watch_directory+'/populationcontrol')
+            with  open(conf.watch_directory+'/populationcontrol','w+') as fp: pass
+            count = 10
+            while count:
+                os.stat(conf.watch_directory+'/populationcontrol')
+                if count==10:
+                    sys.stdout.write(' o.o')
+                else:
+                    sys.stdout.write('o.o')
+                sys.stdout.flush()
+                time.sleep(.5)
+                count-=1
+        except OSError, err:
+            time.sleep(.1)
+        except IOError, err:
+            time.sleep(.1)
+        daemon.stop()
 
 if __name__ == "__main__":
 
@@ -120,35 +148,5 @@ if __name__ == "__main__":
         else:
             print "usage: %s start|stop|stop-light|restart|status |all|main|instance" % sys.argv[0]
             sys.exit(2)
-
-def stopHelper(daemon,instance):
-    #read configuration file to find location to write stop file
-    try:
-        conf = initConf(instance)
-    except Exception as ex:
-        print " CONFIGURATION error:",str(ex),"(check configuration file) [  \033[1;31mFAILED\033[0;39m  ]"
-        sys.exit(4)
-
-    if daemon.silentStatus():
-        try:
-            if os.path.exists(conf.watch_directory+'/populationcontrol'):
-                os.remove(conf.watch_directory+'/populationcontrol')
-            with  open(conf.watch_directory+'/populationcontrol','w+') as fp: pass
-            count = 10
-            while count:
-                os.stat(conf.watch_directory+'/populationcontrol')
-                if count==10:
-                    sys.stdout.write(' o.o')
-                else:
-                    sys.stdout.write('o.o')
-                sys.stdout.flush()
-                time.sleep(.5)
-                count-=1
-        except OSError, err:
-            time.sleep(.1)
-        except IOError, err:
-            time.sleep(.1)
-        daemon.stop()
-
 
 sys.exit(0)

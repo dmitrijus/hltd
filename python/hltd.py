@@ -7,7 +7,7 @@ import time
 import logging
 import subprocess
 import threading
-#import CGIHTTPServer
+import CGIHTTPServer
 import BaseHTTPServer
 import cgitb
 #import socket
@@ -22,7 +22,7 @@ from daemon2 import Daemon2
 from hltdconf import initConf
 from inotifywrapper import InotifyWrapper
 
-from HLTDCommon import restartLogCollector,preexec_function
+from HLTDCommon import restartLogCollector
 from Run import RunList
 from ResourceRanger import ResourceRanger
 from RunRanger import RunRanger
@@ -130,7 +130,7 @@ class StateInfo:
         self.masked_resources = False
 
     #interfaces to the cloud igniter script
-    def ignite_cloud():
+    def ignite_cloud(self):
         try:
             proc = subprocess.Popen([conf.cloud_igniter_path,'start'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             out = proc.communicate()[0]
@@ -149,7 +149,7 @@ class StateInfo:
                 logger.exception(ex)
         return False
 
-    def extinguish_cloud():
+    def extinguish_cloud(self):
         try:
             proc = subprocess.Popen([conf.cloud_igniter_path,'stop'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             out = proc.communicate()[0]
@@ -167,7 +167,7 @@ class StateInfo:
                 logger.exception(ex)
         return False
 
-    def cloud_status():
+    def cloud_status(self):
         try:
             proc = subprocess.Popen([conf.cloud_igniter_path,'status'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             out = proc.communicate()[0]
@@ -208,7 +208,7 @@ def setFromConf(myinstance,resInfo):
     else:
         resource_base = conf.resource_base
     resource_base = os.readlink(resource_base) if os.path.islink(resource_base) else resource_base
-    conf.resource_base = resInfo.resource_base
+    conf.resource_base = resource_base
 
     if conf.role == 'fu':
         resInfo.idles = os.path.join(resource_base,'idle/')
@@ -261,7 +261,7 @@ class hltd(Daemon2,object):
 
         nsslock = threading.Lock()
         resource_lock = threading.Lock()
-        mm = MountManager(conf,preexec_function)
+        mm = MountManager(conf)
 
         if conf.role == 'fu':
             """
@@ -278,8 +278,8 @@ class hltd(Daemon2,object):
                         pass
                     state.cloud_mode=True
                     #TODO:what if cloud mode switch fails?
-                    if not stateInfo.cloud_status():
-                        result = stateInfo.ignite_cloud()
+                    if not state.cloud_status():
+                        result = state.ignite_cloud()
                     break
                 if resInfo.cleanup_resources()==True:break
                 time.sleep(0.1)
@@ -313,7 +313,7 @@ class hltd(Daemon2,object):
                 p.wait()
 
             #switch to cloud mode if active, but hltd did not have cores in cloud directory in the last session
-            if not is_in_cloud and cloud_status() == 1:
+            if not res_in_cloud and state.cloud_status() == 1:
                     logger.warning("cloud is on on this host at hltd startup, switching to cloud mode")
                     self.resInfo.move_resources_to_cloud()
                     state.cloud_mode=True
@@ -322,7 +322,7 @@ class hltd(Daemon2,object):
         logCollector = None
         if conf.use_elasticsearch == True:
             time.sleep(.2)
-            restartLogCollector(logger,logCollector,self.instance)
+            restartLogCollector(conf,logger,logCollector,self.instance)
 
         #BU mode threads
         boxInfo = BoxInfo()
@@ -353,7 +353,7 @@ class hltd(Daemon2,object):
         runList = RunList()
 
         #start monitoring resources
-        rr = ResourceRanger(conf,stateInfo,resInfo,runList,mm,boxInfo,indexCreator,resource_lock)
+        rr = ResourceRanger(conf,state,resInfo,runList,mm,boxInfo,indexCreator,resource_lock)
 
         #init resource ranger
         try:
@@ -382,8 +382,8 @@ class hltd(Daemon2,object):
 
         try:
             cgitb.enable(display=0, logdir="/tmp")
-            #handler = CGIHTTPServer.CGIHTTPRequestHandler
-            handler = WebCtrl(self)
+            handler = CGIHTTPServer.CGIHTTPRequestHandler
+            #handler = WebCtrl(self) #to be tested later
             # the following allows the base directory of the http
             # server to be 'conf.watch_directory, which is writeable
             # to everybody

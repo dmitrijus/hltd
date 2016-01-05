@@ -3,11 +3,14 @@
 #import subprocess
 #import logging
 
+import subprocess
 import demote
+import prctl
+from signal import SIGKILL
 
 dqm_globalrun_filepattern = '.run{0}.global'
 
-def restartLogCollector(logger,logCollector,instanceParam):
+def restartLogCollector(conf,logger,logCollector,instanceParam):
     if logCollector!=None:
         logger.info("terminating logCollector")
         logCollector.terminate()
@@ -15,10 +18,12 @@ def restartLogCollector(logger,logCollector,instanceParam):
     logger.info("starting logcollector.py")
     logcollector_args = ['/opt/hltd/python/logcollector.py']
     logcollector_args.append(instanceParam)
+    global user
+    user = conf.user
     logCollector = subprocess.Popen(logcollector_args,preexec_fn=preexec_function,close_fds=True)
 
 def preexec_function():
-    dem = demote.demote(conf.user)
+    dem = demote.demote(user)
     dem()
     prctl.set_pdeathsig(SIGKILL)
     #    os.setpgrp()

@@ -6,11 +6,20 @@ import simplejson as json
 import subprocess
 import threading
 import datetime
+import demote
+import prctl
+from signal import SIGKILL
 import logging
 
 import Resource
-from HLTDCommon import updateBlacklist,dqm_globalrun_filepattern,preexec_function
+from HLTDCommon import updateBlacklist,dqm_globalrun_filepattern
 from setupES import setupES
+
+def preexec_function():
+    dem = demote.demote(conf.user)
+    dem()
+    prctl.set_pdeathsig(SIGKILL)
+    #    os.setpgrp()
 
 class RunList:
     def __init__(self):

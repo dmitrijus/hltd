@@ -2,6 +2,7 @@ import os
 import time
 import simplejson as json
 import dateutil
+import dateutil.parser
 import datetime
 import logging
 
@@ -19,7 +20,7 @@ class ResourceRanger:
         self.state = stateInfo
         self.resInfo = resInfo
         self.runList = runList
-        self.managed_monitor = SystemMonitor.system_monitor(stateInfo,resInfo,runList,mountMgr,boxInfo,indexCreator)
+        self.managed_monitor = SystemMonitor.system_monitor(confClass,stateInfo,resInfo,runList,mountMgr,boxInfo,indexCreator)
         self.managed_monitor.start()
         self.regpath = []
         self.mm = mountMgr

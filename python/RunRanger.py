@@ -1,18 +1,26 @@
 import os
 import time
-from signal import SIGKILL
 import httplib
-import logging
 import shutil
+import demote
+import prctl
+from signal import SIGKILL
+import logging
 
 import Run
-from HLTDCommon import restartLogCollector,preexec_function,dqm_globalrun_filepattern
+from HLTDCommon import restartLogCollector,dqm_globalrun_filepattern
 from inotifywrapper import InotifyWrapper
 from buemu import BUEmu
 
+def preexec_function():
+    dem = demote.demote(conf.user)
+    dem()
+    prctl.set_pdeathsig(SIGKILL)
+    #    os.setpgrp()
+
 class RunRanger:
 
-    def __init__(self,confClass,instance,stateInfo,resInfo,runList,resourceRanger,mountMgr,logCollector,nsslock,resource_lock):
+    def __init__(self,instance,confClass,stateInfo,resInfo,runList,resourceRanger,mountMgr,logCollector,nsslock,resource_lock):
         self.inotifyWrapper = InotifyWrapper(self)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.instance = instance
@@ -572,7 +580,7 @@ class RunRanger:
 
         elif dirname.startswith('logrestart'):
             #hook to restart logcollector process manually
-            restartLogCollector(self.logger,self.logCollector,self.instance)
+            restartLogCollector(conf,self.logger,self.logCollector,self.instance)
             os.remove(fullpath)
 
         self.logger.debug("completed handling of event "+fullpath)

@@ -5,9 +5,18 @@ import re
 import httplib
 import subprocess
 import threading
+import demote
+import prctl
+from signal import SIGKILL
 import logging
 
-from HLTDCommon import dqm_globalrun_filepattern,preexec_function
+from HLTDCommon import dqm_globalrun_filepattern
+
+def preexec_function():
+    dem = demote.demote(conf.user)
+    dem()
+    prctl.set_pdeathsig(SIGKILL)
+    #    os.setpgrp()
 
 class RunCommon:
 

@@ -1,7 +1,13 @@
 import os
 import subprocess
-from HLTDCommon import preexec_function
+import demote
+import prctl
 
+def preexec_function():
+    dem = demote.demote(conf.user)
+    dem()
+    prctl.set_pdeathsig(SIGKILL)
+ 
 class BUEmu:
     def __init__(self,conf):
         self.process=None

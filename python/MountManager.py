@@ -3,9 +3,16 @@ import subprocess
 import logging
 import re
 import time
+import demote
+import prctl
+from signal import SIGKILL
 import datetime
 
-from HLTDCommon import preexec_function
+def preexec_function():
+    dem = demote.demote(conf.user)
+    dem()
+    prctl.set_pdeathsig(SIGKILL)
+    #    os.setpgrp()
 
 class MountManager:
 

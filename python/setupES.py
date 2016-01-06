@@ -1,3 +1,4 @@
+#!/bin/env python
 import sys,os
 
 from pyelasticsearch.client import ElasticSearch
@@ -167,4 +168,4 @@ if __name__ == '__main__':
         if "forcereplace" in sys.argv[2]:
             replaceOption=2
 
-    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True,overrideTests=True,create_index_name='run231013_appliance_bu-vm-01-01')
+    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True,overrideTests=True)

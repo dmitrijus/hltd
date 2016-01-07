@@ -193,7 +193,7 @@ class elasticBand():
         if ret<0:return
         datadict = {}
         datadict['ls'] = int(infile.ls[2:])
-        datadict['process'] = infile.pid
+        document['process']=int(infile.pid[3:])
         if document['data'][0] != "N/A":
             datadict['macro']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
         else:

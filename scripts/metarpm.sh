@@ -159,7 +159,7 @@ ls
 
 pluginpath="/opt/fff/esplugins/"
 pluginname1="bigdesk"
-pluginfile1="lukas-vlcek-bigdesk-v2.5.0-1-g505b32e-mod.zip"
+pluginfile1="bigdesk-505b32e-mod2.zip"
 pluginname2="head"
 pluginfile2="head-master.zip"
 
@@ -186,7 +186,7 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires:elasticsearch >= 2.1.1, hltd >= 1.8.1, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45
+Requires:elasticsearch >= 1.4.5, hltd >= 1.8.1, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/dbcheck.sh

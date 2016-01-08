@@ -680,7 +680,8 @@ if __name__ == "__main__":
             escfg.reg('cluster.name',clusterName)
             escfg.reg('node.name',cnhostname)
             escfg.reg('discovery.zen.ping.multicast.enabled','false')
-            escfg.reg('network.host',es_publish_host)
+            escfg.reg('network.publish_host',es_publish_host)
+            escfg.reg('network.bind_host','_local_,'+es_publish_host)
             escfg.reg('transport.tcp.compress','true')
             escfg.reg('script.groovy.sandbox.enabled','true')
 

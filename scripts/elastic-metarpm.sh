@@ -103,8 +103,8 @@ pluginname2="head"
 pluginfile2="head-master.zip"
 pluginname3="kopf"
 pluginfile3="elasticsearch-kopf-2.1.1.zip"
-pluginname4="river-runriver"
-pluginfile4="river-runriver-1.3.5-plugin.zip"
+#pluginname4="river-runriver"
+#pluginfile4="river-runriver-1.3.5-plugin.zip"
 
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
@@ -152,7 +152,7 @@ echo python2.6 /opt/fff/setupmachine.py elasticsearch,web $params >> %{buildroot
 cp $BASEDIR/esplugins/$pluginfile1 %{buildroot}/opt/fff/esplugins/$pluginfile1
 cp $BASEDIR/esplugins/$pluginfile2 %{buildroot}/opt/fff/esplugins/$pluginfile2
 cp $BASEDIR/esplugins/$pluginfile3 %{buildroot}/opt/fff/esplugins/$pluginfile3
-cp $BASEDIR/esplugins/$pluginfile4 %{buildroot}/opt/fff/esplugins/$pluginfile4
+#cp $BASEDIR/esplugins/$pluginfile4 %{buildroot}/opt/fff/esplugins/$pluginfile4
 cp $BASEDIR/esplugins/install.sh %{buildroot}/opt/fff/esplugins/install.sh
 cp $BASEDIR/esplugins/uninstall.sh %{buildroot}/opt/fff/esplugins/uninstall.sh
 cp $BASEDIR/scripts/fff-es %{buildroot}/etc/init.d/fff-es
@@ -190,7 +190,7 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile1
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile2
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile3
-%attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile4
+#%attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile4
 %attr( 755 ,root, root) /opt/fff/esplugins/install.sh
 %attr( 755 ,root, root) /opt/fff/esplugins/uninstall.sh
 
@@ -218,8 +218,8 @@ chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
 /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname3 > /dev/null
 /opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile3 $pluginname3
 
-/opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname4 > /dev/null
-/opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile4 $pluginname4
+#/opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname4 > /dev/null
+#/opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile4 $pluginname4
 
 
 chkconfig --del elasticsearch

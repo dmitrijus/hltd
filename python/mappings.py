@@ -3,21 +3,14 @@
 central_es_settings = {
             "analysis":{
                 "analyzer": {
-                    "prefix-test-analyzer": {
-                        "type": "custom",
-                        "tokenizer": "prefix-test-tokenizer"
-                    }
-                },
-                "tokenizer": {
-                    "prefix-test-tokenizer": {
-                        "type": "path_hierarchy",
-                        "delimiter": " "
+                    "default": {
+                        "type": "keyword"
                     }
                 }
-             },
+            },
             "index":{
-                'number_of_shards' : 20,
-                'number_of_replicas' : 1
+                'number_of_shards' : 12,
+                'number_of_replicas' : 2
             },
         }
 
@@ -25,21 +18,14 @@ central_es_settings = {
 central_es_settings_hltlogs = {
             "analysis":{
                 "analyzer": {
-                    "prefix-test-analyzer": {
-                        "type": "custom",
-                        "tokenizer": "prefix-test-tokenizer"
-                    }
-                },
-                "tokenizer": {
-                    "prefix-test-tokenizer": {
-                        "type": "path_hierarchy",
-                        "delimiter": "_"
+                    "default": {
+                        "type": "keyword"
                     }
                 }
             },
             "index":{
-                'number_of_shards' : 20,
-                'number_of_replicas' : 1
+                'number_of_shards' : 12,
+                'number_of_replicas' : 2
             }
         }
 
@@ -191,12 +177,46 @@ central_runindex_mapping = {
                     'errorEvents'   :{'type':'integer'},
                     'size'          :{'type':'long'},
                     }
-                }
+                },
+            'stream-hist' : {
+                    "_parent": {
+                            "type": "run"
+                    },
+                    "_timestamp": {
+                            "enabled": "true"
+                    },
+                    "properties": {
+                            "stream": {
+                                    "type": "string",
+                                    "index": "not_analyzed"
+                            },
+                            "ls": {
+                                    "type": "integer"
+                            },
+                            "in": {
+                                    "type": "float"
+                            },
+                            "out": {
+                                    "type": "float"
+                            },
+                            "err": {
+                                    "type": "float"
+                            },
+                            "filesize": {
+                                    "type": "float"
+                            },
+                            "completion":{
+                                    "type": "double"
+                            },
+                            "fm_date":{
+                                    "type": "date"
+                            }
+
+            }
 
             }
 central_boxinfo_mapping = {
           'boxinfo' : {
-            '_id'        :{'path':'id'},
             'properties' : {
               'fm_date'       :{'type':'date'},
               'id'            :{'type':'string'},
@@ -237,12 +257,10 @@ central_boxinfo_mapping = {
               },
             '_timestamp' : {
               'enabled'   : True,
-              'store'     : "yes",
-              "path"      : "fm_date"
               },
             '_ttl'       : { 'enabled' : True,
                              'default' :  '30d'
-                             }
+                           }
           },
           'resource_summary' : {
             'properties' : {
@@ -264,9 +282,7 @@ central_boxinfo_mapping = {
               "used" :                       { "type" : "integer" }
               },
             '_timestamp' : {
-              'enabled'   : True,
-              'store'     : "yes",
-              "path"      : "fm_date"
+              'enabled'   : True
               }
             }
           }
@@ -275,27 +291,28 @@ central_boxinfo_mapping = {
 central_hltdlogs_mapping = {
             'hltdlog' : {
                 '_timestamp' : {
-                    'enabled'   : True,
-                    'store'     : "yes"
+                    'enabled'   : True
                 },
                 #'_ttl'       : { 'enabled' : True,
                 #              'default' :  '30d'}
                 #,
                 'properties' : {
-                    'host'      : {'type' : 'string'},
+                    'host'      : {'type' : 'string',"index":"not_analyzed"},
                     'type'      : {'type' : 'string',"index" : "not_analyzed"},
                     'severity'  : {'type' : 'string',"index" : "not_analyzed"},
                     'severityVal'  : {'type' : 'integer'},
-                    'message'   : {'type' : 'string'},
+                    'message'   : {'type' : 'string',"index":"not_analyzed"},
                     'lexicalId' : {'type' : 'string',"index" : "not_analyzed"},
-                    'msgtime' : {'type' : 'date','format':'YYYY-mm-dd HH:mm:ss'},
-                 }
+                    'msgtime' : {
+                            'type' : 'date',
+                            'format':'YYYY-mm-dd HH:mm:ss||dd-MM-YYYY HH:mm:ss'
+                    },
+                }
             },
 
             "cmsswlog": {
                     "_timestamp": {
-                            "enabled": True,
-                            "store": "yes"
+                            "enabled": True
                     },
                     "properties": {
                             "host": {
@@ -347,7 +364,7 @@ central_hltdlogs_mapping = {
                                     "type": "long"
                             },
                             "message": {
-                                    "type": "string"
+                                    "type": "string","index":"not_analyzed"
                             },
                             "lexicalId": {
                                     "type": "string",

@@ -4,9 +4,12 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $SCRIPTDIR/..
 BASEDIR=$PWD
 
-PACKAGENAME="fffmeta-elastic"
-
 PARAMCACHE="paramcache"
+
+if [ -n "$1" ]; then
+  #PARAMCACHE=$1
+  PARAMCACHE=${1##*/}
+fi
 
 echo "Using cache file $PARAMCACHE"
 
@@ -30,6 +33,18 @@ read readin
 if [ ${#readin} != "0" ]; then
 lines[0]=$readin
 fi
+
+#PACKAGENAME="fffmeta-elastic"
+if [ ${lines[0]} == "prod" ]; then
+  PACKAGENAME="fffmeta-elastic"
+elif [ ${lines[0]} == "vm" ]; then
+  PACKAGENAME="fffmeta-elastic-vm"
+else
+  echo "Environment ${lines[0]} not supported. Available: prod or vm"
+  exit 1
+fi
+
+
 nousevar=$readin
 nousevar=$readin
 lines[1]="null"
@@ -85,11 +100,11 @@ done
 # create a build area
 
 echo "removing old build area"
-rm -rf /tmp/fffmeta-elastic-build-tmp
+rm -rf /tmp/$PACKAGENAME-build-tmp
 echo "creating new build area"
-mkdir  /tmp/fffmeta-elastic-build-tmp
+mkdir  /tmp/$PACKAGENAME-build-tmp
 ls
-cd     /tmp/fffmeta-elastic-build-tmp
+cd     /tmp/$PACKAGENAME-build-tmp
 mkdir BUILD
 mkdir RPMS
 TOPDIR=$PWD
@@ -98,7 +113,7 @@ ls
 
 pluginpath="/opt/fff/esplugins/"
 pluginname1="bigdesk"
-pluginfile1="lukas-vlcek-bigdesk-v2.5.0-1-g505b32e-mod.zip"
+pluginfile1="bigdesk-505b32e-mod2.zip"
 pluginname2="head"
 pluginfile2="head-master.zip"
 pluginname3="kopf"
@@ -110,7 +125,7 @@ cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta-elastic.spec <<EOF
 Name: $PACKAGENAME
-Version: 1.7.9
+Version: 1.8.0
 Release: 1
 Summary: hlt daemon
 License: gpl
@@ -120,7 +135,7 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires:elasticsearch = 2.1.1, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45 , php >= 5.3.3, php-oci8 >= 1.4.9 
+Requires:elasticsearch = 2.2, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45 , php >= 5.3.3, php-oci8 >= 1.4.9 
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/setupmachine.py

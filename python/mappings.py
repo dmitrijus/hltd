@@ -65,7 +65,8 @@ central_runindex_mapping = {
                 '_parent':{'type':'run'},
                 'properties' : {
                     'names':{
-                        'type':'string'
+                        'type':'string',
+                        "index":"not_analyzed"
                         },
                     'stateNames':{
                         'type':'string','index':'not_analyzed'
@@ -79,10 +80,6 @@ central_runindex_mapping = {
                     'output':{
                         'type':'integer'
                         },
-                    'id':{
-                        'type':'string',
-                        'index':'not_analyzed'
-                        },
                     'fm_date':{
                         'type':'date'
                         }
@@ -93,17 +90,14 @@ central_runindex_mapping = {
                 '_parent':{'type':'run'},
                 'properties' : {
                     'names':{
-                        'type':'string'
+                        'type':'string',
+                        "index":"not_analyzed"
                         },
                     'stateNames':{
                         'type':'string','index':'not_analyzed'
                         },
                     'reserved':{
                         'type':'integer'
-                        },
-                    'id':{
-                        'type':'string',
-                        'index':'not_analyzed'
                         },
                     'fm_date':{
                         'type':'date'
@@ -113,18 +107,14 @@ central_runindex_mapping = {
             'stream_label' : {
                 '_parent':{'type':'run'},
                 'properties' : {
-                    'id':{
-                         'type':'string',
-                         'index':'not_analyzed'
+                    'stream':{
+                        'type':'string',
+                        'index':'not_analyzed'
                         },
                     'fm_date':{
                         'type':'date'
                         }
                     },
-                    'stream':{
-                        'type':'string',
-                        'index':'not_analyzed'
-                    }
                 },
             'eols' : {
                 '_parent'    :{'type':'run'},
@@ -206,9 +196,9 @@ central_runindex_mapping = {
                             "date":{
                                     "type": "date"
                             }
-                    },
-
-                    "state-hist": {
+                    }
+                },
+            'state-hist': {
                             "_parent": {
                                     "type": "run"
                             },
@@ -266,11 +256,15 @@ central_runindex_mapping = {
                                             "total": {
                                                     "type": "integer"
                                             }
+                                    },
+                                    "date":{
+                                            "type": "date"
                                     }
-                            }
-                    },
 
-                    "state-hist-summary": {
+                            }
+                },
+
+            "state-hist-summary": {
                             "_parent": {
                                     "type": "run"
                             },
@@ -331,13 +325,14 @@ central_runindex_mapping = {
                                             "total": {
                                                     "type": "integer"
                                             }
+                                    },
+                                    "date":{
+                                            "type": "date"
                                     }
+
                             }
                     }
-
-
-
-            }
+}
 central_boxinfo_mapping = {
           'boxinfo' : {
             'properties' : {
@@ -359,7 +354,7 @@ central_boxinfo_mapping = {
               'totalRamdisk'  :{'type':'integer'},
               'usedOutput'    :{'type':'integer'},
               'totalOutput'   :{'type':'integer'},
-              'activeRuns'    :{'type':'string'},
+              'activeRuns'    :{'type':'integer'},
               'activeRunNumQueuedLS':{'type':'integer'},
               'activeRunCMSSWMaxLS': {'type':'integer'},
               'activeRunStats'    :{

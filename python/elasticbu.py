@@ -189,7 +189,6 @@ class elasticBandBU:
         document = {}
         document['_parent']= self.runnumber
         doc_id="microstatelegend_"+self.runnumber
-        document['id']=doc_id
         if fullpath.endswith('.jsn'):
             try:
                 with open(fullpath,'r') as fp:
@@ -238,7 +237,6 @@ class elasticBandBU:
         document = {}
         document['_parent']= self.runnumber
         doc_id="pathlegend_"+self.runnumber
-        document['id']=doc_id
         if fullpath.endswith('.jsn'):
             try:
                 with open(fullpath,'r') as fp:
@@ -267,7 +265,6 @@ class elasticBandBU:
         document['_parent']= self.runnumber
         document['stream']=infile.stream[6:]
         doc_id=infile.basename
-        document['id']=doc_id
         return self.index_documents('stream_label',[document],doc_id,bulk=False)
 
     def elasticize_runend_time(self,endtime):

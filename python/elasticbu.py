@@ -335,6 +335,7 @@ class elasticBandBU:
 
             document['id']=doc_id
             document['activeRuns'] = str(document['activeRuns']).strip('[]')
+            document['activeRunList'] = document['activeRuns']
             document['appliance']=self.host
             document['instance']=self.conf.instance
             if bu_doc==True:

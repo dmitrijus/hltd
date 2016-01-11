@@ -354,7 +354,8 @@ central_boxinfo_mapping = {
               'totalRamdisk'  :{'type':'integer'},
               'usedOutput'    :{'type':'integer'},
               'totalOutput'   :{'type':'integer'},
-              'activeRuns'    :{'type':'integer'},
+              'activeRuns'    :{'type':'string','index':'not_analyzed'},
+              'activeRunList'    :{'type':'integer'},
               'activeRunNumQueuedLS':{'type':'integer'},
               'activeRunCMSSWMaxLS': {'type':'integer'},
               'activeRunStats'    :{

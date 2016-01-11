@@ -159,13 +159,18 @@ ls
 
 pluginpath="/opt/fff/esplugins/"
 pluginname1="bigdesk"
-#pluginfile1="lukas-vlcek-bigdesk-v2.4.0-2-g9807b92-mod.zip"
-pluginfile1="lukas-vlcek-bigdesk-v2.5.0-1-g505b32e-mod.zip"
+pluginfile1="bigdesk-505b32e-mod2.zip"
 pluginname2="head"
 pluginfile2="head-master.zip"
-pluginname3="HQ"
-pluginfile3="hq-master.zip"
+
+#kopf not installed in appliances because of size
+pluginname3="kopf"
+pluginfile3="elasticsearch-kopf-2.1.1.zip"
 pluginname4="paramedic"
+pluginfile4="paramedic"
+
+#old versions:
+#pluginfile1="lukas-vlcek-bigdesk-v2.4.0-2-g9807b92-mod.zip"
 
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
@@ -181,7 +186,7 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires:elasticsearch >= 1.4.2, hltd >= 1.7.9, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45
+Requires:elasticsearch >= 1.4.5, hltd >= 1.8.1, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/dbcheck.sh

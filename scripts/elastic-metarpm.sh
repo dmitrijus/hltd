@@ -4,9 +4,12 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $SCRIPTDIR/..
 BASEDIR=$PWD
 
-PACKAGENAME="fffmeta-elastic"
-
 PARAMCACHE="paramcache"
+
+if [ -n "$1" ]; then
+  #PARAMCACHE=$1
+  PARAMCACHE=${1##*/}
+fi
 
 echo "Using cache file $PARAMCACHE"
 
@@ -30,6 +33,18 @@ read readin
 if [ ${#readin} != "0" ]; then
 lines[0]=$readin
 fi
+
+#PACKAGENAME="fffmeta-elastic"
+if [ ${lines[0]} == "prod" ]; then
+  PACKAGENAME="fffmeta-elastic"
+elif [ ${lines[0]} == "vm" ]; then
+  PACKAGENAME="fffmeta-elastic-vm"
+else
+  echo "Environment ${lines[0]} not supported. Available: prod or vm"
+  exit 1
+fi
+
+
 nousevar=$readin
 nousevar=$readin
 lines[1]="null"
@@ -85,11 +100,11 @@ done
 # create a build area
 
 echo "removing old build area"
-rm -rf /tmp/fffmeta-elastic-build-tmp
+rm -rf /tmp/$PACKAGENAME-build-tmp
 echo "creating new build area"
-mkdir  /tmp/fffmeta-elastic-build-tmp
+mkdir  /tmp/$PACKAGENAME-build-tmp
 ls
-cd     /tmp/fffmeta-elastic-build-tmp
+cd     /tmp/$PACKAGENAME-build-tmp
 mkdir BUILD
 mkdir RPMS
 TOPDIR=$PWD
@@ -98,17 +113,19 @@ ls
 
 pluginpath="/opt/fff/esplugins/"
 pluginname1="bigdesk"
-pluginfile1="lukas-vlcek-bigdesk-v2.5.0-1-g505b32e-mod.zip"
+pluginfile1="bigdesk-505b32e-mod2.zip"
 pluginname2="head"
 pluginfile2="head-master.zip"
-pluginname3="river-runriver"
-pluginfile3="river-runriver-1.3.5-plugin.zip"
+pluginname3="kopf"
+pluginfile3="elasticsearch-kopf-2.1.1.zip"
+#pluginname4="river-runriver"
+#pluginfile4="river-runriver-1.3.5-plugin.zip"
 
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta-elastic.spec <<EOF
 Name: $PACKAGENAME
-Version: 1.7.9
+Version: 1.8.0
 Release: 1
 Summary: hlt daemon
 License: gpl
@@ -118,7 +135,7 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires:elasticsearch = 1.4.5, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45 , php >= 5.3.3, php-oci8 >= 1.4.9 
+Requires:elasticsearch = 2.2, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45 , php >= 5.3.3, php-oci8 >= 1.4.9 
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/setupmachine.py
@@ -150,6 +167,7 @@ echo python2.6 /opt/fff/setupmachine.py elasticsearch,web $params >> %{buildroot
 cp $BASEDIR/esplugins/$pluginfile1 %{buildroot}/opt/fff/esplugins/$pluginfile1
 cp $BASEDIR/esplugins/$pluginfile2 %{buildroot}/opt/fff/esplugins/$pluginfile2
 cp $BASEDIR/esplugins/$pluginfile3 %{buildroot}/opt/fff/esplugins/$pluginfile3
+#cp $BASEDIR/esplugins/$pluginfile4 %{buildroot}/opt/fff/esplugins/$pluginfile4
 cp $BASEDIR/esplugins/install.sh %{buildroot}/opt/fff/esplugins/install.sh
 cp $BASEDIR/esplugins/uninstall.sh %{buildroot}/opt/fff/esplugins/uninstall.sh
 cp $BASEDIR/scripts/fff-es %{buildroot}/etc/init.d/fff-es
@@ -187,6 +205,7 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile1
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile2
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile3
+#%attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile4
 %attr( 755 ,root, root) /opt/fff/esplugins/install.sh
 %attr( 755 ,root, root) /opt/fff/esplugins/uninstall.sh
 
@@ -214,6 +233,9 @@ chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
 /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname3 > /dev/null
 /opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile3 $pluginname3
 
+#/opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname4 > /dev/null
+#/opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile4 $pluginname4
+
 
 chkconfig --del elasticsearch
 chkconfig --add elasticsearch
@@ -240,6 +262,7 @@ if [ \$1 == 0 ]; then
   /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname1 || true
   /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname2 || true
   /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname3 || true
+  /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname4 || true
 
 
   python2.6 /opt/fff/setupmachine.py restore,elasticsearch

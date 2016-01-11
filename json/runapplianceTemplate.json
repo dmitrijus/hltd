@@ -61,11 +61,6 @@
           "index":"not_analyzed"
         }
       },
-      "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path": "fm_date"
-      },
       "_ttl": {
         "enabled": true,
         "default": 300000
@@ -76,13 +71,13 @@
         "macro": {
           "type": "integer"
         },
-        "mini": {
+        "miniv": {
           "properties":{
             "key":{"type":"integer","index":"no"},
             "value":{"type":"integer","index":"no"}
           }
         },
-        "micro": {
+        "microv": {
           "properties":{
             "key":{"type":"integer","index":"no"},
             "value":{"type":"integer","index":"no"}
@@ -108,7 +103,8 @@
           }
         },
         "ls": {
-          "type": "integer"
+          "type": "integer",
+          "store": true
         },
         "fm_date": {
           "type": "date",
@@ -121,12 +117,10 @@
         "mclass" : {
           "type": "string",
           "index":"not_analyzed"
+        },
+        "process": {
+          "type":"integer"
         }
-      },
-      "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path" : "fm_date"
       }
     },
     "prc-out": {
@@ -159,8 +153,7 @@
         }
       },
       "_timestamp": {
-        "enabled": true,
-        "store": true
+        "enabled": true
       }
     },
     "prc-in": {
@@ -195,9 +188,7 @@
         }
       },
       "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path": "fm_date"
+        "enabled": true
       }
     },
     "fu-out": {
@@ -237,7 +228,8 @@
           }
         },
         "ls": {
-          "type": "integer"
+          "type": "integer",
+          "store": true
         },
         "stream": {
           "type": "string",
@@ -249,8 +241,7 @@
         },
         "source": {
           "type": "string",
-          "index_analyzer": "prefix-test-analyzer",
-          "search_analyzer": "keyword"
+          "index":"not_analyzed"
         },
         "fm_date": {
           "type": "date",
@@ -258,9 +249,7 @@
         }
       },
       "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path": "fm_date"
+        "enabled": true
       }
     },
     "fu-complete": {
@@ -275,9 +264,7 @@
         }
       },
       "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path": "fm_date"
+        "enabled": true
       }
     },
     "qstatus": {
@@ -310,15 +297,12 @@
         }
       },
       "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path": "fm_date"
+        "enabled": true
       }
     },
     "cmsswlog": {
       "_timestamp": {
-        "enabled": true,
-        "store": true
+        "enabled": true
       },
       "_ttl": {
         "enabled": true,
@@ -332,7 +316,7 @@
         "pid": {
           "type": "integer"
         },
-        "type": {
+        "doctype": {
           "type": "string",
           "index": "not_analyzed"
         },
@@ -373,7 +357,8 @@
           "type": "long"
         },
         "message": {
-          "type": "string"
+          "type": "string",
+          "index": "not_analyzed"
         },
         "lexicalId": {
           "type": "string",

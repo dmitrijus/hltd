@@ -63,6 +63,8 @@ vm_override_buHNs = {
                      "fu-vm-02-01.cern.ch":["bu-vm-01-01","bu-vm-01-01"],
                      "fu-vm-02-02.cern.ch":["bu-vm-01-01"]
                      }
+vm_bu_override = ['bu-vm-01-01.cern.ch']
+
 
 def getmachinetype():
 
@@ -634,7 +636,14 @@ if __name__ == "__main__":
         else:
             buName = os.uname()[1]
     elif type == 'tribe':
-        buDataAddr = getAllBU(requireFU=False)
+        if env=='vm':
+          try:
+            #failover to no DB in VM mode
+            buDataAddr = getAllBU(requireFU=False)
+          except:
+            buDataAddr = vm_bu_override
+        else:
+          buDataAddr = getAllBU(requireFU=False)
         buName='es-tribe'
 
     print "running configuration for machine",cnhostname,"of type",type,"in cluster",cluster,"; appliance bu is:",buName
@@ -669,6 +678,7 @@ if __name__ == "__main__":
             essyscfg.reg('ES_HEAP_SIZE','1G')
             essyscfg.reg('MAX_LOCKED_MEMORY','unlimited')
             essyscfg.reg('ES_USE_GC_LOGGING','false')
+            essyscfg.removeEntry('CONF_FILE')
             if type == 'fu':
                     #if myhost.startswith('fu-c2d'):#Megware FU racks
                     #essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log -XX:NewSize=500m -XX:MaxNewSize=600m"')
@@ -678,8 +688,9 @@ if __name__ == "__main__":
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('cluster.name',clusterName)
             escfg.reg('node.name',cnhostname)
-            escfg.reg('discovery.zen.ping.multicast.enabled','false')
+            #escfg.reg('discovery.zen.ping.multicast.enabled','false')
             escfg.reg('network.publish_host',es_publish_host)
+            escfg.reg('network.bind_host','_local_,'+es_publish_host)
             escfg.reg('transport.tcp.compress','true')
             escfg.reg('script.groovy.sandbox.enabled','true')
 
@@ -703,11 +714,15 @@ if __name__ == "__main__":
         if type == 'tribe':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
             essyscfg.reg('ES_HEAP_SIZE','24G')
+            essyscfg.removeEntry('CONF_FILE')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
+            escfg.reg('network.publish_host',es_publish_host)
+            escfg.reg('network.bind_host','_local_,'+es_publish_host)
             escfg.reg('cluster.name','es-tribe')
-            escfg.reg('discovery.zen.ping.multicast.enabled','false')
+            escfg.reg('discovery.zen.ping.unicast.hosts','[]')
+            #escfg.reg('discovery.zen.ping.multicast.enabled','false')
             #escfg.reg('discovery.zen.ping.unicast.hosts','['+','.join(buDataAddr)+']')
             escfg.reg('transport.tcp.compress','true')
 
@@ -723,8 +738,11 @@ if __name__ == "__main__":
                     continue
 
                 escfg.reg('    t'+str(i),'')
-                escfg.reg('         discovery.zen.ping.multicast.enabled','false')
+                escfg.reg('         indices.analysis.hunspell.dictionary.lazy','true')
+                escfg.reg('         path.scripts','/usr/share/elasticsearch/plugins')
+               #escfg.reg('         discovery.zen.ping.multicast.enabled','false')
                 escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'.cms'+'"'+']')
+                escfg.reg('         network.host','es_publish_host')
                 escfg.reg('         cluster.name', 'appliance_'+bu)
                 i=i+1
             escfg.commit()
@@ -738,16 +756,23 @@ if __name__ == "__main__":
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
             essyscfg.reg('ES_HEAP_SIZE','30G')
             essyscfg.reg('DATA_DIR','/elasticsearch/lib/elasticsearch')
+            essyscfg.removeEntry('CONF_FILE')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
+            escfg.reg('network.publish_host',es_publish_host)
+            escfg.reg('network.bind_host','_local_,'+es_publish_host)
             escfg.reg('cluster.name','es-cdaq')
             #TODO:switch to multicast when complete with new node migration
-            escfg.reg('discovery.zen.ping.multicast.enabled','false')
-            escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_cdaq_list))
-            escfg.reg('discovery.zen.minimum_master_nodes','4')
+            if env=='vm':
+              escfg.reg('discovery.zen.minimum_master_nodes','1')
+            else:
+             #escfg.reg('discovery.zen.ping.multicast.enabled','false')
+              escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_cdaq_list))
+              escfg.reg('discovery.zen.minimum_master_nodes','4')
             #escfg.reg('index.mapper.dynamic','false')
             escfg.reg('action.auto_create_index','false')
+            escfg.reg('index.mapper.dynamic','false')
             escfg.reg('transport.tcp.compress','true')
             escfg.reg('script.groovy.sandbox.enabled','true')
             escfg.reg('node.master','true')

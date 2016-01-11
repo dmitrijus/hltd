@@ -178,7 +178,7 @@ class CMSSWLogEvent(object):
         self.document['run']=self.rn
         self.document['host']=hostname
         self.document['pid']=self.pid
-        self.document['type']=typeStr[self.type]
+        self.document['doctype']=typeStr[self.type]
         self.document['severity']=severityStr[self.severity]
         self.document['severityVal']=self.severity
 

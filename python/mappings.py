@@ -32,10 +32,6 @@ central_es_settings_hltlogs = {
 
 central_runindex_mapping = {
             'run' : {
-#                '_routing' :{
-#                    'required' : True,
-#                    'path'     : 'runNumber'
-#                },
                 'properties' : {
                     'runNumber':{
                         'type':'integer'
@@ -57,7 +53,7 @@ central_runindex_mapping = {
                             }
                 },
                 '_timestamp' : {
-                    'enabled' : True
+                    'enabled' : "true"
                     }
             },
             'microstatelegend' : {
@@ -114,7 +110,7 @@ central_runindex_mapping = {
                     'fm_date':{
                         'type':'date'
                         }
-                    },
+                    }
                 },
             'eols' : {
                 '_parent'    :{'type':'run'},
@@ -130,14 +126,15 @@ central_runindex_mapping = {
                     'appliance'     :{'type':'string','index' : 'not_analyzed'}
                     },
                 '_timestamp' : {
-                    'enabled'   : True
+                    'enabled'   : "true"
                     },
                 },
             'minimerge' : {
+                '_timestamp' : { "enabled": "true"},
                 '_parent'    :{'type':'run'},
                 'properties' : {
                     'fm_date'       :{'type':'date'},
-                    'id'            :{'type':'string','index':'not_analyzed'}, #run+appliance+stream+ls
+                    'id'            :{'type':'string','index':'not_analyzed'}, #run + appliance + stream + ls
                     'appliance'     :{'type':'string','index':'not_analyzed'}, #wrong mapping:not analyzed
                     'host'          :{'type':'string','index' : 'not_analyzed'},
                     'stream'        :{'type':'string','index' : 'not_analyzed'},
@@ -149,10 +146,11 @@ central_runindex_mapping = {
                     }
                 },
             'macromerge' : {
+                '_timestamp' : { "enabled": "true"},
                 '_parent'    :{'type':'run'},
                 'properties' : {
                     'fm_date'       :{'type':'date'},
-                    'id'            :{'type':'string','index':'not_analyzed'}, #run+appliance+stream+ls
+                    'id'            :{'type':'string','index':'not_analyzed'}, #run + appliance + stream + ls
                     'appliance'     :{'type':'string','index':'not_analyzed'},
                     'host'          :{'type':'string','index' : 'not_analyzed'},
                     'stream'        :{'type':'string','index' : 'not_analyzed'},
@@ -193,77 +191,78 @@ central_runindex_mapping = {
                             "completion":{
                                     "type": "double"
                             },
+                            "fm_date":{
+                                    "type": "date"
+                            },
                             "date":{
                                     "type": "date"
                             }
-                    }
+                    },
                 },
-            'state-hist': {
-                            "_parent": {
-                                    "type": "run"
-                            },
-                            "_timestamp": {
-                                    "enabled": "true"
-                            },
-                            "properties": {
-                                    "hminiv": {
-                                            "properties": {
-                                                    "entries": {
-                                                            "properties": {
-                                                                    "key": {
-                                                                            "type": "integer"
-                                                                    },
-                                                                    "count": {
-                                                                            "type": "integer"
-                                                                    }
-                                                            }
-                                                    },
-                                                    "total": {
-                                                            "type": "integer"
-                                                    }
-                                            }
-                                    },
-                                    "hmicrov": {
-                                            "properties": {
-                                                    "entries": {
-                                                            "properties": {
-                                                                    "key": {
-                                                                            "type": "integer"
-                                                                    },
-                                                                    "count": {
-                                                                            "type": "integer"
-                                                                    }
-                                                            }
-                                                    },
-                                                    "total": {
-                                                            "type": "integer"
-                                                    }
-                                            }
-                                    },
-                                    "hmacrov": {
-                                            "properties": {
-                                                    "entries": {
-                                                            "properties": {
-                                                                    "key": {
-                                                                            "type": "integer"
-                                                                    },
-                                                                    "count": {
-                                                                            "type": "integer"
-                                                                    }
-                                                            }
-                                                    }
-                                            },
-                                            "total": {
-                                                    "type": "integer"
-                                            }
-                                    },
-                                    "date":{
-                                            "type": "date"
-                                    }
-
+	    "state-hist": {
+		    "_parent": {
+			    "type": "run"
+		    },
+		    "_timestamp": {
+			    "enabled": "true"
+		    },
+		    "properties": {
+			    "hminiv": {
+				    "properties": {
+					    "entries": {
+						    "properties": {
+							    "key": {
+								    "type": "integer"
+							    },
+							    "count": {
+								    "type": "integer"
+							    }
+						    }
+					    },
+					    "total": {
+						    "type": "integer"
+					    }
+				    }
+			    },
+			    "hmicrov": {
+				    "properties": {
+					    "entries": {
+						    "properties": {
+							    "key": {
+								    "type": "integer"
+							    },
+							    "count": {
+								    "type": "integer"
+							    }
+						    }
+					    },
+					    "total": {
+						    "type": "integer"
+					    }
+				    }
+			    },
+			    "hmacrov": {
+				    "properties": {
+					    "entries": {
+						    "properties": {
+							    "key": {
+								    "type": "integer"
+							    },
+							    "count": {
+								    "type": "integer"
+							    }
+						    }
+					    }
+				    },
+				    "total": {
+					    "type": "integer"
+				    }
+			    },
+                            "date": {
+                              "type":"date"
                             }
-                },
-
+		    }
+	    },
             "state-hist-summary": {
                             "_parent": {
                                     "type": "run"
@@ -277,12 +276,8 @@ central_runindex_mapping = {
                                                     "entries": {
                                                             "type" : "nested",
                                                             "properties": {
-                                                                    "key": {
-                                                                            "type": "integer"
-                                                                    },
-                                                                    "count": {
-                                                                            "type": "integer"
-                                                                    }
+                                                                    "key": { "type": "integer"},
+                                                                    "count": {"type": "integer"}
                                                             }
                                                     },
                                                     "total": {
@@ -326,13 +321,14 @@ central_runindex_mapping = {
                                                     "type": "integer"
                                             }
                                     },
-                                    "date":{
-                                            "type": "date"
+                                    "date": {
+                                      "type":"date"
                                     }
-
                             }
                     }
 }
+
+
 central_boxinfo_mapping = {
           'boxinfo' : {
             'properties' : {
@@ -375,9 +371,9 @@ central_boxinfo_mapping = {
               #'activeRunsErrors':{'type':'string',"index":"not_analyzed"},#deprecated
               },
             '_timestamp' : {
-              'enabled'   : True,
+              'enabled'   : "true",
               },
-            '_ttl'       : { 'enabled' : True,
+            '_ttl'       : { 'enabled' : "true",
                              'default' :  '30d'
                            }
           },
@@ -401,7 +397,7 @@ central_boxinfo_mapping = {
               "used" :                       { "type" : "integer" }
               },
             '_timestamp' : {
-              'enabled'   : True
+              'enabled'   : "true"
               }
             }
           }
@@ -410,7 +406,7 @@ central_boxinfo_mapping = {
 central_hltdlogs_mapping = {
             'hltdlog' : {
                 '_timestamp' : {
-                    'enabled'   : True
+                    'enabled'   : "true"
                 },
                 #'_ttl'       : { 'enabled' : True,
                 #              'default' :  '30d'}
@@ -431,7 +427,7 @@ central_hltdlogs_mapping = {
 
             "cmsswlog": {
                     "_timestamp": {
-                            "enabled": True
+                            "enabled": "true"
                     },
                     "properties": {
                             "host": {

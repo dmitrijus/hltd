@@ -175,6 +175,7 @@ class CMSSWLogEvent(object):
         self.message.append(line)
 
     def fillCommon(self):
+        self.document['date']=int(time.time()*1000)
         self.document['run']=self.rn
         self.document['host']=hostname
         self.document['pid']=self.pid
@@ -793,6 +794,7 @@ class HLTDLogIndex():
 
     def elasticize_log(self,type,severity,timestamp,msg):
         document= {}
+        document['date']=int(time.time()*1000)
         document['host']=self.host
         document['type']=type
         document['severity']=severityStr[severity]

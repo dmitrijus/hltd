@@ -260,6 +260,7 @@ central_runindex_mapping = {
 			    },
                             "date": {
                               "type":"date"
+                              #"format" : "epoch_millis||dateOptionalTime" #this is default in elastic 2.2
                             }
 		    }
 	    },
@@ -492,6 +493,9 @@ central_hltdlogs_mapping = {
                             "msgtimezone": {
                                     "type": "string",
                                     "index": "not_analyzed"
+                            },
+                            "date": {
+                              "type":"date"
                             }
                     }
             }

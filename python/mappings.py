@@ -252,10 +252,10 @@ central_runindex_mapping = {
 								    "type": "integer"
 							    }
 						    }
-					    }
-				    },
-				    "total": {
-					    "type": "integer"
+					    },
+				            "total": {
+					            "type": "integer"
+				            }
 				    }
 			    },
                             "date": {
@@ -316,10 +316,10 @@ central_runindex_mapping = {
                                                                             "type": "integer"
                                                                     }
                                                             }
+                                                    },
+                                                    "total": {
+                                                            "type": "integer"
                                                     }
-                                            },
-                                            "total": {
-                                                    "type": "integer"
                                             }
                                     },
                                     "date": {

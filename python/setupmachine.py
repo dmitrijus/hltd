@@ -99,6 +99,10 @@ def getmachinetype():
         except socket.gaierror, ex:
             print 'dns lookup error ',str(ex)
             raise ex
+    elif myhost.startswith('es-vm-cdaq'):
+        return 'es','escdaq'
+    elif myhost.startswith('es-vm-tribe'):
+        return 'es','tribe'
     else:
         print "unknown machine type"
         return 'unknown','unknown'
@@ -713,7 +717,10 @@ if __name__ == "__main__":
 
         if type == 'tribe':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','24G')
+            if env=='vm':
+                essyscfg.reg('ES_HEAP_SIZE','1G')
+            else:
+                essyscfg.reg('ES_HEAP_SIZE','24G')
             essyscfg.removeEntry('CONF_FILE')
             essyscfg.commit()
 
@@ -754,15 +761,22 @@ if __name__ == "__main__":
 
         if type == 'escdaq':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','30G')
-            essyscfg.reg('DATA_DIR','/elasticsearch/lib/elasticsearch')
+            if env=='vm':
+                essyscfg.reg('ES_HEAP_SIZE','2G')
+                essyscfg.reg('DATA_DIR','/var/lib/elasticsearch')
+            else:
+                essyscfg.reg('ES_HEAP_SIZE','30G')
+                essyscfg.reg('DATA_DIR','/elasticsearch/lib/elasticsearch')
             essyscfg.removeEntry('CONF_FILE')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('network.publish_host',es_publish_host)
             escfg.reg('network.bind_host','_local_,'+es_publish_host)
-            escfg.reg('cluster.name','es-cdaq')
+            if env=='vm':
+                escfg.reg('cluster.name','es-vm-cdaq')
+            else:
+                escfg.reg('cluster.name','es-cdaq')
             #TODO:switch to multicast when complete with new node migration
             if env=='vm':
               escfg.reg('discovery.zen.minimum_master_nodes','1')
@@ -946,4 +960,7 @@ if __name__ == "__main__":
         except:
             try:os.unlink('/var/www/html')
             except:pass
-        os.symlink('/es-web','/var/www/html')
+        try:
+            os.symlink('/es-web','/var/www/html')
+        except Exception as ex:
+            print ex

@@ -261,72 +261,79 @@ central_runindex_mapping = {
                             "date": {
                               "type":"date"
                               #"format" : "epoch_millis||dateOptionalTime" #this is default in elastic 2.2
+                            },
+                            "fm_date": {
+                              "type":"date"
                             }
 		    }
 	    },
             "state-hist-summary": {
-                            "_parent": {
-                                    "type": "run"
-                            },
-                            "_timestamp": {
-                                    "enabled": "true"
-                            },
-                            "properties": {
-                                    "hmini": {
-                                            "properties": {
-                                                    "entries": {
-                                                            "type" : "nested",
-                                                            "properties": {
-                                                                    "key": { "type": "integer"},
-                                                                    "count": {"type": "integer"}
-                                                            }
-                                                    },
-                                                    "total": {
-                                                            "type": "integer"
+                    "_parent": {
+                            "type": "run"
+                    },
+                    "_timestamp": {
+                            "enabled": "true"
+                    },
+                    "properties": {
+                            "hmini": {
+                                    "properties": {
+                                            "entries": {
+                                                    "type" : "nested",
+                                                    "properties": {
+                                                            "key": { "type": "integer"},
+                                                            "count": {"type": "integer"}
                                                     }
+                                            },
+                                            "total": {
+                                                    "type": "integer"
                                             }
-                                    },
-                                    "hmicro": {
-                                            "properties": {
-                                                    "entries": {
-                                                            "type" : "nested",
-                                                            "properties": {
-                                                                    "key": {
-                                                                            "type": "integer"
-                                                                    },
-                                                                    "count": {
-                                                                            "type": "integer"
-                                                                    }
-                                                            }
-                                                    },
-                                                    "total": {
-                                                            "type": "integer"
-                                                    }
-                                            }
-                                    },
-                                    "hmacro": {
-                                            "properties": {
-                                                    "entries": {
-                                                            "type" : "nested",
-                                                            "properties": {
-                                                                    "key": {
-                                                                            "type": "integer"
-                                                                    },
-                                                                    "count": {
-                                                                            "type": "integer"
-                                                                    }
-                                                            }
-                                                    },
-                                                    "total": {
-                                                            "type": "integer"
-                                                    }
-                                            }
-                                    },
-                                    "date": {
-                                      "type":"date"
                                     }
+                            },
+                            "hmicro": {
+                                    "properties": {
+                                            "entries": {
+                                                    "type" : "nested",
+                                                    "properties": {
+                                                            "key": {
+                                                                    "type": "integer"
+                                                            },
+                                                            "count": {
+                                                                    "type": "integer"
+                                                            }
+                                                    }
+                                            },
+                                            "total": {
+                                                    "type": "integer"
+                                            }
+                                    }
+                            },
+                            "hmacro": {
+                                    "properties": {
+                                            "entries": {
+                                                    "type" : "nested",
+                                                    "properties": {
+                                                            "key": {
+                                                                    "type": "integer"
+                                                            },
+                                                            "count": {
+                                                                    "type": "integer"
+                                                            }
+                                                    }
+                                            },
+                                            "total": {
+                                                    "type": "integer"
+                                            }
+                                    }
+                            },
+                            "date": {
+                                    "type":"date"
+                            },
+                            "fm_date": {
+                                    "type":"date"
                             }
+
                     }
+            }
 }
 
 

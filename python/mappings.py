@@ -37,19 +37,24 @@ central_runindex_mapping = {
                         'type':'integer'
                         },
                     'startTimeRC':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                             },
                     'stopTimeRC':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                             },
                     'startTime':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                             },
                     'endTime':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                             },
                     'completedTime' : {
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                             }
                 },
                 '_timestamp' : {
@@ -77,7 +82,8 @@ central_runindex_mapping = {
                         'type':'integer'
                         },
                     'fm_date':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                         }
                     }
             },
@@ -96,7 +102,8 @@ central_runindex_mapping = {
                         'type':'integer'
                         },
                     'fm_date':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                         }
                     }
                 },
@@ -108,14 +115,17 @@ central_runindex_mapping = {
                         'index':'not_analyzed'
                         },
                     'fm_date':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                         }
                     }
                 },
             'eols' : {
                 '_parent'    :{'type':'run'},
                 'properties' : {
-                    'fm_date'       :{'type':'date'},
+                    'fm_date'       :{'type':'date',
+                                      "format":"epoch_millis||dateOptionalTime"
+                    },
                     'id'            :{'type':'string','index':'not_analyzed'},
                     'ls'            :{'type':'integer'},
                     'NEvents'       :{'type':'integer'},
@@ -133,7 +143,9 @@ central_runindex_mapping = {
                 '_timestamp' : { "enabled": "true"},
                 '_parent'    :{'type':'run'},
                 'properties' : {
-                    'fm_date'       :{'type':'date'},
+                    'fm_date'       :{'type':'date',
+                                      "format":"epoch_millis||dateOptionalTime"
+                    },
                     'id'            :{'type':'string','index':'not_analyzed'}, #run + appliance + stream + ls
                     'appliance'     :{'type':'string','index':'not_analyzed'}, #wrong mapping:not analyzed
                     'host'          :{'type':'string','index' : 'not_analyzed'},
@@ -149,7 +161,9 @@ central_runindex_mapping = {
                 '_timestamp' : { "enabled": "true"},
                 '_parent'    :{'type':'run'},
                 'properties' : {
-                    'fm_date'       :{'type':'date'},
+                    'fm_date'       :{'type':'date',
+                                      "format":"epoch_millis||dateOptionalTime"
+                    },
                     'id'            :{'type':'string','index':'not_analyzed'}, #run + appliance + stream + ls
                     'appliance'     :{'type':'string','index':'not_analyzed'},
                     'host'          :{'type':'string','index' : 'not_analyzed'},
@@ -192,10 +206,12 @@ central_runindex_mapping = {
                                     "type": "double"
                             },
                             "fm_date":{
-                                    "type": "date"
+                                    "type": "date",
+                                    "format":"epoch_millis||dateOptionalTime"
                             },
                             "date":{
-                                    "type": "date"
+                                    "type": "date",
+                                    "format":"epoch_millis||dateOptionalTime"
                             }
                     },
                 },
@@ -259,88 +275,93 @@ central_runindex_mapping = {
 				    }
 			    },
                             "date": {
-                              "type":"date"
-                              #"format" : "epoch_millis||dateOptionalTime" #this is default in elastic 2.2
+                              "type":"date",
+                              "format":"epoch_millis||dateOptionalTime"
                             },
-                            "fm_date": {
-                              "type":"date"
-                            }
+			    "fm_date":{
+				    "type": "date",
+                                    "format":"epoch_millis||dateOptionalTime"
+			    }
 		    }
 	    },
             "state-hist-summary": {
-                    "_parent": {
-                            "type": "run"
-                    },
-                    "_timestamp": {
-                            "enabled": "true"
-                    },
-                    "properties": {
-                            "hmini": {
-                                    "properties": {
-                                            "entries": {
-                                                    "type" : "nested",
-                                                    "properties": {
-                                                            "key": { "type": "integer"},
-                                                            "count": {"type": "integer"}
-                                                    }
-                                            },
-                                            "total": {
-                                                    "type": "integer"
-                                            }
-                                    }
+                            "_parent": {
+                                    "type": "run"
                             },
-                            "hmicro": {
-                                    "properties": {
-                                            "entries": {
-                                                    "type" : "nested",
-                                                    "properties": {
-                                                            "key": {
-                                                                    "type": "integer"
-                                                            },
-                                                            "count": {
-                                                                    "type": "integer"
+                            "_timestamp": {
+                                    "enabled": "true"
+                            },
+                            "properties": {
+                                    "hmini": {
+                                            "properties": {
+                                                    "entries": {
+                                                            "type" : "nested",
+                                                            "properties": {
+                                                                    "key": { "type": "integer"},
+                                                                    "count": {"type": "integer"}
                                                             }
+                                                    },
+                                                    "total": {
+                                                            "type": "integer"
                                                     }
-                                            },
-                                            "total": {
-                                                    "type": "integer"
                                             }
-                                    }
-                            },
-                            "hmacro": {
-                                    "properties": {
-                                            "entries": {
-                                                    "type" : "nested",
-                                                    "properties": {
-                                                            "key": {
-                                                                    "type": "integer"
-                                                            },
-                                                            "count": {
-                                                                    "type": "integer"
+                                    },
+                                    "hmicro": {
+                                            "properties": {
+                                                    "entries": {
+                                                            "type" : "nested",
+                                                            "properties": {
+                                                                    "key": {
+                                                                            "type": "integer"
+                                                                    },
+                                                                    "count": {
+                                                                            "type": "integer"
+                                                                    }
                                                             }
+                                                    },
+                                                    "total": {
+                                                            "type": "integer"
                                                     }
-                                            },
-                                            "total": {
-                                                    "type": "integer"
                                             }
-                                    }
-                            },
-                            "date": {
-                                    "type":"date"
-                            },
-                            "fm_date": {
-                                    "type":"date"
-                            }
+                                    },
+                                    "hmacro": {
+                                            "properties": {
+                                                    "entries": {
+                                                            "type" : "nested",
+                                                            "properties": {
+                                                                    "key": {
+                                                                            "type": "integer"
+                                                                    },
+                                                                    "count": {
+                                                                            "type": "integer"
+                                                                    }
+                                                            }
+                                                    },
+                                                    "total": {
+                                                        "type": "integer"
+                                                    }
+                                            }
+                                    },
+                                    "date": {
+                                      "type":"date",
+                                       "format":"epoch_millis||dateOptionalTime"
+                                    },
+				    "fm_date":{
+				       "type": "date",
+                                       "format":"epoch_millis||dateOptionalTime"
+				    }
 
-                    }
-            }
+			    }
+	    }
 }
 
 
 central_boxinfo_mapping = {
           'boxinfo' : {
             'properties' : {
-              'fm_date'       :{'type':'date'},
+              'fm_date'       :{'type':'date',
+                                "format":"epoch_millis||dateOptionalTime"
+              },
               'id'            :{'type':'string','index':'not_analyzed'},
               'host'          :{'type':'string',"index":"not_analyzed"},
               'appliance'     :{'type':'string',"index":"not_analyzed"},
@@ -387,7 +408,9 @@ central_boxinfo_mapping = {
           },
           'resource_summary' : {
             'properties' : {
-              'fm_date'       :{'type':'date'},
+              'fm_date'       :{'type':'date',
+                                "format":"epoch_millis||dateOptionalTime"
+              },
               'appliance' : {'type':'string',"index":"not_analyzed"},
               "activeFURun" : {"type" : "integer"},
               "activeRunCMSSWMaxLS" : {"type" : "integer"},
@@ -424,12 +447,16 @@ central_hltdlogs_mapping = {
                     'type'      : {'type' : 'string',"index" : "not_analyzed"},
                     'severity'  : {'type' : 'string',"index" : "not_analyzed"},
                     'severityVal'  : {'type' : 'integer'},
-                    'message'   : {'type' : 'string',"index":"not_analyzed"},
+                    'message'   : {'type' : 'string',"index":"not_analyzed","ignore_above": 8192},
                     'lexicalId' : {'type' : 'string',"index" : "not_analyzed"},
                     'msgtime' : {
                             'type' : 'date',
-                            'format':'YYYY-mm-dd HH:mm:ss||dd-MM-YYYY HH:mm:ss'
+                            'format':'epoch_millis||YYYY-mm-dd HH:mm:ss||dd-MM-YYYY HH:mm:ss'
                     },
+                    "date":{
+                            "type":"date",
+                            "format":"epoch_millis||dateOptionalTime"
+                    }
                 }
             },
 
@@ -487,7 +514,8 @@ central_hltdlogs_mapping = {
                                     "type": "long"
                             },
                             "message": {
-                                    "type": "string","index":"not_analyzed"
+                                    "type": "string","index":"not_analyzed",
+                                    "ignore_above": 8192
                             },
                             "lexicalId": {
                                     "type": "string",
@@ -495,15 +523,17 @@ central_hltdlogs_mapping = {
                             },
                             "msgtime": {
                                     "type": "date",
-                                    "format": "YYYY-mm-dd HH:mm:ss||dd-MM-YYYY HH:mm:ss"
+                                    "format": "epoch_millis||YYYY-mm-dd HH:mm:ss||dd-MM-YYYY HH:mm:ss"
                             },
                             "msgtimezone": {
                                     "type": "string",
                                     "index": "not_analyzed"
                             },
                             "date": {
-                              "type":"date"
-                            }
+                                      "type":"date",
+                                       "format":"epoch_millis||dateOptionalTime"
+                            },
+
                     }
             }
 }

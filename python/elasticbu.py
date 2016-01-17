@@ -187,7 +187,7 @@ class elasticBandBU:
 
         self.logger.info(os.path.basename(fullpath))
         document = {}
-        document['_parent']= self.runnumber
+        #document['_parent']= self.runnumber
         doc_id="microstatelegend_"+self.runnumber
         if fullpath.endswith('.jsn'):
             try:
@@ -229,13 +229,14 @@ class elasticBandBU:
                     document["stateNames"].append( sn )
 
         documents = [document]
-        return self.index_documents('microstatelegend',documents,doc_id,bulk=False)
+        doc_pars = {"parent":str(self.runnumber)}
+        return self.index_documents('microstatelegend',documents,doc_id,doc_params=doc_pars,bulk=False)
 
 
     def elasticize_pathlegend(self,fullpath):
         self.logger.info(os.path.basename(fullpath))
         document = {}
-        document['_parent']= self.runnumber
+        #document['_parent']= self.runnumber
         doc_id="pathlegend_"+self.runnumber
         if fullpath.endswith('.jsn'):
             try:
@@ -256,16 +257,18 @@ class elasticBandBU:
             stub = self.read_line(fullpath)
             document['names']= self.read_line(fullpath)
         documents = [document]
-        return self.index_documents('pathlegend',documents,doc_id,bulk=False)
+        doc_pars = {"parent":str(self.runnumber)}
+        return self.index_documents('pathlegend',documents,doc_id,doc_params=doc_pars,bulk=False)
 
     def elasticize_stream_label(self,infile):
         #elasticize stream name information
         self.logger.info(infile.filepath)
         document = {}
-        document['_parent']= self.runnumber
+        #document['_parent']= self.runnumber
         document['stream']=infile.stream[6:]
         doc_id=infile.basename
-        return self.index_documents('stream_label',[document],doc_id,bulk=False)
+        doc_pars = {"parent":str(self.runnumber)}
+        return self.index_documents('stream_label',[document],doc_id,doc_params=doc_pars,bulk=False)
 
     def elasticize_runend_time(self,endtime):
 
@@ -367,12 +370,13 @@ class elasticBandBU:
 
         doc_id = infile.name+"_"+self.host
         document['id'] = doc_id
-        document['_parent']= self.runnumber
+        #document['_parent']= self.runnumber
         document['appliance']=self.host
         documents = [document]
-        self.index_documents('eols',documents,doc_id,bulk=False)
+        doc_pars = {"parent":str(self.runnumber)}
+        self.index_documents('eols',documents,doc_id,doc_params=doc_pars,bulk=False)
 
-    def index_documents(self,name,documents,doc_id=None,bulk=True):
+    def index_documents(self,name,documents,doc_id=None,doc_params=None,bulk=True):
         attempts=0
         destination_index = ""
         is_box=False
@@ -388,7 +392,10 @@ class elasticBandBU:
                     self.es.bulk_index(destination_index,name,documents)
                 else:
                     if doc_id:
-                        self.es.index(destination_index,name,documents[0],doc_id)
+                        if doc_params:
+                          self.es.index(destination_index,name,documents[0],doc_id,parent=doc_params['parent'])
+                        else:
+                          self.es.index(destination_index,name,documents[0],doc_id)
                     else:
                         self.es.index(destination_index,name,documents[0])
                 return True

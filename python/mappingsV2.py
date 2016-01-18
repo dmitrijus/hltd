@@ -64,13 +64,14 @@ central_runindex_mapping = {
             'microstatelegend' : {
 
                 '_parent':{'type':'run'},
+                "_all":{"enabled":"false"},
                 'properties' : {
                     'names':{
                         'type':'string',
                         "index":"not_analyzed"
                         },
                     'stateNames':{
-                        'type':'string','index':'not_analyzed'
+                        'type':'string','index':'no'
                         },
                     'reserved':{
                         'type':'integer'
@@ -90,13 +91,14 @@ central_runindex_mapping = {
             'pathlegend' : {
 
                 '_parent':{'type':'run'},
+                "_all":{"enabled":"false"},
                 'properties' : {
                     'names':{
                         'type':'string',
                         "index":"not_analyzed"
                         },
                     'stateNames':{
-                        'type':'string','index':'not_analyzed'
+                        'type':'string','index':'no'
                         },
                     'reserved':{
                         'type':'integer'
@@ -222,6 +224,7 @@ central_runindex_mapping = {
 		    "_timestamp": {
 			    "enabled": "true"
 		    },
+                    "_all":{"enabled":"false"},
 		    "properties": {
 			    "hminiv": {
 				    "properties": {
@@ -291,6 +294,7 @@ central_runindex_mapping = {
                             "_timestamp": {
                                     "enabled": "true"
                             },
+                            "_all":{"enabled":"false"},
                             "properties": {
                                     "hmini": {
                                             "properties": {

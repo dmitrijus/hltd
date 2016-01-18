@@ -49,8 +49,7 @@
           "type": "integer"
         },
         "fm_date": {
-          "type": "date",
-           "format": "dateOptionalTime"
+          "type": "date"
         },
         "source": {
           "type": "string",
@@ -107,8 +106,7 @@
           "store": true
         },
         "fm_date": {
-          "type": "date",
-          "format": "dateOptionalTime"
+          "type": "date"
         },
         "source" : {
           "type":"string",
@@ -183,8 +181,7 @@
           "index":"not_analyzed"
         },
         "fm_date": {
-          "type": "date",
-          "format": "dateOptionalTime"
+          "type": "date"
         }
       },
       "_timestamp": {
@@ -244,8 +241,7 @@
           "index":"not_analyzed"
         },
         "fm_date": {
-          "type": "date",
-          "format": "dateOptionalTime"
+          "type": "date"
         }
       },
       "_timestamp": {
@@ -259,8 +255,7 @@
           "index": "not_analyzed"
         },
         "fm_date": {
-          "type": "date",
-          "format": "dateOptionalTime"
+          "type": "date"
         }
       },
       "_timestamp": {
@@ -288,8 +283,7 @@
           "type": "integer"
         },
         "fm_date": {
-          "type": "date",
-          "format": "dateOptionalTime"
+          "type": "date"
         },
         "host": {
           "type": "string",

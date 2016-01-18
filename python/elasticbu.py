@@ -209,21 +209,21 @@ class elasticBandBU:
                         if sname.startswith('hltOutput'):outputcnt+=1
                     try:document['output'] = doc['output']
                     except:document['output']=outputcnt
-                    document['names'] = nstring
+                    #document['names'] = nstring
             except Exception as ex:
                 self.logger.warning("can not parse "+fullpath + ' ' + str(ex))
         else:
             #old format
             stub = self.read_line(fullpath)
-            document['names']= self.read_line(fullpath)
+            docnames= self.read_line(fullpath)
             document['reserved'] = 33
             document['special'] = 7
             outputcnt=0
-            for sname in document['names'].split():
+            for sname in docnames.split():
                 if "=hltOutput" in sname: outputcnt+=1
             document['output'] = outputcnt
             document['stateNames']=[]
-            nameTokens = document['names'].split()
+            nameTokens = docnames.split()
             for nameToken in nameTokens:
                 if '=' in nameToken:
                     idx,sn = nameToken.split('=')

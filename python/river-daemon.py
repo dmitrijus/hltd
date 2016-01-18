@@ -138,9 +138,11 @@ def query(conn,method,path,query=None,retry=False):
       #  conn.close()
       #  time.sleep(5)
       #  conn = httplib.HTTPConnection(host=host,port=9200)
+      conn.close()
+      conn = httplib.HTTPConnection(host=host,port=9200)
       if not retry: 
-        syslog.syslog("WARNING:retrying connection...")
         break
+      syslog.syslog("WARNING:retrying connection with:"+str(method)+' '+str(path))#+' '+str(query))
       #quit if requested globally and stuck in no-connect loop 
       if global_quit:break
 
@@ -266,7 +268,7 @@ def runRiver(doc):
     success,st,res = query(gconn,"POST","/river/instance/"+str(doc_id)+'/_update?version='+str(doc_ver),json.dumps({'doc':gen_node_doc('starting')}))
     if st == 200:
       #success,proceed with fork
-      syslog.syslog("successfully updated"+str(doc_id)+"document. will start the instance")
+      syslog.syslog("successfully updated "+str(doc_id)+" document. will start the instance")
       new_instance = river_thread(doc_id,src['subsystem'],host,cluster,"river",runNumber)
       river_threads.append(new_instance)
       new_instance.execute()

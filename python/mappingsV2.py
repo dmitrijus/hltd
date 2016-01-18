@@ -37,19 +37,24 @@ central_runindex_mapping = {
                         'type':'integer'
                         },
                     'startTimeRC':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                             },
                     'stopTimeRC':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                             },
                     'startTime':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                             },
                     'endTime':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                             },
                     'completedTime' : {
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                             }
                 },
                 '_timestamp' : {
@@ -77,7 +82,8 @@ central_runindex_mapping = {
                         'type':'integer'
                         },
                     'fm_date':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                         }
                     }
             },
@@ -96,7 +102,8 @@ central_runindex_mapping = {
                         'type':'integer'
                         },
                     'fm_date':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                         }
                     }
                 },
@@ -108,14 +115,16 @@ central_runindex_mapping = {
                         'index':'not_analyzed'
                         },
                     'fm_date':{
-                        'type':'date'
+                        'type':'date',
+                        "format":"epoch_millis||dateOptionalTime"
                         }
                     }
                 },
             'eols' : {
                 '_parent'    :{'type':'run'},
                 'properties' : {
-                    'fm_date'       :{'type':'date'
+                    'fm_date'       :{'type':'date',
+                                      "format":"epoch_millis||dateOptionalTime"
                     },
                     'id'            :{'type':'string','index':'not_analyzed'},
                     'ls'            :{'type':'integer'},
@@ -134,7 +143,8 @@ central_runindex_mapping = {
                 '_timestamp' : { "enabled": "true"},
                 '_parent'    :{'type':'run'},
                 'properties' : {
-                    'fm_date'       :{'type':'date'
+                    'fm_date'       :{'type':'date',
+                                      "format":"epoch_millis||dateOptionalTime"
                     },
                     'id'            :{'type':'string','index':'not_analyzed'}, #run + appliance + stream + ls
                     'appliance'     :{'type':'string','index':'not_analyzed'}, #wrong mapping:not analyzed
@@ -151,7 +161,8 @@ central_runindex_mapping = {
                 '_timestamp' : { "enabled": "true"},
                 '_parent'    :{'type':'run'},
                 'properties' : {
-                    'fm_date'       :{'type':'date'
+                    'fm_date'       :{'type':'date',
+                                      "format":"epoch_millis||dateOptionalTime"
                     },
                     'id'            :{'type':'string','index':'not_analyzed'}, #run + appliance + stream + ls
                     'appliance'     :{'type':'string','index':'not_analyzed'},
@@ -195,10 +206,12 @@ central_runindex_mapping = {
                                     "type": "double"
                             },
                             "fm_date":{
-                                    "type": "date"
+                                    "type": "date",
+                                    "format":"epoch_millis||dateOptionalTime"
                             },
                             "date":{
-                                    "type": "date"
+                                    "type": "date",
+                                    "format":"epoch_millis||dateOptionalTime"
                             }
                     },
                 },
@@ -262,10 +275,12 @@ central_runindex_mapping = {
 				    }
 			    },
                             "date": {
-                              "type":"date"
+                              "type":"date",
+                              "format":"epoch_millis||dateOptionalTime"
                             },
 			    "fm_date":{
-				    "type": "date"
+				    "type": "date",
+                                    "format":"epoch_millis||dateOptionalTime"
 			    }
 		    }
 	    },
@@ -328,10 +343,12 @@ central_runindex_mapping = {
                                             }
                                     },
                                     "date": {
-                                      "type":"date"
+                                      "type":"date",
+                                       "format":"epoch_millis||dateOptionalTime"
                                     },
 				    "fm_date":{
-				       "type": "date"
+				       "type": "date",
+                                       "format":"epoch_millis||dateOptionalTime"
 				    }
 
 			    }
@@ -342,7 +359,8 @@ central_runindex_mapping = {
 central_boxinfo_mapping = {
           'boxinfo' : {
             'properties' : {
-              'fm_date'       :{'type':'date'
+              'fm_date'       :{'type':'date',
+                                "format":"epoch_millis||dateOptionalTime"
               },
               'id'            :{'type':'string','index':'not_analyzed'},
               'host'          :{'type':'string',"index":"not_analyzed"},
@@ -390,7 +408,8 @@ central_boxinfo_mapping = {
           },
           'resource_summary' : {
             'properties' : {
-              'fm_date'       :{'type':'date'
+              'fm_date'       :{'type':'date',
+                                "format":"epoch_millis||dateOptionalTime"
               },
               'appliance' : {'type':'string',"index":"not_analyzed"},
               "activeFURun" : {"type" : "integer"},
@@ -435,7 +454,8 @@ central_hltdlogs_mapping = {
                             'format':'YYYY-mm-dd HH:mm:ss||dd-MM-YYYY HH:mm:ss'
                     },
                     "date":{
-                            "type":"date"
+                            "type":"date",
+                            "format":"epoch_millis||dateOptionalTime"
                     }
                 }
             },
@@ -510,7 +530,8 @@ central_hltdlogs_mapping = {
                                     "index": "not_analyzed"
                             },
                             "date": {
-                                      "type":"date"
+                                      "type":"date",
+                                       "format":"epoch_millis||dateOptionalTime"
                             },
 
                     }

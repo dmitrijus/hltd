@@ -755,7 +755,10 @@ if __name__ == "__main__":
                 escfg.reg('         indices.analysis.hunspell.dictionary.lazy','true')
                 escfg.reg('         path.scripts','"/usr/share/elasticsearch/plugins"')
                #escfg.reg('         discovery.zen.ping.multicast.enabled','false')
-                escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'.cms'+'"'+']')
+                if env!='vm':
+                  escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'.cms'+'"'+']')
+                else:
+                  escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'"'+']')
                 escfg.reg('         network.host',es_publish_host)
                 escfg.reg('         cluster.name', 'appliance_'+bu)
                 i=i+1

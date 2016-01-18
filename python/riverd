@@ -3,7 +3,7 @@
 # chkconfig:   2345 81 03
 #
 import os,sys
-sys.path.append('/opt/fff')
+sys.path.append('/opt/fff') #needed if dependency in same dir?
 from daemon2 import Daemon2
 from subprocess import Popen
 from subprocess import PIPE

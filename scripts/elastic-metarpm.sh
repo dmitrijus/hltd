@@ -118,8 +118,9 @@ pluginname2="head"
 pluginfile2="head-master.zip"
 pluginname3="kopf"
 pluginfile3="elasticsearch-kopf-2.1.1.zip"
+
 #pluginname4="river-runriver"
-#pluginfile4="river-runriver-1.3.5-plugin.zip"
+riverfile="river-runriver-1.4.0-jar-with-dependencies.jar"
 
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
@@ -142,6 +143,10 @@ Provides:/opt/fff/setupmachine.py
 Provides:/opt/fff/closeRunIndices.php
 Provides:/etc/init.d/fffmeta
 Provides:/etc/init.d/fff-es
+Provides:/opt/fff/daemon2.py
+Provides:/opt/fff/river-daemon.py
+Provides:/etc/init.d/riverd
+Provides:/opt/ff/river.jar
 
 %description
 fffmeta configuration setup package
@@ -161,9 +166,13 @@ mkdir -p opt/fff/esplugins
 mkdir -p opt/fff/backup
 mkdir -p etc/init.d/
 cp $BASEDIR/python/setupmachine.py %{buildroot}/opt/fff/setupmachine.py
+cp $BASEDIR/python/daemon2.py %{buildroot}/opt/fff/daemon2.py
+cp $BASEDIR/python/river-daemon.py %{buildroot}/opt/fff/river-daemon.py
+cp $BASEDIR/python/riverd %{buildroot}/etc/init.d/riverd
 echo "#!/bin/bash" > %{buildroot}/opt/fff/configurefff.sh
 echo python2.6 /opt/fff/setupmachine.py elasticsearch,web $params >> %{buildroot}/opt/fff/configurefff.sh 
 
+cp $BASEDIR/esplugins/$riverfile %{buildroot}/opt/fff/river.jar
 cp $BASEDIR/esplugins/$pluginfile1 %{buildroot}/opt/fff/esplugins/$pluginfile1
 cp $BASEDIR/esplugins/$pluginfile2 %{buildroot}/opt/fff/esplugins/$pluginfile2
 cp $BASEDIR/esplugins/$pluginfile3 %{buildroot}/opt/fff/esplugins/$pluginfile3
@@ -198,21 +207,31 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 755 ,root, root) /opt/fff/setupmachine.py
 %attr( 755 ,root, root) /opt/fff/setupmachine.pyc
 %attr( 755 ,root, root) /opt/fff/setupmachine.pyo
+%attr( 755 ,root, root) /opt/fff/daemon2.py
+%attr( 755 ,root, root) /opt/fff/daemon2.pyc
+%attr( 755 ,root, root) /opt/fff/daemon2.pyo
+%attr( 755 ,root, root) /opt/fff/river-daemon.py
+%attr( 755 ,root, root) /opt/fff/river-daemon.pyc
+%attr( 755 ,root, root) /opt/fff/river-daemon.pyo
 %attr( 700 ,root, root) /opt/fff/configurefff.sh
 %attr( 755 ,root, root) /opt/fff/closeRunIndices.php
 %attr( 755 ,root, root) /etc/init.d/fffmeta
 %attr( 755 ,root, root) /etc/init.d/fff-es
+%attr( 755 ,root, root) /etc/init.d/riverd
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile1
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile2
 %attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile3
 #%attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile4
 %attr( 755 ,root, root) /opt/fff/esplugins/install.sh
 %attr( 755 ,root, root) /opt/fff/esplugins/uninstall.sh
+%attr( 755 ,root, root) /opt/fff/river.jar
 
 %post
 #echo "post install trigger"
 chkconfig --del fffmeta
 chkconfig --add fffmeta
+chkconfig --del riverd
+chkconfig --add riverd
 #disabled, can be run manually for now
 
 %triggerin -- elasticsearch
@@ -256,6 +275,7 @@ fi
 if [ \$1 == 0 ]; then 
 
   chkconfig --del fffmeta
+  chkconfig --del riverd
   chkconfig --del elasticsearch
 
   #/sbin/service elasticsearch stop || true

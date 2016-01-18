@@ -37,7 +37,8 @@ host='es-vm-cdaq'
 sleep_int=5
 
 #test
-jar_path  = "/opt/fff/river-runriver-1.4.0-jar-with-dependencies.jar"
+#jar_path  = "/opt/fff/river-runriver-1.4.0-jar-with-dependencies.jar"
+jar_path  = "/opt/fff/river.jar"
 
 keep_running = True
 #river doc mapping

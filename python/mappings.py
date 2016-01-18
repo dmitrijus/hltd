@@ -59,8 +59,9 @@ central_runindex_mapping = {
             'microstatelegend' : {
 
                 '_parent':{'type':'run'},
-                "_all":{"enabled":"false"},
+		 '_all': {'enabled': "false" },
                 'properties' : {
+	            'id':{'type':'string','index':'not_analyzed'},
                     'names':{
                         'type':'string',
                         "index":"not_analyzed"
@@ -85,8 +86,9 @@ central_runindex_mapping = {
             'pathlegend' : {
 
                 '_parent':{'type':'run'},
-                "_all":{"enabled":"false"},
+		 '_all': {'enabled': "false" },
                 'properties' : {
+	            'id':{'type':'string','index':'not_analyzed'},
                     'names':{
                         'type':'string',
                         "index":"not_analyzed"
@@ -111,7 +113,8 @@ central_runindex_mapping = {
                         },
                     'fm_date':{
                         'type':'date'
-                        }
+                        },
+                    'id'            :{'type':'string','index':'not_analyzed'}
                     }
                 },
             'eols' : {
@@ -147,6 +150,10 @@ central_runindex_mapping = {
                     'accepted'      :{'type':'integer'},
                     'errorEvents'   :{'type':'integer'},
                     'size'          :{'type':'long'},
+		    'eolField1'     :{'type':'integer'},
+		    'eolField2'     :{'type':'integer'},
+		    'fname'         :{'type':'string','index':'not_analyzed'},
+		    'adler32'       :{'type':'long'}
                     }
                 },
             'macromerge' : {
@@ -164,6 +171,9 @@ central_runindex_mapping = {
                     'accepted'      :{'type':'integer'},
                     'errorEvents'   :{'type':'integer'},
                     'size'          :{'type':'long'},
+		    'eolField1'     :{'type':'integer'},
+		    'eolField2'     :{'type':'integer'},
+		    'fname'         :{'type':'string','index':'not_analyzed'}
                     }
                 },
             'stream-hist' : {
@@ -211,7 +221,7 @@ central_runindex_mapping = {
 		    "_timestamp": {
 			    "enabled": "true"
 		    },
-                    "_all":{"enabled":"false"},
+		    '_all': {'enabled': "false" },
 		    "properties": {
 			    "hminiv": {
 				    "properties": {
@@ -279,7 +289,7 @@ central_runindex_mapping = {
                             "_timestamp": {
                                     "enabled": "true"
                             },
-                            "_all":{"enabled":"false"},
+		            '_all': {'enabled': "false" },
                             "properties": {
                                     "hmini": {
                                             "properties": {

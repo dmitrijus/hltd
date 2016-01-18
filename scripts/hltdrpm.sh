@@ -49,6 +49,8 @@ cp -r $BASEDIR/python/soap2file $TOPDIR/etc/init.d/soap2file
 cp -r $BASEDIR/* $TOPDIR/opt/hltd
 rm -rf $TOPDIR/opt/hltd/python/hltd
 rm -rf $TOPDIR/opt/hltd/python/soap2file
+rm -rf $TOPDIR/opt/hltd/python/riverd
+rm -rf $TOPDIR/opt/hltd/python/river-daemon.py
 cp -r $BASEDIR/etc/hltd.conf $TOPDIR/etc/
 cp -r $BASEDIR/etc/logrotate.d/hltd $TOPDIR/etc/logrotate.d/
 echo "working in $PWD"

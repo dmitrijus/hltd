@@ -133,10 +133,11 @@ License: gpl
 Group: DAQ
 Packager: smorovic
 Source: none
+%define __jar_repack %{nil}
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires:elasticsearch => 2.2, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45 , php >= 5.3.3, php-oci8 >= 1.4.9 
+Requires:elasticsearch => 1.4.5, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45 , php >= 5.3.3, php-oci8 >= 1.4.9 
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/setupmachine.py
@@ -147,6 +148,7 @@ Provides:/opt/fff/daemon2.py
 Provides:/opt/fff/river-daemon.py
 Provides:/etc/init.d/riverd
 Provides:/opt/ff/river.jar
+Provides:/etc/rsyslog.d/48-river.conf
 
 %description
 fffmeta configuration setup package
@@ -161,10 +163,13 @@ mkdir -p \$RPM_BUILD_ROOT
 %__install -d "%{buildroot}/opt/fff/backup"
 %__install -d "%{buildroot}/opt/fff/esplugins"
 %__install -d "%{buildroot}/etc/init.d"
+%__install -d "%{buildroot}/etc/rsyslog.d"
 
 mkdir -p opt/fff/esplugins
 mkdir -p opt/fff/backup
 mkdir -p etc/init.d/
+mkdir -p etc/rsyslog.d
+cp $BASEDIR/etc/rsyslog.d/48-river.conf %{buildroot}/etc/rsyslog.d/48-river.conf
 cp $BASEDIR/python/setupmachine.py %{buildroot}/opt/fff/setupmachine.py
 cp $BASEDIR/python/daemon2.py %{buildroot}/opt/fff/daemon2.py
 cp $BASEDIR/python/river-daemon.py %{buildroot}/opt/fff/river-daemon.py
@@ -225,6 +230,7 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 755 ,root, root) /opt/fff/esplugins/install.sh
 %attr( 755 ,root, root) /opt/fff/esplugins/uninstall.sh
 %attr( 755 ,root, root) /opt/fff/river.jar
+%attr( 444 ,root, root) /etc/rsyslog.d/48-river.conf
 
 %post
 #echo "post install trigger"
@@ -269,6 +275,7 @@ then
 fi
         
 #/sbin/service elasticsearch start
+/etc/init.d/riverd restart
 
 %preun
 

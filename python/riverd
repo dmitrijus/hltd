@@ -10,22 +10,39 @@ from subprocess import PIPE
 import time
 import syslog
 
+def esClusterName():
+    try:
+      with open('/etc/elasticsearch/elasticsearch.yml') as fi:
+        lines = fi.readlines()
+        for line in lines:
+          sline = line.strip()
+          if line.startswith("cluster.name"):
+            return line.split(':')[1].strip()
+    except:
+      pass
+    return ""
+
+
 def startService(daemon):
+    escname = esClusterName()
+    if not (escname.startswith('es-vm-cdaq') or escname.startswith('es-cdaq')):
+      print "Service is disabled on non central es machine"
+      return
     daemon.touchLockFile()
-    proc = Popen(["/opt/hltd/python/river-daemon.py","--daemon"], stdout=PIPE)
+    proc = Popen(["/opt/fff/river-daemon.py","--daemon"], stdout=PIPE)
     output = proc.communicate()[0]
     tries=10 #allow 1 second for forking to happen
     while True:
         time.sleep(.1)
         if daemon.silentStatus() and proc.returncode==0:
-            print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
+            print 'Starting riverd',':\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
             daemon.touchLockFile()
             return
         else:
             if proc.returncode==3:sys.exit(0)
             tries-=1
             if tries>0:continue
-            print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;31mFAILED\033[0;39m  ]'
+            print 'Starting riverd',':\t\t\t\t [  \033[1;31mFAILED\033[0;39m  ]'
             print output
             sys.exit(1)
 
@@ -40,12 +57,12 @@ if __name__ == "__main__":
 
         elif 'stop' == sys.argv[1]:
             sys.stdout.write('Stopping riverd')
-            daemon.stop()
+            daemon.stop(do_umount=False)
             daemon.removeLockFile()
 
         elif 'restart' == sys.argv[1]:
             sys.stdout.write('Stopping riverd')
-            daemon.stop()
+            daemon.stop(do_umount=False)
             startService(daemon)
 
         elif 'status' == sys.argv[1]:

@@ -5,11 +5,11 @@ import time
 import datetime 
 import socket
 import httplib
-import logging
 import json
 import threading
 import subprocess
 import signal
+import syslog
 
 #hltd daemon2
 sys.path.append('/opt/fff')
@@ -31,9 +31,9 @@ global_quit = False
 #thread vector
 river_threads = []
 
-#host='localhost'
+host='localhost'
 #test:
-host='es-vm-cdaq'
+#host='es-vm-cdaq'
 sleep_int=5
 
 #test
@@ -131,14 +131,15 @@ def query(conn,method,path,query=None,retry=False):
       conn_success=False
       cstatus = None
       cdata = None
-      logging.exception(ex)
+      syslog.syslog("Exception:"+str(ex))
+      time.sleep(.5)
       #restart connection
       #if reconnect or retry:
       #  conn.close()
       #  time.sleep(5)
       #  conn = httplib.HTTPConnection(host=host,port=9200)
       if not retry: 
-        logging.warning("retrying connection...")
+        syslog.syslog("WARNING:retrying connection...")
         break
       #quit if requested globally and stuck in no-connect loop 
       if global_quit:break
@@ -186,7 +187,7 @@ class river_thread(threading.Thread):
 
   def __init__(self,riverid,subsys,url,cluster,riverindex,rn):
     threading.Thread.__init__(self)
-    self.logger = logging.getLogger(self.__class__.__name__)
+    #self.logger = logging.getLogger(self.__class__.__name__)
     self.stop_issued=False
     self.stopped=False
     self.proc = None
@@ -212,13 +213,13 @@ class river_thread(threading.Thread):
     retcode = self.proc.returncode
     tmp_conn = httplib.HTTPConnection(host=host,port=9200)
     if retcode == 0:
-      logging.info(str(self.riverid)+" successfully finished. Deleting river document..")
+      syslog.syslog(str(self.riverid)+" successfully finished. Deleting river document..")
       success,st,res = query(tmp_conn,"DELETE","/river/instance/"+str(self.riverid),retry=True)
       
       #use custom as it might not be thread safe
       #TODO:successfully finished, remove document
     else:
-      logging.warning(self.riverid+" exited with code"+str(retcode))
+      syslog.syslog("WARNING:"+self.riverid+" exited with code"+str(retcode))
       #crash: change status to crashed
 
       #update doc 
@@ -228,7 +229,7 @@ class river_thread(threading.Thread):
         pass
       else:
         #TODO:retry this another time...
-        logging.error("error updating document "+str(self.riverid)+" status:"+str(st)+" "+str(res))
+        syslog.syslog("ERROR updating document "+str(self.riverid)+" status:"+str(st)+" "+str(res))
 
     tmp_conn.close()
     #queue for joining
@@ -255,7 +256,7 @@ def runRiver(doc):
   doc_id = doc['_id']
   success,st,res = query(gconn,"GET","/river/instance/"+str(doc_id))
   if st!=200:
-    logging.error("Failed to query!:"+str(doc_id)+" "+str(st)+" "+str(res))
+    syslog.syslog("ERROR:Failed to query!:"+str(doc_id)+" "+str(st)+" "+str(res))
     return
   doc = json.loads(res)
   doc_ver = doc['_version']
@@ -265,16 +266,16 @@ def runRiver(doc):
     success,st,res = query(gconn,"POST","/river/instance/"+str(doc_id)+'/_update?version='+str(doc_ver),json.dumps({'doc':gen_node_doc('starting')}))
     if st == 200:
       #success,proceed with fork
-      logging.info("successfully updated"+str(doc_id)+"document. will start the instance")
+      syslog.syslog("successfully updated"+str(doc_id)+"document. will start the instance")
       new_instance = river_thread(doc_id,src['subsystem'],host,cluster,"river",runNumber)
       river_threads.append(new_instance)
       new_instance.execute()
-      logging.info("started river thread")
+      syslog.syslog("started river thread")
       ###fork river with url, index, type, doc id, some params to identify
     elif status==409:
-      logging.info(str(doc_id)+" update failed. doc was already grabbed.")
+      syslog.syslog(str(doc_id)+" update failed. doc was already grabbed.")
     else:
-      logging.error("Failed to update document; status:"+str(st)+" "+res )
+      syslog.syslog("ERROR:Failed to update document; status:"+str(st)+" "+res )
 
 
 
@@ -285,10 +286,10 @@ def runDaemon():
 
   success,st,res = query(gconn,"PUT","/river/_mapping/instance?size=1000",json.dumps(riverInstMapping),retry = True)
 
-  logging.info("attempts to push instance doc mapping:"+str(st)+" "+str(res))
+  syslog.syslog("attempts to push instance doc mapping:"+str(st)+" "+str(res))
  
   while keep_running:
-    logging.info('running loop...')
+    syslog.syslog('running loop...')
 
     #join threads that have finished (needed?)
     for rt in river_threads[:]:
@@ -312,13 +313,14 @@ def runDaemon():
         runRiver(hit)
       pass
     else:
-      logging.error("Error running search query status:"+str(st)+" "+str(res))
+      syslog.syslog("ERROR running search query status:"+str(st)+" "+str(res))
 
 
 
 #signal handler to allow graceful exit on SIGINT. will be used for control from the main service
 def signal_handler(signal, frame):
         print 'Caught sigint!'
+        syslog.syslog('Caught sigint...')
         time.sleep(1)
         global global_quit
         global_quit = True
@@ -329,12 +331,11 @@ signal.signal(signal.SIGINT, signal_handler)
 class RiverDaemon(Daemon2):
 
   def __init__(self):
-    Daemon2.__init__(self, 'river-daemon', 'main', confname=None, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
-
-  #TODO:syslog
+    Daemon2.__init__(self, 'river-daemon', 'main', confname=None, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null')
 
   def run(self):
-    logging.basicConfig(level=logging.INFO)
+    syslog.openlog("river-daemon")
+    #logging.basicConfig(level=logging.INFO)
     try:
       dem = demote.demote("elasticsearch")
     except:
@@ -350,9 +351,11 @@ class RiverDaemon(Daemon2):
         rt.join()
       except Exception as ex:
         print ex
+        syslog.syslog(str(ex))
 
-    logging.info("quitting")
+    syslog.syslog("quitting")
     #make sure we exit
+    syslog.closelog()
     os._exit(0)
 
 if __name__ == "__main__":
@@ -370,7 +373,7 @@ if __name__ == "__main__":
         procname.setprocname('river-daemon')
       except:
         print "procname not installed"
-      daemon.start()
+      daemon.start(req_conf=False)
     else:
       daemon.run()
  

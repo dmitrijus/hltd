@@ -12,6 +12,7 @@ import Queue
 
 from hltdconf import *
 from aUtils import *
+from daemon2 import stdOutLog,stdErrorLog
 import mappings
 
 from pyelasticsearch.client import ElasticSearch
@@ -279,7 +280,7 @@ class elasticBandBU:
         document['startTime'] = self.startTime
         document['endTime'] = endtime
         documents = [document]
-        self.index_documents('run',documents,bulk=False)
+        self.index_documents('run',documents,doc_id,bulk=False)
 
     def elasticize_resource_summary(self,jsondoc):
         self.logger.debug('injecting resource summary document')

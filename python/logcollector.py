@@ -28,7 +28,7 @@ from pyelasticsearch.exceptions import *
 
 from hltdconf import *
 from elasticBand import elasticBand
-from aUtils import stdOutLog,stdErrorLog
+from daemon2 import stdOutLog,stdErrorLog
 from elasticbu import getURLwithIP
 import mappings
 

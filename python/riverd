@@ -1,0 +1,61 @@
+#!/bin/env python
+#
+# chkconfig:   2345 81 03
+#
+import os,sys
+sys.path.append('/opt/fff')
+from daemon2 import Daemon2
+from subprocess import Popen
+from subprocess import PIPE
+import time
+import syslog
+
+def startService(daemon):
+    daemon.touchLockFile()
+    proc = Popen(["/opt/hltd/python/river-daemon.py","--daemon"], stdout=PIPE)
+    output = proc.communicate()[0]
+    tries=10 #allow 1 second for forking to happen
+    while True:
+        time.sleep(.1)
+        if daemon.silentStatus() and proc.returncode==0:
+            print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;32mOK\033[0;39m  ]'
+            daemon.touchLockFile()
+            return
+        else:
+            if proc.returncode==3:sys.exit(0)
+            tries-=1
+            if tries>0:continue
+            print 'Starting hltd instance',srvInstance,':\t\t\t\t [  \033[1;31mFAILED\033[0;39m  ]'
+            print output
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+
+    daemon = Daemon2('river-daemon','main')
+
+    if len(sys.argv) >= 2:
+        if 'start' == sys.argv[1]:
+            startService(daemon)
+
+        elif 'stop' == sys.argv[1]:
+            sys.stdout.write('Stopping riverd')
+            daemon.stop()
+            daemon.removeLockFile()
+
+        elif 'restart' == sys.argv[1]:
+            sys.stdout.write('Stopping riverd')
+            daemon.stop()
+            startService(daemon)
+
+        elif 'status' == sys.argv[1]:
+            daemon.status()
+        else:
+            print "Unknown command"
+            sys.exit(2)
+
+    else:
+        print "usage: %s start|restart|status"
+        sys.exit(2)
+
+sys.exit(0)

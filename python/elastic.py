@@ -12,6 +12,7 @@ import elasticBand
 
 from hltdconf import hltdConf,initConf
 from aUtils import *
+from daemon2 import stdOutLog,stdErrorLog
 
 class elasticCollector():
     stoprequest = threading.Event()

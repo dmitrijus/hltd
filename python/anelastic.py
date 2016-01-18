@@ -16,6 +16,7 @@ import logging
 
 from hltdconf import hltdConf,initConf
 from aUtils import *
+from daemon2 import stdOutLog,stdErrorLog
 
 
 class LumiSectionRanger:

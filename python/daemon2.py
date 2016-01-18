@@ -1,9 +1,27 @@
 import sys, os, time, atexit
 import subprocess
 from signal import SIGINT,SIGKILL
-from aUtils import * #for stdout and stderr redirection
-import ConfigParser
 import re
+#from aUtils import * #for stdout and stderr redirection
+try:
+  #hltd service dependency
+  import ConfigParser
+except:
+  print "No ConfigParser"
+
+
+#Output redirection class
+class stdOutLog:
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+    def write(self, message):
+        self.logger.debug(message)
+class stdErrorLog:
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+    def write(self, message):
+        self.logger.error(message)
+
 
 class Daemon2:
     """

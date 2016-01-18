@@ -365,8 +365,11 @@ if __name__ == "__main__":
     except:
         pass
     if runAsDaemon:
-      import procname
-      procname.setprocname('river-daemon')
+      try:
+        import procname
+        procname.setprocname('river-daemon')
+      except:
+        print "procname not installed"
       daemon.start()
     else:
       daemon.run()

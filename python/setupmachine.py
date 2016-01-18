@@ -66,6 +66,7 @@ vm_override_buHNs = {
                      "fu-vm-02-02.cern.ch":["bu-vm-01-01"]
                      }
 vm_bu_override = ['bu-vm-01-01.cern.ch']
+tribe_checkAddr=True
 
 
 def getmachinetype():
@@ -648,6 +649,7 @@ if __name__ == "__main__":
             buDataAddr = getAllBU(requireFU=False)
           except:
             buDataAddr = vm_bu_override
+            tribe_checkAddr=False
         else:
           buDataAddr = getAllBU(requireFU=False)
         buName='es-tribe'
@@ -743,17 +745,18 @@ if __name__ == "__main__":
                 if bu in tribe_ignore_list:continue
 
                 try:
-                    socket.gethostbyname_ex(bu+'.cms')
+                    if tribe_checkAddr:
+                      socket.gethostbyname_ex(bu+'.cms')
                 except:
-                #    print "skipping",bu," - unable to lookup IP address"
+                    print "skipping",bu," - unable to lookup IP address"
                     continue
 
                 escfg.reg('    t'+str(i),'')
                 escfg.reg('         indices.analysis.hunspell.dictionary.lazy','true')
-                escfg.reg('         path.scripts','/usr/share/elasticsearch/plugins')
+                escfg.reg('         path.scripts','"/usr/share/elasticsearch/plugins"')
                #escfg.reg('         discovery.zen.ping.multicast.enabled','false')
                 escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'.cms'+'"'+']')
-                escfg.reg('         network.host','es_publish_host')
+                escfg.reg('         network.host',es_publish_host)
                 escfg.reg('         cluster.name', 'appliance_'+bu)
                 i=i+1
             escfg.commit()

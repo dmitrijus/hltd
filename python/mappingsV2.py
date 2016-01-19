@@ -119,8 +119,8 @@ central_runindex_mapping = {
                     'fm_date':{
                         'type':'date',
                         "format":"epoch_millis||dateOptionalTime"
-                        }
-                    'id'            :{'type':'string','index':'not_analyzed'},
+                        },
+                    'id':{'type':'string','index':'not_analyzed'}
                     }
                 },
             'eols' : {

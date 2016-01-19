@@ -120,7 +120,9 @@ pluginname3="kopf"
 pluginfile3="elasticsearch-kopf-2.1.1.zip"
 
 #pluginname4="river-runriver"
-riverfile="river-runriver-1.4.0-jar-with-dependencies.jar"
+#riverfile="river-runriver-1.4.0-jar-with-dependencies.jar"
+#es 1.4 compatible:
+riverfile="river-runriver-1.3.6-jar-with-dependencies.jar"
 
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm

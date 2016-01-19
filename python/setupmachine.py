@@ -8,8 +8,6 @@ import shutil
 import syslog
 import time
 
-elasticsearch_new_bind = True
-
 sys.path.append('/opt/hltd/python')
 #from fillresources import *
 
@@ -669,6 +667,20 @@ if __name__ == "__main__":
         else:
             es_publish_host=os.uname()[1]+'.cms'
 
+        #determine elasticsearch version
+        elasticsearch_new_bind=True
+        prpm = subprocess.Popen("/bin/rpm -q elasticsearch", shell=True, stdout=subprocess.PIPE)
+        prpm.wait()
+        std_out_rpm=prpm.stdout.read()
+        if std_out_rpm.startswith('elasticsearch-1') or std_out_rpm.startswith('elasticsearch-2.0') or std_out_rpm.startswith('elasticsearch-2.2'):
+          elasticsearch_new_bind = False
+          print "Elasticsearch 1.X, 2.0 or 2.1  detected. Not using new bind syntax supported in 2.0"
+        else:
+          print "Elasticsearch 2.X or higher detected. Using new bind syntax."
+
+
+
+
         #print "will modify sysconfig elasticsearch configuration"
         #maybe backup vanilla versions
         essysEdited =  checkModifiedConfigInFile(elasticsysconf)
@@ -696,10 +708,10 @@ if __name__ == "__main__":
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('cluster.name',clusterName)
             escfg.reg('node.name',cnhostname)
-            #escfg.reg('discovery.zen.ping.multicast.enabled','false')
+            escfg.reg('discovery.zen.ping.multicast.enabled','false')
             escfg.reg('network.publish_host',es_publish_host)
-            #if elasticsearch_new_bind:
-            escfg.reg('network.bind_host','_local_,'+es_publish_host)
+            if elasticsearch_new_bind:
+              escfg.reg('network.bind_host','_local_,'+es_publish_host)
             escfg.reg('transport.tcp.compress','true')
             escfg.reg('script.groovy.sandbox.enabled','true')
 
@@ -731,11 +743,11 @@ if __name__ == "__main__":
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('network.publish_host',es_publish_host)
-            #if elasticsearch_new_bind:
-            escfg.reg('network.bind_host','_local_,'+es_publish_host)
+            if elasticsearch_new_bind:
+              escfg.reg('network.bind_host','_local_,'+es_publish_host)
             escfg.reg('cluster.name','es-tribe')
             escfg.reg('discovery.zen.ping.unicast.hosts','[]')
-            #escfg.reg('discovery.zen.ping.multicast.enabled','false')
+            escfg.reg('discovery.zen.ping.multicast.enabled','false')
             #escfg.reg('discovery.zen.ping.unicast.hosts','['+','.join(buDataAddr)+']')
             escfg.reg('transport.tcp.compress','true')
 
@@ -754,13 +766,16 @@ if __name__ == "__main__":
                 escfg.reg('    t'+str(i),'')
                 escfg.reg('         indices.analysis.hunspell.dictionary.lazy','true')
                 escfg.reg('         path.scripts','"/usr/share/elasticsearch/plugins"')
-               #escfg.reg('         discovery.zen.ping.multicast.enabled','false')
+                escfg.reg('         discovery.zen.ping.multicast.enabled','false')
                 if env!='vm':
                   escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'.cms'+'"'+']')
                 else:
                   escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'"'+']')
                 escfg.reg('         network.host',es_publish_host)
-                escfg.reg('         cluster.name', 'appliance_'+bu)
+                if bu.endswith('.cern.ch'):
+                  escfg.reg('         cluster.name', 'appliance_'+bu[:-8])
+                else:
+                  escfg.reg('         cluster.name', 'appliance_'+bu)
                 i=i+1
             escfg.commit()
 
@@ -782,8 +797,8 @@ if __name__ == "__main__":
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('network.publish_host',es_publish_host)
-            #if elasticsearch_new_bind:
-            escfg.reg('network.bind_host','_local_,'+es_publish_host)
+            if elasticsearch_new_bind:
+              escfg.reg('network.bind_host','_local_,'+es_publish_host)
             if env=='vm':
                 escfg.reg('cluster.name','es-vm-cdaq')
             else:
@@ -792,10 +807,9 @@ if __name__ == "__main__":
             if env=='vm':
               escfg.reg('discovery.zen.minimum_master_nodes','1')
             else:
-             #escfg.reg('discovery.zen.ping.multicast.enabled','false')
               escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_cdaq_list))
               escfg.reg('discovery.zen.minimum_master_nodes','4')
-            #escfg.reg('index.mapper.dynamic','false')
+            escfg.reg('discovery.zen.ping.multicast.enabled','false')
             escfg.reg('action.auto_create_index','false')
             escfg.reg('index.mapper.dynamic','false')
             escfg.reg('transport.tcp.compress','true')

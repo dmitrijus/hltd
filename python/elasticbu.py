@@ -276,7 +276,7 @@ class elasticBandBU:
         self.logger.info(str(endtime)+" going into buffer")
         document = {}
         doc_id = self.runnumber
-        document['id']=doc_id
+        document['runNumber']=doc_id
         document['startTime'] = self.startTime
         document['endTime'] = endtime
         documents = [document]

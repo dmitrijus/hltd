@@ -85,10 +85,17 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
                     mappingSame =  norm_name['mappings']==loaddoc['mappings']
                     #settingSame = norm_name['settings']==loaddoc['settings']
                     settingsSame=True
-                    if int(norm_name['settings']['index.number_of_replicas'])!=int(loaddoc['settings']['index']['number_of_replicas']):
+                    try:
+                      if int(norm_name['settings']['index.number_of_replicas'])!=int(loaddoc['settings']['index']['number_of_replicas']):
                         settingsSame=False
-                    if int(norm_name['settings']['index.number_of_shards'])!=int(loaddoc['settings']['index']['number_of_shards']):
+                      if int(norm_name['settings']['index.number_of_shards'])!=int(loaddoc['settings']['index']['number_of_shards']):
                         settingsSame=False
+                    except KeyError: #elastic 2.2
+                      if int(norm_name['settings']['index']['number_of_replicas'])!=int(loaddoc['settings']['index']['number_of_replicas']):
+                        settingsSame=False
+                      if int(norm_name['settings']['index']['number_of_shards'])!=int(loaddoc['settings']['index']['number_of_shards']):
+                        settingsSame=False
+
                     #currently analyzer settings are ot checked
                     #if norm_name['settings']['index']['analysis']!=loaddoc['settings']['analysis']:
                     #    settingsSame=False

@@ -672,7 +672,7 @@ if __name__ == "__main__":
         prpm = subprocess.Popen("/bin/rpm -q elasticsearch", shell=True, stdout=subprocess.PIPE)
         prpm.wait()
         std_out_rpm=prpm.stdout.read()
-        if std_out_rpm.startswith('elasticsearch-1') or std_out_rpm.startswith('elasticsearch-2.0') or std_out_rpm.startswith('elasticsearch-2.2'):
+        if std_out_rpm.startswith('elasticsearch-1') or std_out_rpm.startswith('elasticsearch-2.0') or std_out_rpm.startswith('elasticsearch-2.1'):
           elasticsearch_new_bind = False
           print "Elasticsearch 1.X, 2.0 or 2.1  detected. Not using new bind syntax supported in 2.0"
         else:

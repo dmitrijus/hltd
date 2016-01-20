@@ -13,7 +13,7 @@ from aUtils import *
 
 class IndexCreator(threading.Thread):
 
-    def __init__(self,es_server_url, indexSuffix, forceReplicas, numPreCreate=10):
+    def __init__(self,es_server_url, indexSuffix, forceReplicas, forceShards, numPreCreate=10):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.daemon=True
@@ -26,6 +26,8 @@ class IndexCreator(threading.Thread):
 
             if forceReplicas>=0:
                 self.body['settings']['index']['number_of_replicas']=forceReplicas
+            if forceShards>=0:
+                self.body['settings']['index']['number_of_shards']=forceShards
 
             #body.pop('template')
         except Exception as e:
@@ -105,7 +107,7 @@ class IndexCreator(threading.Thread):
 class elasticBand():
 
 
-    def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo,forceReplicas,nprocid=None):
+    def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo,forceReplicas,forceShards,nprocid=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.istateBuffer = []
         self.prcinBuffer = {}
@@ -127,6 +129,8 @@ class elasticBand():
                 body = json.load(fpi)
             if forceReplicas>=0:
                 body['settings']['index']['number_of_replicas']=forceReplicas
+            if forceShards>=0:
+                body['settings']['index']['number_of_shards']=forceShards
 
             #body.pop('template')
             #c_res = self.es.create_index(index = self.indexName, body = body)

@@ -345,7 +345,7 @@ class hltd(Daemon2,object):
                 boxInfo.updater.start()
 
             if conf.use_elasticsearch:
-                indexCreator = IndexCreator('http://'+conf.es_local+':9200',conf.elastic_cluster,conf.force_replicas)
+                indexCreator = IndexCreator('http://'+conf.es_local+':9200',conf.elastic_cluster,conf.force_replicas,conf.force_shards)
                 #disabled until tested
                 #indexCreator.start()
 

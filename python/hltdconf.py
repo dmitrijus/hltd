@@ -11,7 +11,7 @@ class hltdConf:
         self.role = None
         self.elastic_bu_test = None
         self.elastic_runindex_url = None
-        self.elastic_runindex_name = 'runindex'
+        self.elastic_runindex_name = 'cdaq'
         self.watch_directory = None
         self.ramdisk_subdirectory = 'ramdisk'
         self.output_subdirectory = 'output'
@@ -37,6 +37,7 @@ class hltdConf:
 
         self.use_elasticsearch = cfg.getboolean('Monitoring','use_elasticsearch')
         self.force_replicas = cfg.getint('Monitoring','force_replicas')
+        self.force_shards = cfg.getint('Monitoring','force_shards')
         self.cgi_port = cfg.getint('Web','cgi_port')
         self.cgi_instance_port_offset = cfg.getint('Web','cgi_instance_port_offset')
         self.soap2file_port = cfg.getint('Web','soap2file_port')
@@ -61,6 +62,9 @@ class hltdConf:
         self.max_local_disk_usage = cfg.getint('Resources','max_local_disk_usage')
         self.service_log_level = getattr(logging,self.service_log_level)
         self.autodetect_parameters()
+
+        if self.es_local!='localhost':
+          self.elastic_cluster=self.elastic_runindex_name
 
         #read cluster name from elastic search configuration file (if not set up directly)
         if not self.elastic_cluster and self.use_elasticsearch:

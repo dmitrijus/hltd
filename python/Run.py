@@ -413,7 +413,8 @@ class Run:
             self.logger.info("checking ES template")
             try:
                 #new: try to create index with template mapping after template check
-                setupES(es_server_url='http://'+conf.es_local+':9200',forceReplicas=conf.force_replicas,create_index_name='run'+str(self.runnumber)+'_'+conf.elastic_cluster)
+                new_index_name = 'run'+str(self.runnumber)+'_'+conf.elastic_cluster
+                setupES(es_server_url='http://'+conf.es_local+':9200',forceReplicas=conf.force_replicas,forceShards=conf.force_shards,create_index_name=new_index_name)
             except Exception as ex:
                 self.logger.error("Unable to check run appliance template:"+str(ex))
 

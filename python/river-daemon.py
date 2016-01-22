@@ -110,7 +110,10 @@ riverInstMapping = {
 		},
 		"enable_stats" : { #write stats document
 			"type" : "boolean"
-		}
+		},
+                "close_indices" : {
+                        "type": "boolean"
+                }
 	}
 }
 

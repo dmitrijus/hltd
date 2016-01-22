@@ -145,6 +145,7 @@ central_runindex_mapping = {
                 },
             'minimerge' : {
                 '_timestamp' : { "enabled": "true"},
+                '_all': {'enabled': "false" },
                 '_parent'    :{'type':'run'},
                 'properties' : {
                     'fm_date'       :{'type':'date'
@@ -166,6 +167,7 @@ central_runindex_mapping = {
                 },
             'macromerge' : {
                 '_timestamp' : { "enabled": "true"},
+                '_all': {'enabled': "false" },
                 '_parent'    :{'type':'run'},
                 'properties' : {
                     'fm_date'       :{'type':'date'
@@ -411,6 +413,7 @@ central_boxinfo_mapping = {
                            }
           },
           'resource_summary' : {
+            '_all': {'enabled': "false" },
             'properties' : {
               'fm_date'       :{'type':'date'
               },
@@ -450,7 +453,7 @@ central_hltdlogs_mapping = {
                     'type'      : {'type' : 'string',"index" : "not_analyzed"},
                     'severity'  : {'type' : 'string',"index" : "not_analyzed"},
                     'severityVal'  : {'type' : 'integer'},
-                    'message'   : {'type' : 'string',"index":"not_analyzed","ignore_above": 8192},
+                    'message'   : {'type' : 'string'},
                     'lexicalId' : {'type' : 'string',"index" : "not_analyzed"},
                     'msgtime' : {
                             'type' : 'date',
@@ -516,8 +519,7 @@ central_hltdlogs_mapping = {
                                     "type": "long"
                             },
                             "message": {
-                                    "type": "string","index":"not_analyzed",
-                                    "ignore_above": 8192
+                                    "type": "string"
                             },
                             "lexicalId": {
                                     "type": "string",

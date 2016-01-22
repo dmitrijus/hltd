@@ -113,6 +113,7 @@ class elasticBand():
         self.prcinBuffer = {}
         self.prcoutBuffer = {}
         self.fuoutBuffer = {}
+        self.prcsstateBuffer = {}
 
         self.es = ElasticSearch(es_server_url,timeout=20)
         eslib_logger = logging.getLogger('elasticsearch')
@@ -231,7 +232,8 @@ class elasticBand():
         datadict['fm_date'] = str(infile.mtime)
         datadict['source'] = self.hostname + '_' + infile.pid
         datadict['mclass'] = self.nprocid
-        self.tryIndex('prc-s-state',datadict)
+        #self.tryIndex('prc-s-state',datadict)
+        self.prcsstateBuffer.setdefault(infile.ls,[]).append(datadict)
 
     def elasticize_prc_out(self,infile):
         document,ret = self.imbue_jsn(infile)
@@ -311,6 +313,7 @@ class elasticBand():
         self.tryIndex('prc-in',document)
 
     def elasticize_queue_status(self,infile):
+        return True #disabling this message
         document,ret = self.imbue_jsn(infile,silent=True)
         if ret<0:return False
         document['fm_date']=str(infile.mtime)
@@ -335,14 +338,17 @@ class elasticBand():
         prcinDocs = self.prcinBuffer.pop(ls) if ls in self.prcinBuffer else None
         prcoutDocs = self.prcoutBuffer.pop(ls) if ls in self.prcoutBuffer else None
         fuoutDocs = self.fuoutBuffer.pop(ls) if ls in self.fuoutBuffer else None
+        prcsstateDocs = self.prcsstateBuffer.pop(ls) if ls in self.prcsstateBuffer else None
         if prcinDocs: self.tryBulkIndex('prc-in',prcinDocs,attempts=2)
         if prcoutDocs: self.tryBulkIndex('prc-out',prcoutDocs,attempts=2)
         if fuoutDocs: self.tryBulkIndex('fu-out',fuoutDocs,attempts=5)
+        if prcsstateDocs: self.tryBulkIndex('prc-s-state',prcsstateDocs,attempts=1)
 
     def flushAllLS(self):
         lslist = list(  set(self.prcinBuffer.keys()) |
                         set(self.prcoutBuffer.keys()) |
-                        set(self.fuoutBuffer.keys()) )
+                        set(self.fuoutBuffer.keys()) |
+                        set(self.prcsstateBuffer.keys()) )
         for ls in lslist:
             self.flushLS(ls)
 

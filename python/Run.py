@@ -409,7 +409,7 @@ class Run:
         return False
 
     def CheckTemplate(self,run=None):
-        if conf.role=='bu' and conf.use_elasticsearch:
+        if conf.role=='bu' and conf.use_elasticsearch and conf.update_es_template:
             self.logger.info("checking ES template")
             try:
                 #new: try to create index with template mapping after template check

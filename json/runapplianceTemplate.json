@@ -1,5 +1,5 @@
 {
-  "template": "run*appliance*",
+  "template": "run*",
 
   "settings": {
     "analysis": {
@@ -23,6 +23,7 @@
   },
   "mappings": {
     "prc-i-state": {
+      "_all": {"enabled": "false" },
       "properties": {
         "macro": {
           "type": "integer"
@@ -66,6 +67,7 @@
       }
     },
     "prc-s-state": {
+      "_all": {"enabled": "false" },
       "properties": {
         "macro": {
           "type": "integer"
@@ -122,6 +124,7 @@
       }
     },
     "prc-out": {
+      "_all": {"enabled": "false" },
       "properties": {
         "data": {
           "properties": {
@@ -155,6 +158,7 @@
       }
     },
     "prc-in": {
+      "_all": {"enabled": "false" },
       "properties": {
         "data": {
           "properties": {
@@ -189,6 +193,7 @@
       }
     },
     "fu-out": {
+      "_all": {"enabled": "false" },
       "properties": {
         "data": {
           "properties": {
@@ -249,6 +254,7 @@
       }
     },
     "fu-complete": {
+      "_all": {"enabled": "false" },
       "properties": {
         "host": {
           "type": "string",
@@ -263,6 +269,7 @@
       }
     },
     "qstatus": {
+      "_all": {"enabled": "false" },
       "properties": {
         "numQueuedLS": {
           "type": "integer"
@@ -298,6 +305,7 @@
       "_timestamp": {
         "enabled": true
       },
+      "_all": {"enabled": "false" },
       "_ttl": {
         "enabled": true,
         "default": 2592000000

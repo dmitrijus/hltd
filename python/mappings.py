@@ -16,10 +16,18 @@ central_es_settings = {
 
 
 central_es_settings_hltlogs = {
+
             "analysis":{
                 "analyzer": {
-                    "default": {
-                        "type": "keyword"
+                    "prefix-test-analyzer": {
+                        "type": "custom",
+                        "tokenizer": "prefix-test-tokenizer"
+                    }
+                },
+                "tokenizer": {
+                    "prefix-test-tokenizer": {
+                        "type": "path_hierarchy",
+                        "delimiter": " "
                     }
                 }
             },

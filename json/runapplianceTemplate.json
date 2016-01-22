@@ -12,7 +12,7 @@
       "tokenizer": {
         "prefix-test-tokenizer": {
           "type": "path_hierarchy",
-          "delimiter": "_"
+          "delimiter": " "
         }
       }
     },
@@ -359,8 +359,7 @@
           "type": "long"
         },
         "message": {
-          "type": "string",
-          "index": "not_analyzed"
+          "type": "string"
         },
         "lexicalId": {
           "type": "string",

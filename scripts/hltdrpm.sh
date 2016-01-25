@@ -49,6 +49,8 @@ cp -r $BASEDIR/python/soap2file $TOPDIR/etc/init.d/soap2file
 cp -r $BASEDIR/* $TOPDIR/opt/hltd
 rm -rf $TOPDIR/opt/hltd/python/hltd
 rm -rf $TOPDIR/opt/hltd/python/soap2file
+rm -rf $TOPDIR/opt/hltd/python/riverd
+rm -rf $TOPDIR/opt/hltd/python/river-daemon.py
 cp -r $BASEDIR/etc/hltd.conf $TOPDIR/etc/
 cp -r $BASEDIR/etc/logrotate.d/hltd $TOPDIR/etc/logrotate.d/
 echo "working in $PWD"
@@ -202,7 +204,7 @@ cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > hltd.spec <<EOF
 Name: hltd
-Version: 1.8.1
+Version: 1.9.0
 Release: 0
 Summary: hlt daemon
 License: gpl

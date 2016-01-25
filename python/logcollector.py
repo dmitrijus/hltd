@@ -28,7 +28,7 @@ from pyelasticsearch.exceptions import *
 
 from hltdconf import *
 from elasticBand import elasticBand
-from aUtils import stdOutLog,stdErrorLog
+from daemon2 import stdOutLog,stdErrorLog
 from elasticbu import getURLwithIP
 import mappings
 
@@ -175,10 +175,11 @@ class CMSSWLogEvent(object):
         self.message.append(line)
 
     def fillCommon(self):
+        self.document['date']=int(time.time()*1000)
         self.document['run']=self.rn
         self.document['host']=hostname
         self.document['pid']=self.pid
-        self.document['type']=typeStr[self.type]
+        self.document['doctype']=typeStr[self.type]
         self.document['severity']=severityStr[self.severity]
         self.document['severityVal']=self.severity
 
@@ -519,7 +520,7 @@ class CMSSWLogESWriter(threading.Thread):
         #else:
         self.index_runstring = 'run'+str(self.rn).zfill(conf.run_number_padding)
         self.index_suffix = conf.elastic_cluster
-        self.eb = elasticBand('http://'+conf.es_local+':9200',self.index_runstring,self.index_suffix,0,conf.force_replicas,0)
+        self.eb = elasticBand('http://'+conf.es_local+':9200',self.index_runstring,self.index_suffix,0,conf.force_replicas,conf.force_shards,0)
         self.contextualCounter = ContextualCounter()
         self.initialized=True
 
@@ -758,19 +759,7 @@ class HLTDLogIndex():
         self.host = os.uname()[1]
         self.threadEvent = threading.Event()
 
-        #if 'localhost' in es_server_url:
-        #    nshards = 16
-        #    self.index_name = 'hltdlogs_'+conf.elastic_cluster
-        #else:
-        index_suffix = conf.elastic_runindex_name.strip()
-        if index_suffix.startswith('runindex_'):
-            index_suffix=index_suffix[index_suffix.find('_'):]
-        elif index_suffix=='runindex':
-            index_suffix=""
-        elif index_suffix.startswith('runindex'):
-            index_suffix='_'+index_suffix[8:]
-        else: index_suffix='_'+index_suffix
-        self.index_name = 'hltdlogs'+index_suffix+"_write" #using write alias
+        self.index_name = 'hltdlogs_'+conf.elastic_runindex_name+"_write" #using write alias
 
         attempts=10
         while True:
@@ -793,6 +782,7 @@ class HLTDLogIndex():
 
     def elasticize_log(self,type,severity,timestamp,msg):
         document= {}
+        document['date']=int(time.time()*1000)
         document['host']=self.host
         document['type']=type
         document['severity']=severityStr[severity]

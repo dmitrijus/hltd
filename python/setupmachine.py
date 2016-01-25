@@ -49,7 +49,9 @@ detdqm_list  = ["bu-c2f11-19-01",
                 "fu-c2f11-21-01","fu-c2f11-21-02","fu-c2f11-21-03","fu-c2f11-21-04",
                 "fu-c2f11-23-01","fu-c2f11-23-02","fu-c2f11-23-03","fu-c2f11-23-04"]
 
-es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02', 'ncsrv-c2e42-21-02','ncsrv-c2e42-23-02']
+#es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02', 'ncsrv-c2e42-21-02','ncsrv-c2e42-23-02']
+#reduce es-cdaq to 4 machines
+es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02']
 es_tribe_list =[ 'ncsrv-c2e42-13-03', 'ncsrv-c2e42-23-03']
 
 tribe_ignore_list = ['bu-c2f11-09-01','bu-c2f11-13-01','bu-c2f11-19-01']
@@ -63,6 +65,9 @@ vm_override_buHNs = {
                      "fu-vm-02-01.cern.ch":["bu-vm-01-01","bu-vm-01-01"],
                      "fu-vm-02-02.cern.ch":["bu-vm-01-01"]
                      }
+vm_bu_override = ['bu-vm-01-01.cern.ch']
+tribe_checkAddr=True
+
 
 def getmachinetype():
 
@@ -97,6 +102,10 @@ def getmachinetype():
         except socket.gaierror, ex:
             print 'dns lookup error ',str(ex)
             raise ex
+    elif myhost.startswith('es-vm-cdaq'):
+        return 'es','escdaq'
+    elif myhost.startswith('es-vm-tribe'):
+        return 'es','tribe'
     else:
         print "unknown machine type"
         return 'unknown','unknown'
@@ -634,7 +643,15 @@ if __name__ == "__main__":
         else:
             buName = os.uname()[1]
     elif type == 'tribe':
-        buDataAddr = getAllBU(requireFU=False)
+        if env=='vm':
+          try:
+            #failover to no DB in VM mode
+            buDataAddr = getAllBU(requireFU=False)
+          except:
+            buDataAddr = vm_bu_override
+            tribe_checkAddr=False
+        else:
+          buDataAddr = getAllBU(requireFU=False)
         buName='es-tribe'
 
     print "running configuration for machine",cnhostname,"of type",type,"in cluster",cluster,"; appliance bu is:",buName
@@ -651,6 +668,20 @@ if __name__ == "__main__":
             es_publish_host=os.uname()[1]
         else:
             es_publish_host=os.uname()[1]+'.cms'
+
+        #determine elasticsearch version
+        elasticsearch_new_bind=True
+        prpm = subprocess.Popen("/bin/rpm -q elasticsearch", shell=True, stdout=subprocess.PIPE)
+        prpm.wait()
+        std_out_rpm=prpm.stdout.read()
+        if std_out_rpm.startswith('elasticsearch-1') or std_out_rpm.startswith('elasticsearch-2.0') or std_out_rpm.startswith('elasticsearch-2.1'):
+          elasticsearch_new_bind = False
+          print "Elasticsearch 1.X, 2.0 or 2.1  detected. Not using new bind syntax supported in 2.0"
+        else:
+          print "Elasticsearch 2.X or higher detected. Using new bind syntax."
+
+
+
 
         #print "will modify sysconfig elasticsearch configuration"
         #maybe backup vanilla versions
@@ -669,6 +700,7 @@ if __name__ == "__main__":
             essyscfg.reg('ES_HEAP_SIZE','1G')
             essyscfg.reg('MAX_LOCKED_MEMORY','unlimited')
             essyscfg.reg('ES_USE_GC_LOGGING','false')
+            essyscfg.removeEntry('CONF_FILE')
             if type == 'fu':
                     #if myhost.startswith('fu-c2d'):#Megware FU racks
                     #essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log -XX:NewSize=500m -XX:MaxNewSize=600m"')
@@ -680,6 +712,8 @@ if __name__ == "__main__":
             escfg.reg('node.name',cnhostname)
             escfg.reg('discovery.zen.ping.multicast.enabled','false')
             escfg.reg('network.publish_host',es_publish_host)
+            if elasticsearch_new_bind:
+              escfg.reg('network.bind_host','_local_,'+es_publish_host)
             escfg.reg('transport.tcp.compress','true')
             escfg.reg('script.groovy.sandbox.enabled','true')
 
@@ -702,11 +736,19 @@ if __name__ == "__main__":
 
         if type == 'tribe':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','24G')
+            if env=='vm':
+                essyscfg.reg('ES_HEAP_SIZE','1G')
+            else:
+                essyscfg.reg('ES_HEAP_SIZE','24G')
+            essyscfg.removeEntry('CONF_FILE')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
+            escfg.reg('network.publish_host',es_publish_host)
+            if elasticsearch_new_bind:
+              escfg.reg('network.bind_host','_local_,'+es_publish_host)
             escfg.reg('cluster.name','es-tribe')
+            escfg.reg('discovery.zen.ping.unicast.hosts','[]')
             escfg.reg('discovery.zen.ping.multicast.enabled','false')
             #escfg.reg('discovery.zen.ping.unicast.hosts','['+','.join(buDataAddr)+']')
             escfg.reg('transport.tcp.compress','true')
@@ -717,15 +759,25 @@ if __name__ == "__main__":
                 if bu in tribe_ignore_list:continue
 
                 try:
-                    socket.gethostbyname_ex(bu+'.cms')
+                    if tribe_checkAddr:
+                      socket.gethostbyname_ex(bu+'.cms')
                 except:
-                #    print "skipping",bu," - unable to lookup IP address"
+                    print "skipping",bu," - unable to lookup IP address"
                     continue
 
                 escfg.reg('    t'+str(i),'')
+                escfg.reg('         indices.analysis.hunspell.dictionary.lazy','true')
+                escfg.reg('         path.scripts','"/usr/share/elasticsearch/plugins"')
                 escfg.reg('         discovery.zen.ping.multicast.enabled','false')
-                escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'.cms'+'"'+']')
-                escfg.reg('         cluster.name', 'appliance_'+bu)
+                if env!='vm':
+                  escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'.cms'+'"'+']')
+                else:
+                  escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'"'+']')
+                escfg.reg('         network.host',es_publish_host)
+                if bu.endswith('.cern.ch'):
+                  escfg.reg('         cluster.name', 'appliance_'+bu[:-8])
+                else:
+                  escfg.reg('         cluster.name', 'appliance_'+bu)
                 i=i+1
             escfg.commit()
 
@@ -736,18 +788,32 @@ if __name__ == "__main__":
 
         if type == 'escdaq':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','30G')
-            essyscfg.reg('DATA_DIR','/elasticsearch/lib/elasticsearch')
+            if env=='vm':
+                essyscfg.reg('ES_HEAP_SIZE','2G')
+                essyscfg.reg('DATA_DIR','/var/lib/elasticsearch')
+            else:
+                essyscfg.reg('ES_HEAP_SIZE','30G')
+                essyscfg.reg('DATA_DIR','/elasticsearch/lib/elasticsearch')
+            essyscfg.removeEntry('CONF_FILE')
             essyscfg.commit()
 
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
-            escfg.reg('cluster.name','es-cdaq')
+            escfg.reg('network.publish_host',es_publish_host)
+            if elasticsearch_new_bind:
+              escfg.reg('network.bind_host','_local_,'+es_publish_host)
+            if env=='vm':
+                escfg.reg('cluster.name','es-vm-cdaq')
+            else:
+                escfg.reg('cluster.name','es-cdaq')
             #TODO:switch to multicast when complete with new node migration
+            if env=='vm':
+              escfg.reg('discovery.zen.minimum_master_nodes','1')
+            else:
+              escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_cdaq_list))
+              escfg.reg('discovery.zen.minimum_master_nodes','4')
             escfg.reg('discovery.zen.ping.multicast.enabled','false')
-            escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_cdaq_list))
-            escfg.reg('discovery.zen.minimum_master_nodes','4')
-            #escfg.reg('index.mapper.dynamic','false')
             escfg.reg('action.auto_create_index','false')
+            escfg.reg('index.mapper.dynamic','false')
             escfg.reg('transport.tcp.compress','true')
             escfg.reg('script.groovy.sandbox.enabled','true')
             escfg.reg('node.master','true')
@@ -921,4 +987,7 @@ if __name__ == "__main__":
         except:
             try:os.unlink('/var/www/html')
             except:pass
-        os.symlink('/es-web','/var/www/html')
+        try:
+            os.symlink('/es-web','/var/www/html')
+        except Exception as ex:
+            print ex

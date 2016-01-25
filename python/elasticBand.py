@@ -13,7 +13,7 @@ from aUtils import *
 
 class IndexCreator(threading.Thread):
 
-    def __init__(self,es_server_url, indexSuffix, forceReplicas, numPreCreate=10):
+    def __init__(self,es_server_url, indexSuffix, forceReplicas, forceShards, numPreCreate=10):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.daemon=True
@@ -26,6 +26,8 @@ class IndexCreator(threading.Thread):
 
             if forceReplicas>=0:
                 self.body['settings']['index']['number_of_replicas']=forceReplicas
+            if forceShards>=0:
+                self.body['settings']['index']['number_of_shards']=forceShards
 
             #body.pop('template')
         except Exception as e:
@@ -105,12 +107,13 @@ class IndexCreator(threading.Thread):
 class elasticBand():
 
 
-    def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo,forceReplicas,nprocid=None):
+    def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo,forceReplicas,forceShards,nprocid=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.istateBuffer = []
         self.prcinBuffer = {}
         self.prcoutBuffer = {}
         self.fuoutBuffer = {}
+        self.prcsstateBuffer = {}
 
         self.es = ElasticSearch(es_server_url,timeout=20)
         eslib_logger = logging.getLogger('elasticsearch')
@@ -127,6 +130,8 @@ class elasticBand():
                 body = json.load(fpi)
             if forceReplicas>=0:
                 body['settings']['index']['number_of_replicas']=forceReplicas
+            if forceShards>=0:
+                body['settings']['index']['number_of_shards']=forceShards
 
             #body.pop('template')
             #c_res = self.es.create_index(index = self.indexName, body = body)
@@ -193,7 +198,7 @@ class elasticBand():
         if ret<0:return
         datadict = {}
         datadict['ls'] = int(infile.ls[2:])
-        datadict['process'] = infile.pid
+        document['process']=int(infile.pid[3:])
         if document['data'][0] != "N/A":
             datadict['macro']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
         else:
@@ -227,7 +232,8 @@ class elasticBand():
         datadict['fm_date'] = str(infile.mtime)
         datadict['source'] = self.hostname + '_' + infile.pid
         datadict['mclass'] = self.nprocid
-        self.tryIndex('prc-s-state',datadict)
+        #self.tryIndex('prc-s-state',datadict)
+        self.prcsstateBuffer.setdefault(infile.ls,[]).append(datadict)
 
     def elasticize_prc_out(self,infile):
         document,ret = self.imbue_jsn(infile)
@@ -307,6 +313,7 @@ class elasticBand():
         self.tryIndex('prc-in',document)
 
     def elasticize_queue_status(self,infile):
+        return True #disabling this message
         document,ret = self.imbue_jsn(infile,silent=True)
         if ret<0:return False
         document['fm_date']=str(infile.mtime)
@@ -331,14 +338,17 @@ class elasticBand():
         prcinDocs = self.prcinBuffer.pop(ls) if ls in self.prcinBuffer else None
         prcoutDocs = self.prcoutBuffer.pop(ls) if ls in self.prcoutBuffer else None
         fuoutDocs = self.fuoutBuffer.pop(ls) if ls in self.fuoutBuffer else None
+        prcsstateDocs = self.prcsstateBuffer.pop(ls) if ls in self.prcsstateBuffer else None
         if prcinDocs: self.tryBulkIndex('prc-in',prcinDocs,attempts=2)
         if prcoutDocs: self.tryBulkIndex('prc-out',prcoutDocs,attempts=2)
         if fuoutDocs: self.tryBulkIndex('fu-out',fuoutDocs,attempts=5)
+        if prcsstateDocs: self.tryBulkIndex('prc-s-state',prcsstateDocs,attempts=1)
 
     def flushAllLS(self):
         lslist = list(  set(self.prcinBuffer.keys()) |
                         set(self.prcoutBuffer.keys()) |
-                        set(self.fuoutBuffer.keys()) )
+                        set(self.fuoutBuffer.keys()) |
+                        set(self.prcsstateBuffer.keys()) )
         for ls in lslist:
             self.flushLS(ls)
 

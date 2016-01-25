@@ -12,6 +12,7 @@ import elasticBand
 
 from hltdconf import hltdConf,initConf
 from aUtils import *
+from daemon2 import stdOutLog,stdErrorLog
 
 class elasticCollector():
     stoprequest = threading.Event()
@@ -216,7 +217,7 @@ if __name__ == "__main__":
         mr.register_inotify_path(tempDir,tempMask)
         mr.start_inotify()
 
-        es = elasticBand.elasticBand('http://'+conf.es_local+':9200',rundirname,indexSuffix,expected_processes,update_modulo,conf.force_replicas,nprocid)
+        es = elasticBand.elasticBand('http://'+conf.es_local+':9200',rundirname,indexSuffix,expected_processes,update_modulo,conf.force_replicas,conf.force_shards,nprocid)
 
         #starting elasticCollector thread
         ec = elasticCollector(ES_DIR_NAME,inmondir)

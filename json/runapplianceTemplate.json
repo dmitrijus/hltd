@@ -1,5 +1,5 @@
 {
-  "template": "run*appliance*",
+  "template": "run*",
 
   "settings": {
     "analysis": {
@@ -12,7 +12,7 @@
       "tokenizer": {
         "prefix-test-tokenizer": {
           "type": "path_hierarchy",
-          "delimiter": "_"
+          "delimiter": " "
         }
       }
     },
@@ -23,6 +23,7 @@
   },
   "mappings": {
     "prc-i-state": {
+      "_all": {"enabled": "false" },
       "properties": {
         "macro": {
           "type": "integer"
@@ -49,8 +50,7 @@
           "type": "integer"
         },
         "fm_date": {
-          "type": "date",
-           "format": "dateOptionalTime"
+          "type": "date"
         },
         "source": {
           "type": "string",
@@ -61,28 +61,24 @@
           "index":"not_analyzed"
         }
       },
-      "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path": "fm_date"
-      },
       "_ttl": {
         "enabled": true,
         "default": 300000
       }
     },
     "prc-s-state": {
+      "_all": {"enabled": "false" },
       "properties": {
         "macro": {
           "type": "integer"
         },
-        "mini": {
+        "miniv": {
           "properties":{
             "key":{"type":"integer","index":"no"},
             "value":{"type":"integer","index":"no"}
           }
         },
-        "micro": {
+        "microv": {
           "properties":{
             "key":{"type":"integer","index":"no"},
             "value":{"type":"integer","index":"no"}
@@ -108,11 +104,11 @@
           }
         },
         "ls": {
-          "type": "integer"
+          "type": "integer",
+          "store": true
         },
         "fm_date": {
-          "type": "date",
-          "format": "dateOptionalTime"
+          "type": "date"
         },
         "source" : {
           "type":"string",
@@ -121,15 +117,14 @@
         "mclass" : {
           "type": "string",
           "index":"not_analyzed"
+        },
+        "process": {
+          "type":"integer"
         }
-      },
-      "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path" : "fm_date"
       }
     },
     "prc-out": {
+      "_all": {"enabled": "false" },
       "properties": {
         "data": {
           "properties": {
@@ -159,11 +154,11 @@
         }
       },
       "_timestamp": {
-        "enabled": true,
-        "store": true
+        "enabled": true
       }
     },
     "prc-in": {
+      "_all": {"enabled": "false" },
       "properties": {
         "data": {
           "properties": {
@@ -190,17 +185,15 @@
           "index":"not_analyzed"
         },
         "fm_date": {
-          "type": "date",
-          "format": "dateOptionalTime"
+          "type": "date"
         }
       },
       "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path": "fm_date"
+        "enabled": true
       }
     },
     "fu-out": {
+      "_all": {"enabled": "false" },
       "properties": {
         "data": {
           "properties": {
@@ -237,7 +230,8 @@
           }
         },
         "ls": {
-          "type": "integer"
+          "type": "integer",
+          "store": true
         },
         "stream": {
           "type": "string",
@@ -249,38 +243,33 @@
         },
         "source": {
           "type": "string",
-          "index_analyzer": "prefix-test-analyzer",
-          "search_analyzer": "keyword"
+          "index":"not_analyzed"
         },
         "fm_date": {
-          "type": "date",
-          "format": "dateOptionalTime"
+          "type": "date"
         }
       },
       "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path": "fm_date"
+        "enabled": true
       }
     },
     "fu-complete": {
+      "_all": {"enabled": "false" },
       "properties": {
         "host": {
           "type": "string",
           "index": "not_analyzed"
         },
         "fm_date": {
-          "type": "date",
-          "format": "dateOptionalTime"
+          "type": "date"
         }
       },
       "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path": "fm_date"
+        "enabled": true
       }
     },
     "qstatus": {
+      "_all": {"enabled": "false" },
       "properties": {
         "numQueuedLS": {
           "type": "integer"
@@ -301,8 +290,7 @@
           "type": "integer"
         },
         "fm_date": {
-          "type": "date",
-          "format": "dateOptionalTime"
+          "type": "date"
         },
         "host": {
           "type": "string",
@@ -310,16 +298,14 @@
         }
       },
       "_timestamp": {
-        "enabled": true,
-        "store": true,
-        "path": "fm_date"
+        "enabled": true
       }
     },
     "cmsswlog": {
       "_timestamp": {
-        "enabled": true,
-        "store": true
+        "enabled": true
       },
+      "_all": {"enabled": "false" },
       "_ttl": {
         "enabled": true,
         "default": 2592000000
@@ -332,7 +318,7 @@
         "pid": {
           "type": "integer"
         },
-        "type": {
+        "doctype": {
           "type": "string",
           "index": "not_analyzed"
         },

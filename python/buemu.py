@@ -1,12 +1,19 @@
-import os, subprocess
+import os
+import subprocess
+import demote
+import prctl
 
+def preexec_function():
+    dem = demote.demote(conf.user)
+    dem()
+    prctl.set_pdeathsig(SIGKILL)
+ 
 class BUEmu:
-    def __init__(self,conf,disklist,preexec_func):
+    def __init__(self,conf):
         self.process=None
         self.runnumber = None
         self.conf = conf
         self.disklist = disklist
-        self.preexec_func = preexec_func
 
     def startNewRun(self,nr):
         if self.runnumber:

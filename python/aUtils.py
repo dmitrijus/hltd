@@ -24,17 +24,17 @@ THISHOST = os.uname()[1]
 
 jsdCache = {}
 
-#Output redirection class
-class stdOutLog:
-    def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
-    def write(self, message):
-        self.logger.debug(message)
-class stdErrorLog:
-    def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
-    def write(self, message):
-        self.logger.error(message)
+##Output redirection class
+#class stdOutLog:
+#    def __init__(self):
+#        self.logger = logging.getLogger(self.__class__.__name__)
+#    def write(self, message):
+#        self.logger.debug(message)
+#class stdErrorLog:
+#    def __init__(self):
+#        self.logger = logging.getLogger(self.__class__.__name__)
+#    def write(self, message):
+#        self.logger.error(message)
 
 
     #on notify, put the event file in a queue

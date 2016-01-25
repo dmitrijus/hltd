@@ -1,9 +1,28 @@
 import sys, os, time, atexit
 import subprocess
 from signal import SIGINT,SIGKILL
-from aUtils import * #for stdout and stderr redirection
-import ConfigParser
 import re
+import logging
+#from aUtils import * #for stdout and stderr redirection
+try:
+  #hltd service dependency
+  import ConfigParser
+except:
+  print "No ConfigParser"
+
+
+#Output redirection class
+class stdOutLog:
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+    def write(self, message):
+        self.logger.debug(message)
+class stdErrorLog:
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+    def write(self, message):
+        self.logger.error(message)
+
 
 class Daemon2:
     """
@@ -89,11 +108,11 @@ class Daemon2:
     def delpid(self):
         if os.path.exists(self.pidfile):
             os.remove(self.pidfile)
-    def start(self):
+    def start(self,req_conf=True):
         """
         Start the daemon
         """
-        if not os.path.exists(self.conffile):
+        if req_conf and not os.path.exists(self.conffile):
             print "Missing "+self.conffile+" - can not start instance"
             #raise Exception("Missing "+self.conffile)
             sys.exit(4)
@@ -171,7 +190,7 @@ class Daemon2:
 
         return retval
 
-    def stop(self):
+    def stop(self,do_umount=True):
         """
         Stop the daemon
         """
@@ -187,7 +206,8 @@ class Daemon2:
             message = " not running, no pidfile %s\n"
             sys.stdout.write(message % self.pidfile)
             sys.stdout.flush()
-            self.emergencyUmount()
+            if do_umount:
+              self.emergencyUmount()
             return # not an error in a restart
 
         # Try killing the daemon process
@@ -211,7 +231,8 @@ class Daemon2:
                     sys.stdout.write("\nterminated after 5 seconds\n")
                     #let system time to kill the process tree
                     time.sleep(1)
-                    self.emergencyUmount()
+                    if do_umount:
+                      self.emergencyUmount()
                     time.sleep(0.5)
                 os.kill(pid,0)
                 sys.stdout.write('.')
@@ -223,7 +244,8 @@ class Daemon2:
             err = str(err)
             if err.find("No such process") > 0:
                 #check that there are no leftover mountpoints
-                self.emergencyUmount()
+                if do_umount:
+                  self.emergencyUmount()
                 #this handles the successful stopping of the daemon...
                 if os.path.exists(self.pidfile):
                     if processPresent==False:

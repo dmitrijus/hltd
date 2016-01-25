@@ -12,6 +12,7 @@ import Queue
 
 from hltdconf import *
 from aUtils import *
+from daemon2 import stdOutLog,stdErrorLog
 import mappings
 
 from pyelasticsearch.client import ElasticSearch
@@ -97,10 +98,11 @@ class elasticBandBU:
         #write run number document
         if runMode == True and self.stopping==False:
             document = {}
-            document['runNumber'] = self.runnumber
+            doc_id = self.runnumber
+            document['runNumber'] = doc_id
             document['startTime'] = startTime
             documents = [document]
-            self.index_documents('run',documents)
+            self.index_documents('run',documents,doc_id,bulk=False)
             #except ElasticHttpError as ex:
             #    self.logger.info(ex)
             #    pass
@@ -186,8 +188,8 @@ class elasticBandBU:
 
         self.logger.info(os.path.basename(fullpath))
         document = {}
-        document['_parent']= self.runnumber
-        document['id']= "microstatelegend_"+self.runnumber
+        #document['_parent']= self.runnumber
+        doc_id="microstatelegend_"+self.runnumber
         if fullpath.endswith('.jsn'):
             try:
                 with open(fullpath,'r') as fp:
@@ -207,35 +209,36 @@ class elasticBandBU:
                         if sname.startswith('hltOutput'):outputcnt+=1
                     try:document['output'] = doc['output']
                     except:document['output']=outputcnt
-                    document['names'] = nstring
+                    #document['names'] = nstring
             except Exception as ex:
                 self.logger.warning("can not parse "+fullpath + ' ' + str(ex))
         else:
             #old format
             stub = self.read_line(fullpath)
-            document['names']= self.read_line(fullpath)
+            docnames= self.read_line(fullpath)
             document['reserved'] = 33
             document['special'] = 7
             outputcnt=0
-            for sname in document['names'].split():
+            for sname in docnames.split():
                 if "=hltOutput" in sname: outputcnt+=1
             document['output'] = outputcnt
             document['stateNames']=[]
-            nameTokens = document['names'].split()
+            nameTokens = docnames.split()
             for nameToken in nameTokens:
                 if '=' in nameToken:
                     idx,sn = nameToken.split('=')
                     document["stateNames"].append( sn )
 
         documents = [document]
-        return self.index_documents('microstatelegend',documents)
+        doc_pars = {"parent":str(self.runnumber)}
+        return self.index_documents('microstatelegend',documents,doc_id,doc_params=doc_pars,bulk=False)
 
 
     def elasticize_pathlegend(self,fullpath):
         self.logger.info(os.path.basename(fullpath))
         document = {}
-        document['_parent']= self.runnumber
-        document['id']= "pathlegend_"+self.runnumber
+        #document['_parent']= self.runnumber
+        doc_id="pathlegend_"+self.runnumber
         if fullpath.endswith('.jsn'):
             try:
                 with open(fullpath,'r') as fp:
@@ -255,26 +258,29 @@ class elasticBandBU:
             stub = self.read_line(fullpath)
             document['names']= self.read_line(fullpath)
         documents = [document]
-        return self.index_documents('pathlegend',documents)
+        doc_pars = {"parent":str(self.runnumber)}
+        return self.index_documents('pathlegend',documents,doc_id,doc_params=doc_pars,bulk=False)
 
     def elasticize_stream_label(self,infile):
         #elasticize stream name information
         self.logger.info(infile.filepath)
         document = {}
-        document['_parent']= self.runnumber
+        #document['_parent']= self.runnumber
         document['stream']=infile.stream[6:]
-        document['id']=infile.basename
-        return self.index_documents('stream_label',[document])
+        doc_id=infile.basename
+        doc_pars = {"parent":str(self.runnumber)}
+        return self.index_documents('stream_label',[document],doc_id,doc_params=doc_pars,bulk=False)
 
     def elasticize_runend_time(self,endtime):
 
         self.logger.info(str(endtime)+" going into buffer")
         document = {}
-        document['runNumber'] = self.runnumber
+        doc_id = self.runnumber
+        document['runNumber']=doc_id
         document['startTime'] = self.startTime
         document['endTime'] = endtime
         documents = [document]
-        self.index_documents('run',documents)
+        self.index_documents('run',documents,doc_id,bulk=False)
 
     def elasticize_resource_summary(self,jsondoc):
         self.logger.debug('injecting resource summary document')
@@ -327,11 +333,13 @@ class elasticBandBU:
             document = infile.data
             #unique id for separate instances
             if bu_doc:
-                document['id']=self.hostinst
+                doc_id=self.hostinst
             else:
-                document['id']=basename
+                doc_id=basename
 
+            document['id']=doc_id
             document['activeRuns'] = str(document['activeRuns']).strip('[]')
+            document['activeRunList'] = document['activeRuns']
             document['appliance']=self.host
             document['instance']=self.conf.instance
             if bu_doc==True:
@@ -340,7 +348,7 @@ class elasticBandBU:
             document['host']=basename
             try:document.pop('version')
             except:pass
-            self.index_documents('boxinfo',[document])
+            self.index_documents('boxinfo',[document],doc_id,bulk=False)
         except Exception as ex:
             self.logger.warning('box info not injected: '+str(ex))
             return
@@ -361,13 +369,15 @@ class elasticBandBU:
             keys = ["ls","fm_date","NEvents","NFiles","TotalEvents","NLostEvents"]
             document = dict(zip(keys, values))
 
-        document['id'] = infile.name+"_"+self.host
-        document['_parent']= self.runnumber
+        doc_id = infile.name+"_"+self.host
+        document['id'] = doc_id
+        #document['_parent']= self.runnumber
         document['appliance']=self.host
         documents = [document]
-        self.index_documents('eols',documents)
+        doc_pars = {"parent":str(self.runnumber)}
+        self.index_documents('eols',documents,doc_id,doc_params=doc_pars,bulk=False)
 
-    def index_documents(self,name,documents,bulk=True):
+    def index_documents(self,name,documents,doc_id=None,doc_params=None,bulk=True):
         attempts=0
         destination_index = ""
         is_box=False
@@ -382,7 +392,13 @@ class elasticBandBU:
                 if bulk:
                     self.es.bulk_index(destination_index,name,documents)
                 else:
-                    self.es.index(destination_index,name,documents[0])
+                    if doc_id:
+                        if doc_params:
+                          self.es.index(destination_index,name,documents[0],doc_id,parent=doc_params['parent'])
+                        else:
+                          self.es.index(destination_index,name,documents[0],doc_id)
+                    else:
+                        self.es.index(destination_index,name,documents[0])
                 return True
             except ElasticHttpError as ex:
                 if attempts<=1:continue
@@ -567,7 +583,7 @@ class elasticBoxCollectorBU():
 
 class BoxInfoUpdater(threading.Thread):
 
-    def __init__(self,ramdisk,conf,nsslock,box_version):
+    def __init__(self,conf,nsslock,box_version):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.stopping = False
         self.es=None
@@ -579,7 +595,7 @@ class BoxInfoUpdater(threading.Thread):
             threading.Thread.__init__(self)
             self.threadEvent = threading.Event()
 
-            boxesDir =  os.path.join(ramdisk,'appliance/boxes')
+            boxesDir =  os.path.join(conf.watch_directory,'appliance/boxes')
             boxesMask = inotify.IN_CLOSE_WRITE
             self.logger.info("starting elastic for "+boxesDir)
 

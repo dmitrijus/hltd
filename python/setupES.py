@@ -1,3 +1,4 @@
+#!/bin/env python
 import sys,os
 
 from pyelasticsearch.client import ElasticSearch
@@ -48,7 +49,7 @@ def printout(msg,usePrint,haveLog):
         logging.info(msg)
 
 
-def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,overrideTests=False, forceReplicas=-1, create_index_name=None):
+def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,overrideTests=False, forceReplicas=-1, forceShards=-1, create_index_name=None):
 
     #ip_url=getURLwithIP(es_server_url)
     es = ElasticSearch(es_server_url,timeout=5)
@@ -71,10 +72,14 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
             loaddoc = create_template(es,template_name)
             if forceReplicas>=0:
                 loaddoc['settings']['index']['number_of_replicas']=forceReplicas
+            if forceShards>=0:
+                loaddoc['settings']['index']['number_of_shards']=forceShards
         else:
             loaddoc = load_template(es,template_name)
             if forceReplicas>=0:
                 loaddoc['settings']['index']['number_of_replicas']=forceReplicas
+            if forceShards>=0:
+                loaddoc['settings']['index']['number_of_shards']=forceShards
             norm_name = convert(templateList[template_name])
             if deleteOld==0:
                 printout(template_name+" already exists. Add 'replace' parameter to update if different, or forceupdate to always  update.",doPrint,False)
@@ -84,10 +89,17 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
                     mappingSame =  norm_name['mappings']==loaddoc['mappings']
                     #settingSame = norm_name['settings']==loaddoc['settings']
                     settingsSame=True
-                    if int(norm_name['settings']['index.number_of_replicas'])!=int(loaddoc['settings']['index']['number_of_replicas']):
+                    try:
+                      if int(norm_name['settings']['index.number_of_replicas'])!=int(loaddoc['settings']['index']['number_of_replicas']):
                         settingsSame=False
-                    if int(norm_name['settings']['index.number_of_shards'])!=int(loaddoc['settings']['index']['number_of_shards']):
+                      if int(norm_name['settings']['index.number_of_shards'])!=int(loaddoc['settings']['index']['number_of_shards']):
                         settingsSame=False
+                    except KeyError: #elastic 2.2
+                      if int(norm_name['settings']['index']['number_of_replicas'])!=int(loaddoc['settings']['index']['number_of_replicas']):
+                        settingsSame=False
+                      if int(norm_name['settings']['index']['number_of_shards'])!=int(loaddoc['settings']['index']['number_of_shards']):
+                        settingsSame=False
+
                     #currently analyzer settings are ot checked
                     #if norm_name['settings']['index']['analysis']!=loaddoc['settings']['analysis']:
                     #    settingsSame=False
@@ -167,4 +179,4 @@ if __name__ == '__main__':
         if "forcereplace" in sys.argv[2]:
             replaceOption=2
 
-    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True,overrideTests=True,create_index_name='run231013_appliance_bu-vm-01-01')
+    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True,overrideTests=True)

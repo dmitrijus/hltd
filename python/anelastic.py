@@ -322,7 +322,7 @@ class LumiSectionRanger:
         try:
             os.mkdir(remotefiledir)
             os.mkdir(os.path.join(remotefiledir,'data'))
-            os.mkdir(os.path.join(remotefiledir,'json'))
+            os.mkdir(os.path.join(remotefiledir,'jsns'))
         except:
             pass
 
@@ -377,7 +377,7 @@ class LumiSectionRanger:
                 try:
                     os.mkdir(remotefiledir)
                     os.mkdir(remotefiledir,'data')
-                    os.mkdir(remotefiledir,'json')
+                    os.mkdir(remotefiledir,'jsns')
                 except:
                     pass
 
@@ -660,7 +660,7 @@ class LumiSectionHandler():
                         dataFile.moveFile(remoteDataPath, createDestinationDir=False, missingDirAlert=True)
                 else:
                     outfile.setFieldByName("Filelist","")
-                remotePath = os.path.join(outdir,outfile.run,outfile.stream,'json',outfilename)
+                remotePath = os.path.join(outdir,outfile.run,outfile.stream,'jsns',outfilename)
                 outfile.writeout()
                 #remove input file
                 os.remove(infile.filepath)
@@ -916,7 +916,7 @@ class LumiSectionHandler():
 
 
                 #move output json file in rundir
-                newfilepath = os.path.join(self.outdir,outfile.run,outfile.stream,'json',outfile.basename)
+                newfilepath = os.path.join(self.outdir,outfile.run,outfile.stream,'jsns',outfile.basename)
 
                 #do not copy data if this is jsn data stream and json merging fails
                 if outfile.mergeAndMoveJsnDataMaybe(os.path.join(self.outdir,outfile.run,outfile.stream,'data'))==False:return
@@ -960,7 +960,7 @@ class LumiSectionHandler():
         errfile.setFieldByName("FileAdler32", "-1", warning=False)
         errfile.setFieldByName("TransferDestination","ErrorArea",warning=False)
         errfile.writeout()
-        newfilepath = os.path.join(self.outdir,errfile.run,errfile.stream,'json',errfile.basename)
+        newfilepath = os.path.join(self.outdir,errfile.run,errfile.stream,'jsns',errfile.basename)
         #store in ES if there were any errors
         errfile.moveFile(newfilepath,createDestinationDir=False,copy=True,updateFileInfo=False)
         errfile.esCopy(keepmtime=False)
@@ -970,7 +970,7 @@ class LumiSectionHandler():
     def outputBoLSFile(self,stream):
         #create BoLS file in output dir
         bols_file = str(self.run)+"_"+self.ls+"_"+stream+"_BoLS.jsn"#use join
-        bols_path =  os.path.join(self.outdir,self.run,stream,'json',bols_file)
+        bols_path =  os.path.join(self.outdir,self.run,stream,'jsns',bols_file)
         try:
             open(bols_path,'a').close()
         except:

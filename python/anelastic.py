@@ -278,10 +278,13 @@ class LumiSectionRanger:
         filename = "_".join([runname,ls,stream,self.host])+ext
         filepath = os.path.join(self.outdir,runname,stream,filename)
         filedir = os.path.join(self.outdir,runname,stream)
+        filedir = os.path.join(self.outdir,runname,stream)
 
         #try to create output stream subdirectory
         try:
             os.mkdir(filedir)
+            os.mkdir(os.path.join(filedir,'data'))
+            os.mkdir(os.path.join(filedir,'jsns'))
         except:
             pass
 
@@ -376,8 +379,8 @@ class LumiSectionRanger:
                 #create stream subdirectory in output if not there
                 try:
                     os.mkdir(remotefiledir)
-                    os.mkdir(remotefiledir,'data')
-                    os.mkdir(remotefiledir,'jsns')
+                    os.mkdir(os.path.join(remotefiledir,'data'))
+                    os.mkdir(os.path.join(remotefiledir,'jsns'))
                 except:
                     pass
 
@@ -1063,9 +1066,14 @@ if __name__ == "__main__":
 
     eventQueue = Queue.Queue()
 
-    dirname = sys.argv[1]
-    run_number = sys.argv[2]
-    rawinputdir = sys.argv[3]
+    try: 
+      dirname = sys.argv[1]
+      run_number = sys.argv[2]
+      rawinputdir = sys.argv[3]
+    except Exception as ex:
+      logging.exception(ex)
+      os._exit(1)
+
     dirname = os.path.basename(os.path.normpath(dirname))
     watchDir = os.path.join(conf.watch_directory,dirname)
     outputDir = sys.argv[4]

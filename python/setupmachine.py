@@ -49,7 +49,9 @@ detdqm_list  = ["bu-c2f11-19-01",
                 "fu-c2f11-21-01","fu-c2f11-21-02","fu-c2f11-21-03","fu-c2f11-21-04",
                 "fu-c2f11-23-01","fu-c2f11-23-02","fu-c2f11-23-03","fu-c2f11-23-04"]
 
-es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02', 'ncsrv-c2e42-21-02','ncsrv-c2e42-23-02']
+#es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02', 'ncsrv-c2e42-21-02','ncsrv-c2e42-23-02']
+#reduce es-cdaq to 4 machines
+es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02']
 es_tribe_list =[ 'ncsrv-c2e42-13-03', 'ncsrv-c2e42-23-03']
 
 tribe_ignore_list = ['bu-c2f11-09-01','bu-c2f11-13-01','bu-c2f11-19-01']

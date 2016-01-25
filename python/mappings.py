@@ -146,7 +146,6 @@ central_runindex_mapping = {
             'minimerge' : {
                 '_timestamp' : { "enabled": "true"},
                 '_all': {'enabled': "false" },
-                '_parent'    :{'type':'run'},
                 'properties' : {
                     'fm_date'       :{'type':'date'
                     },
@@ -168,7 +167,6 @@ central_runindex_mapping = {
             'macromerge' : {
                 '_timestamp' : { "enabled": "true"},
                 '_all': {'enabled': "false" },
-                '_parent'    :{'type':'run'},
                 'properties' : {
                     'fm_date'       :{'type':'date'
                     },

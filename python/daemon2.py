@@ -36,7 +36,7 @@ class Daemon2:
     attn: May change in the near future to use PEP daemon
     """
 
-    def __init__(self, processname, instance, confname=None, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
+    def __init__(self, processname, instance, confname=None, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null', kill_timeout=5):
         self.stdin = stdin
         self.stdout = stdout
         self.stderr = stderr
@@ -53,6 +53,7 @@ class Daemon2:
         self.pidfile = "/var/run/" + processname + instsuffix + ".pid"
         self.conffile = "/etc/" + confname + instsuffix + ".conf"
         self.lockfile = '/var/lock/subsys/'+processname + instsuffix
+        self.kill_timeout = kill_timeout
 
 
 
@@ -218,7 +219,7 @@ class Daemon2:
             processPresent=True
             sys.stdout.flush()
             # signal the daemon to stop
-            timeout = 5.0 #kill timeout
+            timeout = self.kill_timeout
             os.kill(pid, SIGINT)
             #Q: how is the while loop exited ???
             #A: os.kill throws an exception of type OSError
@@ -228,7 +229,7 @@ class Daemon2:
                 if timeout <=0.:
                     sys.stdout.write("\nterminating with SIGKILL...")
                     os.kill(pid,SIGKILL)
-                    sys.stdout.write("\nterminated after 5 seconds\n")
+                    sys.stdout.write("\nterminated after "+str(self.kill_timeout)+" seconds\n")
                     #let system time to kill the process tree
                     time.sleep(1)
                     if do_umount:

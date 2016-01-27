@@ -176,7 +176,7 @@ def preexec_function():
     except:
       pass
     try:
-      prctl.set_pdeathsig(SIGKILL) #is this necessary?
+      prctl.set_pdeathsig(signal.SIGKILL) #is this necessary?
     except:pass
 
     #other way (no demote)
@@ -280,7 +280,7 @@ def runRiver(doc):
       new_instance.execute()
       syslog.syslog("started river thread")
       ###fork river with url, index, type, doc id, some params to identify
-    elif status==409:
+    elif st == 409:
       syslog.syslog(str(doc_id)+" update failed. doc was already grabbed.")
     else:
       syslog.syslog("ERROR:Failed to update document; status:"+str(st)+" "+res )

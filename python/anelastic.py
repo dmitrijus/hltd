@@ -767,8 +767,14 @@ class LumiSectionHandler():
             rawErrorEvents=0
             for index,rawFile in enumerate(inputFileList):
                 try:
-                    os.stat(os.path.join(rawinputdir,rawFile))
-                    errorRawFiles.append(rawFile)
+                    rawname = os.path.join(rawinputdir,rawFile)
+                    #test if original file is provided
+                    os.stat(rawname)
+                    rawFileNew = os.path.splitext(rawFile)[0]+'_'+host+'_pid'+str(pid)+'.raw'
+                    rawnameNew = os.path.join(rawinputdir,rawFileNew)
+                    #rename to a unique name containing FU name and CMSSW PID (usable also for tracking other information)
+                    os.rename(rawname,rawnameNew)
+                    errorRawFiles.append(rawFileNew)
                     rawErrorEvents+=inputFileEvents[index]
                 except OSError:
                     self.logger.info('error stream input file '+rawFile+' is gone, possibly already deleted by the process')

@@ -197,6 +197,7 @@ class river_thread(threading.Thread):
     self.stopped=False
     self.proc = None
     self.pid = None
+    self.fdo = None
     self.proc_args = [riverid,subsys,url,cluster,riverindex,str(rn)]
     self.riverid = riverid
     self.subsys = subsys
@@ -209,12 +210,14 @@ class river_thread(threading.Thread):
     #start
     #run Collector
     print "running",["/usr/bin/java", "-jar",jar_path]+self.proc_args
-    self.proc = subprocess.Popen(["/usr/bin/java", "-jar",jar_path]+self.proc_args,preexec_fn=preexec_function,close_fds=True,shell=False)
+    self.fdo = os.open('/tmp/'+self.riverid+'.log',os.O_WRONLY | os.O_CREAT)
+    self.proc = subprocess.Popen(["/usr/bin/java", "-jar",jar_path]+self.proc_args,preexec_fn=preexec_function,close_fds=True,shell=False,stdout=self.fdo,stderr=self.fdo)
     self.start() #start thread to pick up the process
     return True #if success, else False
    
   def run(self):
     self.proc.wait()
+    if self.fdo:os.close(self.fdo)
     retcode = self.proc.returncode
     tmp_conn = httplib.HTTPConnection(host=host,port=9200)
     if retcode == 0:

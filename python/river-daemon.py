@@ -40,6 +40,7 @@ sleep_int=5
 #jar_path  = "/opt/fff/river-runriver-1.4.0-jar-with-dependencies.jar"
 jar_path  = "/opt/fff/river.jar"
 
+cnt=0
 keep_running = True
 #river doc mapping
 riverInstMapping = {
@@ -210,7 +211,7 @@ class river_thread(threading.Thread):
     #start
     #run Collector
     print "running",["/usr/bin/java", "-jar",jar_path]+self.proc_args
-    self.fdo = os.open('/tmp/'+self.riverid+'.log',os.O_WRONLY | os.O_CREAT)
+    self.fdo = os.open('/tmp/'+self.riverid+'.log',os.O_WRONLY | os.O_CREAT | os.O_APPEND)
     self.proc = subprocess.Popen(["/usr/bin/java", "-jar",jar_path]+self.proc_args,preexec_fn=preexec_function,close_fds=True,shell=False,stdout=self.fdo,stderr=self.fdo)
     self.start() #start thread to pick up the process
     return True #if success, else False
@@ -297,7 +298,9 @@ def runDaemon():
   syslog.syslog("attempts to push instance doc mapping:"+str(st)+" "+str(res))
  
   while keep_running:
-    syslog.syslog('running loop...')
+    if cnt%0==0:
+      syslog.syslog('running loop...')
+    cnt+=1
 
     #join threads that have finished (needed?)
     for rt in river_threads[:]:

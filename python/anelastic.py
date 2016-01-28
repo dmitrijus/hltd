@@ -18,9 +18,9 @@ from hltdconf import hltdConf,initConf
 from aUtils import *
 from daemon2 import stdOutLog,stdErrorLog
 
+host = os.uname()[1]
 
 class LumiSectionRanger:
-    host = os.uname()[1]
     def __init__(self,mr,tempdir,outdir,run_number):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.dqmHandler = None
@@ -275,7 +275,7 @@ class LumiSectionRanger:
         stream = STREAMERRORNAME
         ext = ".ini"
 
-        filename = "_".join([runname,ls,stream,self.host])+ext
+        filename = "_".join([runname,ls,stream,host])+ext
         filepath = os.path.join(self.outdir,runname,stream,filename)
         filedir = os.path.join(self.outdir,runname,stream)
         filedir = os.path.join(self.outdir,runname,stream)
@@ -315,7 +315,7 @@ class LumiSectionRanger:
                     return
 
         #calc generic local ini path
-        filename = "_".join([run,ls,stream,self.host])+ext
+        filename = "_".join([run,ls,stream,host])+ext
         localfilepath = os.path.join(localdir,filename)
         localmonfilepath = os.path.join(localdir,'mon',filename)
         remotefiledir = os.path.join(self.outdir,run,stream)
@@ -513,7 +513,6 @@ class LumiSectionRanger:
 
 
 class LumiSectionHandler():
-    host = os.uname()[1]
     def __init__(self,parent,run,ls,activeStreams,streamCounters,tempdir,outdir,jsdfile,isEmptyLS):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info(ls)
@@ -551,7 +550,7 @@ class LumiSectionHandler():
             return False
 
         for stream in self.activeStreams:
-            outfilename = "_".join([run,ls,stream,self.host])+ext
+            outfilename = "_".join([run,ls,stream,host])+ext
             outfilepath = os.path.join(tempdir,outfilename)
             outfile = fileHandler(outfilepath)
             outfile.setJsdfile(self.jsdfile)
@@ -565,7 +564,7 @@ class LumiSectionHandler():
             return False
 
         stream = STREAMERRORNAME
-        errfilename = "_".join([run,ls,stream,self.host])+ext
+        errfilename = "_".join([run,ls,stream,host])+ext
         errfilepath = os.path.join(tempdir,errfilename)
         errfile = fileHandler(errfilepath)
         errfile.setJsdfile(self.jsdfile)
@@ -641,7 +640,7 @@ class LumiSectionHandler():
             if stream not in self.emptyLumiStreams:
                 self.logger.info("forwarding empty LS and stream:" + self.infile.basename)
                 #rename from pid to hostname convention
-                outfilename = "_".join([self.run,self.ls,stream,self.host])+'.jsn'
+                outfilename = "_".join([self.run,self.ls,stream,host])+'.jsn'
                 outfilepath = os.path.join(self.tempdir,outfilename)
                 outfile = fileHandler(outfilepath)
                 outfile.setJsdfile(self.jsdfile)
@@ -652,7 +651,7 @@ class LumiSectionHandler():
                     self.outputBoLSFile(stream)
                 if localPidDataPath:
                     datastem,dataext = os.path.splitext(pidDataName)
-                    datafilename = "_".join([self.run,self.ls,stream,self.host])+dataext
+                    datafilename = "_".join([self.run,self.ls,stream,host])+dataext
                     outfile.setFieldByName("Filelist",datafilename)
                     localDataPath = os.path.join(self.tempdir,datafilename)
                     self.logger.debug('renaming '+ str(localPidDataPath)+' --> ' + str(localDataPath))

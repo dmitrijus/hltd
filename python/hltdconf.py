@@ -17,6 +17,8 @@ class hltdConf:
         self.output_subdirectory = 'output'
         self.fastmon_insert_modulo = 1
         self.elastic_cluster = None
+        self.log_dir = "/var/log/hltd"
+        self.es_local = ""
 
         for sec in cfg.sections():
             for item,value in cfg.items(sec):

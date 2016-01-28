@@ -16,9 +16,12 @@ def preexec_function():
 
 class MountManager:
 
-    def __init__(self,conf):
+    def __init__(self,confClass):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.conf = conf
+        self.conf = confClass
+        #for preexec_func
+        global conf
+        conf = confClass
         self.reset()
 
     def reset(self):

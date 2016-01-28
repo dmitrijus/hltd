@@ -357,7 +357,7 @@ class Run:
                     self.logger.error('Timeout waiting for directory '+ bldir)
                     break
             if os.path.exists(blpath):
-                update_success,self.rr.boxInfo.machine_blacklist=updateBlacklist(self.logger,blpath)
+                update_success,self.rr.boxInfo.machine_blacklist=updateBlacklist(conf,self.logger,blpath)
             else:
                 self.logger.error("unable to find blacklist file in "+bldir)
 

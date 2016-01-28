@@ -208,17 +208,17 @@ class elasticBand():
             for idx,f in enumerate(document['data'][1].strip('[]').split(',')):
                 val = int(f)
                 if val>0:miniVector.append({'key':idx,'value':val})
-            datadict['mini']   = miniVector
+            datadict['miniv']   = miniVector
         else:
-            datadict['mini'] = []
+            datadict['miniv'] = []
         if document['data'][2] != "N/A":
             microVector = []
             for idx,f in enumerate(document['data'][2].strip('[]').split(',')):
                 val = int(f)
                 if val>0:microVector.append({'key':idx,'value':val})
-            datadict['micro']   = microVector
+            datadict['microv']   = microVector
         else:
-            datadict['micro'] = []
+            datadict['microv'] = []
         try:
             datadict['inputStats'] = {
               'tp' :   float(document['data'][4]) if not math.isnan(float(document['data'][4])) and not  math.isinf(float(document['data'][4])) else 0.,

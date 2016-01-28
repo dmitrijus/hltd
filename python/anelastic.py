@@ -769,7 +769,7 @@ class LumiSectionHandler():
                     rawname = os.path.join(rawinputdir,rawFile)
                     #test if original file is provided
                     os.stat(rawname)
-                    rawFileNew = os.path.splitext(rawFile)[0]+'_'+host+'_pid'+str(pid)+'.raw'
+                    rawFileNew = os.path.splitext(rawFile)[0]+'_'+host+'_'+str(pid)+'.raw'
                     rawnameNew = os.path.join(rawinputdir,rawFileNew)
                     #rename to a unique name containing FU name and CMSSW PID (usable also for tracking other information)
                     os.rename(rawname,rawnameNew)

@@ -205,7 +205,7 @@ cd $TOPDIR
 cat > hltd.spec <<EOF
 Name: hltd
 Version: 1.9.0
-Release: 1
+Release: 2
 Summary: hlt daemon
 License: gpl
 Group: DAQ

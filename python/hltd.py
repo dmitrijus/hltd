@@ -315,7 +315,7 @@ class hltd(Daemon2,object):
             #switch to cloud mode if active, but hltd did not have cores in cloud directory in the last session
             if not res_in_cloud and state.cloud_status() == 1:
                     logger.warning("cloud is on on this host at hltd startup, switching to cloud mode")
-                    self.resInfo.move_resources_to_cloud()
+                    resInfo.move_resources_to_cloud()
                     state.cloud_mode=True
 
         #startup es log collector

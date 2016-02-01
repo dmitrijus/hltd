@@ -810,7 +810,7 @@ if __name__ == "__main__":
               escfg.reg('discovery.zen.minimum_master_nodes','1')
             else:
               escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_cdaq_list))
-              escfg.reg('discovery.zen.minimum_master_nodes','4')
+              escfg.reg('discovery.zen.minimum_master_nodes','3')
             escfg.reg('discovery.zen.ping.multicast.enabled','false')
             escfg.reg('action.auto_create_index','false')
             escfg.reg('index.mapper.dynamic','false')

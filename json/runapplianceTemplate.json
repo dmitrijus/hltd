@@ -117,9 +117,6 @@
         "mclass" : {
           "type": "string",
           "index":"not_analyzed"
-        },
-        "process": {
-          "type":"integer"
         }
       }
     },
@@ -148,7 +145,14 @@
           "type": "string",
           "index": "not_analyzed"
         },
-        "source": {
+        "pid": {
+          "type": "integer"
+        },
+        "host": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "appliance": {
           "type": "string",
           "index": "not_analyzed"
         }
@@ -177,12 +181,16 @@
         "index": {
           "type": "integer"
         },
-        "process": {
-          "type":"integer"
+        "pid": {
+          "type": "integer"
         },
-        "source": {
+        "host": {
           "type": "string",
           "index":"not_analyzed"
+        },
+        "appliance": {
+          "type": "string",
+          "index": "not_analyzed"
         },
         "fm_date": {
           "type": "date"
@@ -238,12 +246,12 @@
           "index": "not_analyzed"
         },
         "host": {
-          "type":"string",
-          "index": "not_analyzed"
-        },
-        "source": {
           "type": "string",
           "index":"not_analyzed"
+        },
+        "appliance": {
+          "type": "string",
+          "index": "not_analyzed"
         },
         "fm_date": {
           "type": "date"

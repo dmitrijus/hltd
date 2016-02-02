@@ -183,6 +183,18 @@ if __name__ == "__main__":
     monDir = os.path.join(dirname,"mon")
     tempDir = os.path.join(dirname,ES_DIR_NAME)
 
+    #find out BU name from bus_config
+    bu_name="unknown"
+    bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
+    try:
+        if os.path.exists(bus_config):
+            for line in open(bus_config,'r'):
+                bu_name=line.split('.')[0]
+                break
+    except:
+        pass
+
+
 
     #find out total number of logical cores
     pnproc = subprocess.Popen("nproc",shell=True, stdout=subprocess.PIPE)
@@ -217,7 +229,7 @@ if __name__ == "__main__":
         mr.register_inotify_path(tempDir,tempMask)
         mr.start_inotify()
 
-        es = elasticBand.elasticBand('http://'+conf.es_local+':9200',rundirname,indexSuffix,expected_processes,update_modulo,conf.force_replicas,conf.force_shards,nprocid)
+        es = elasticBand.elasticBand('http://'+conf.es_local+':9200',rundirname,indexSuffix,expected_processes,update_modulo,conf.force_replicas,conf.force_shards,nprocid,bu_name)
 
         #starting elasticCollector thread
         ec = elasticCollector(ES_DIR_NAME,inmondir)

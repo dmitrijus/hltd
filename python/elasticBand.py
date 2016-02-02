@@ -107,7 +107,7 @@ class IndexCreator(threading.Thread):
 class elasticBand():
 
 
-    def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo,forceReplicas,forceShards,nprocid=None):
+    def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo,forceReplicas,forceShards,nprocid=None,bu_name="unknown"):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.istateBuffer = []
         self.prcinBuffer = {}
@@ -147,6 +147,7 @@ class elasticBand():
         self.sourceid = self.hostname + '_' + str(os.getpid())
         #construct id string (num total (logical) cores and num_utilized cores
         self.nprocid = nprocid
+        self.bu_name = bu_name
 
     def imbue_jsn(self,infile,silent=False):
         with open(infile.filepath,'r') as fp:
@@ -251,7 +252,10 @@ class elasticBand():
         document['data']=datadict
         document['ls']=int(ls[2:])
         document['stream']=stream
-        document['source']=self.hostname+'_'+infile.pid
+        #document['source']=self.hostname+'_'+infile.pid
+        document['pid']=int(infile.pid[3:])
+        document['host']=self.hostname
+        document['appliance']=self.bu_name
         try:document.pop('definition')
         except:pass
         self.prcoutBuffer.setdefault(ls,[]).append(document)
@@ -278,10 +282,11 @@ class elasticBand():
         try:datadict.pop('Filelist')
         except:pass
         document['data']=datadict
-        document['ls']=int(ls[2:])
+        document['ls']=int(infile.ls[2:])
         document['stream']=stream
+        #document['source']=self.hostname
         document['host']=self.hostname
-        document['source']=self.hostname
+        document['appliance']=self.bu_name
         document['fm_date']=str(infile.mtime)
         try:document.pop('definition')
         except:pass
@@ -291,10 +296,6 @@ class elasticBand():
     def elasticize_prc_in(self,infile):
         document,ret = self.imbue_jsn(infile)
         if ret<0:return
-        ls=infile.ls
-        index=infile.index
-        prc=infile.pid
-
         document['data'] = [int(f) if f.isdigit() else str(f) for f in document['data']]
         try:
             data_size=document['data'][1]
@@ -302,10 +303,11 @@ class elasticBand():
             data_size=0
         datadict = {'out':document['data'][0],'size':data_size}
         document['data']=datadict
-        document['ls']=int(ls[2:])
-        document['index']=int(index[5:])
-        document['process']=int(prc[3:])
-        document['source']=self.hostname+'_'+prc
+        document['ls']=int(infile.ls[2:])
+        document['index']=int(infile.index[5:])
+        document['pid']=int(infile.pid[3:])
+        document['host']=self.hostname
+        document['appliance']=self.bu_name
         document['fm_date']=str(infile.mtime)
         try:document.pop('definition')
         except:pass

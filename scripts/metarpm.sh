@@ -324,9 +324,10 @@ chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
 
 /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname4 > /dev/null
 
-/sbin/service elasticsearch start
+#not starting elasticsearch by default
+#/sbin/service elasticsearch start
 chkconfig --del elasticsearch
-chkconfig --add elasticsearch
+#chkconfig --add elasticsearch
 
 #taskset elasticsearch process
 #sleep 1

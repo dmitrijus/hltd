@@ -288,9 +288,16 @@ class CMSSWLogEventException(CMSSWLogEvent):
     def decode(self):
         CMSSWLogEvent.fillCommon(self)
         headerInfo = filter(None,self.message[0].split(' '))
-        zone = headerInfo[6].rstrip('-\n')
-        self.document['msgtime']=headerInfo[4]+' '+headerInfo[5]
-        self.document['msgtimezone']=zone
+
+        try:
+            datepieces=headerInfo[4].strip().split('-')
+            datestring = datepieces[2]+'-'+monthmap[datepieces[1]]+'-'+datepieces[0]
+            self.document['msgtime']=datestring+' '+headerInfo[5]
+        except IndexError:
+            #not date field,pass
+            pass
+        self.document['msgtimezone']=headerInfo[6].rstrip('-\n')
+
         if len(self.message)>1:
             line2 = filter(None,self.message[1].split(' '))
             self.document['category'] = line2[4].strip('\'')

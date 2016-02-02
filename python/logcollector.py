@@ -541,7 +541,9 @@ class CMSSWLogESWriter(threading.Thread):
                         break
                 if len(documents)>0:
                     try:
-                        self.eb.es.bulk_index(self.eb.indexName,'cmsswlog',documents)
+                        reply = self.eb.es.bulk_index(self.eb.indexName,'cmsswlog',documents)
+                        if reply['errors']==True:
+                            self.logger.error("Error reply on bulk-index request(logcollector):"+ str(reply))
                     except Exception,ex:
                         self.logger.error("es bulk index:"+str(ex))
             elif self.queue.qsize()>0:

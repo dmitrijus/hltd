@@ -310,7 +310,7 @@ class elasticBand():
         try:document.pop('definition')
         except:pass
         #self.prcinBuffer.setdefault(ls,[]).append(document)
-        self.tryIndex('prc-in',document)
+        self.tryBulkIndex('prc-in',[document],attempts=5)
 
     def elasticize_queue_status(self,infile):
         return True #disabling this message
@@ -325,7 +325,7 @@ class elasticBand():
         document = {}
         document['host']=self.hostname
         document['fm_date']=timestamp
-        self.tryIndex('fu-complete',document)
+        self.tryBulkIndex('fu-complete',[document],attempts=3)
 
     def flushMonBuffer(self):
         if self.istateBuffer:
@@ -339,10 +339,10 @@ class elasticBand():
         prcoutDocs = self.prcoutBuffer.pop(ls) if ls in self.prcoutBuffer else None
         fuoutDocs = self.fuoutBuffer.pop(ls) if ls in self.fuoutBuffer else None
         prcsstateDocs = self.prcsstateBuffer.pop(ls) if ls in self.prcsstateBuffer else None
-        if prcinDocs: self.tryBulkIndex('prc-in',prcinDocs,attempts=2)
-        if prcoutDocs: self.tryBulkIndex('prc-out',prcoutDocs,attempts=2)
-        if fuoutDocs: self.tryBulkIndex('fu-out',fuoutDocs,attempts=5)
-        if prcsstateDocs: self.tryBulkIndex('prc-s-state',prcsstateDocs,attempts=1)
+        if prcinDocs: self.tryBulkIndex('prc-in',prcinDocs,attempts=5)
+        if prcoutDocs: self.tryBulkIndex('prc-out',prcoutDocs,attempts=5)
+        if fuoutDocs: self.tryBulkIndex('fu-out',fuoutDocs,attempts=10)
+        if prcsstateDocs: self.tryBulkIndex('prc-s-state',prcsstateDocs,attempts=5)
 
     def flushAllLS(self):
         lslist = list(  set(self.prcinBuffer.keys()) |
@@ -359,32 +359,46 @@ class elasticBand():
     def tryIndex(self,docname,document):
         try:
             self.es.index(self.indexName,docname,document)
-            #self.updateIndexSettingsMaybe()
         except (ConnectionError,Timeout) as ex:
-            self.indexFailures+=1
-            if self.indexFailures<2:
-                self.logger.warning("Elasticsearch connection error.")
-            time.sleep(5)
-        except ElasticHttpError as ex:
+            self.logger.warning("Elasticsearch connection error:"+str(ex))
             self.indexFailures+=1
             if self.indexFailures<2:
                 self.logger.exception(ex)
+            #    self.logger.warning("Elasticsearch connection error.")
+            time.sleep(3)
+        except ElasticHttpError as ex:
+            self.logger.warning("Elasticsearch http error:"+str(ex))
+            self.indexFailures+=1
+            if self.indexFailures<2:
+                self.logger.exception(ex)
+            time.sleep(.1)
 
     def tryBulkIndex(self,docname,documents,attempts=1):
         while attempts>0:
             attempts-=1
             try:
-                self.es.bulk_index(self.indexName,docname,documents)
-                #self.updateIndexSettingsMaybe()
+                reply = self.es.bulk_index(self.indexName,docname,documents)
+                try:
+                    if reply['errors']==True:
+                        self.logger.error("Error reply on bulk-index request:"+ str(reply))
+                        time.sleep(.1)
+                        continue
+                except Exception as ex:
+                    self.logger.error("unable to find error field in reply from elasticsearch: "+str(reply))
+                    continue
                 break
             except (ConnectionError,Timeout) as ex:
-                if attempts==0:
-                    self.indexFailures+=1
-                    if self.indexFailures<2:
-                        self.logger.warning("Elasticsearch connection error.")
-                time.sleep(5)
-            except ElasticHttpError as ex:
+                self.logger.warning("Elasticsearch connection error:"+str(ex))
                 if attempts==0:
                     self.indexFailures+=1
                     if self.indexFailures<2:
                         self.logger.exception(ex)
+                    #    self.logger.warning("Elasticsearch connection error.")
+                time.sleep(2)
+            except ElasticHttpError as ex:
+                self.logger.warning("Elasticsearch http error:"+str(ex))
+                if attempts==0:
+                    self.indexFailures+=1
+                    if self.indexFailures<2:
+                        self.logger.exception(ex)
+                time.sleep(.1)

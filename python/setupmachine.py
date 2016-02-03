@@ -99,7 +99,7 @@ def getmachinetype():
             raise ex
     elif myhost.startswith('es-vm-cdaq'):
         return 'es','escdaq'
-    elif myhost.startswith('es-vm-tribe'): #repurposed
+    elif myhost.startswith('es-vm-local'):
         return 'es','eslocal'
     else:
         print "unknown machine type"
@@ -909,7 +909,10 @@ if __name__ == "__main__":
                 #hltdcfg.reg('micromerge_output',out_dir_bu,'[General]')
                 hltdcfg.reg('elastic_runindex_url',elastic_host,'[Monitoring]')
                 hltdcfg.reg('elastic_runindex_name',runindex_name,'[Monitoring]')
-                hltdcfg.reg('es_local','es-local','[Monitoring]')
+                if env=='vm':
+                    hltdcfg.reg('es_local','es-vm-local','[Monitoring]')
+                else:
+                    hltdcfg.reg('es_local','es-local','[Monitoring]')
                 hltdcfg.reg('force_shards','4','[Monitoring]')
                 hltdcfg.reg('force_replicas','0','[Monitoring]')
                 hltdcfg.reg('use_elasticsearch',use_elasticsearch,'[Monitoring]')
@@ -945,7 +948,12 @@ if __name__ == "__main__":
             hltdcfg.reg('es_cmssw_log_level',cmsswloglevel,'[Monitoring]')
             hltdcfg.reg('elastic_runindex_url',elastic_host,'[Monitoring]')
             hltdcfg.reg('elastic_runindex_name',runindex_name,'[Monitoring]')
-            hltdcfg.reg('es_local','es-local','[Monitoring]')
+
+            if env=='vm':
+                hltdcfg.reg('es_local','es-vm-local','[Monitoring]')
+            else:
+                hltdcfg.reg('es_local','es-local','[Monitoring]')
+
             hltdcfg.reg('force_shards','4','[Monitoring]')
             hltdcfg.reg('force_replicas','0','[Monitoring]')
             hltdcfg.reg('use_elasticsearch',use_elasticsearch,'[Monitoring]')

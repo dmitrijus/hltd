@@ -49,12 +49,8 @@ detdqm_list  = ["bu-c2f11-19-01",
                 "fu-c2f11-21-01","fu-c2f11-21-02","fu-c2f11-21-03","fu-c2f11-21-04",
                 "fu-c2f11-23-01","fu-c2f11-23-02","fu-c2f11-23-03","fu-c2f11-23-04"]
 
-#es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02', 'ncsrv-c2e42-21-02','ncsrv-c2e42-23-02']
-#reduce es-cdaq to 4 machines
 es_cdaq_list = ['ncsrv-c2e42-09-02', 'ncsrv-c2e42-11-02', 'ncsrv-c2e42-13-02', 'ncsrv-c2e42-19-02']
-es_tribe_list =[ 'ncsrv-c2e42-13-03', 'ncsrv-c2e42-23-03']
-
-tribe_ignore_list = ['bu-c2f11-09-01','bu-c2f11-13-01','bu-c2f11-19-01']
+es_local_list =[ 'ncsrv-c2e42-21-02', 'ncsrv-c2e42-23-02', 'ncsrv-c2e42-13-03', 'ncsrv-c2e42-23-03']
 
 myhost = os.uname()[1]
 
@@ -66,7 +62,6 @@ vm_override_buHNs = {
                      "fu-vm-02-02.cern.ch":["bu-vm-01-01"]
                      }
 vm_bu_override = ['bu-vm-01-01.cern.ch']
-tribe_checkAddr=True
 
 
 def getmachinetype():
@@ -77,26 +72,26 @@ def getmachinetype():
     elif myhost.startswith('fu-') : return 'daq2','fu'
     elif myhost.startswith('hilton-') : return 'hilton','fu'
     elif myhost.startswith('bu-') : return 'daq2','bu'
-    elif myhost.startswith('srv-') or myhost.startswith('ncsrv-'):
+    elif myhost.startswith('ncsrv-'):
         try:
             es_cdaq_list_ip = socket.gethostbyname_ex('es-cdaq')[2]
-            es_tribe_list_ip = socket.gethostbyname_ex('es-tribe')[2]
+            es_local_list_ip = socket.gethostbyname_ex('es-local')[2]
             for es in es_cdaq_list:
                 try:
                     es_cdaq_list_ip.append(socket.gethostbyname_ex(es)[2][0])
                 except Exception as ex:
                     print ex
-            for es in es_tribe_list:
+            for es in es_local_list:
                 try:
-                    es_tribe_list_ip.append(socket.gethostbyname_ex(es)[2][0])
+                    es_local_list_ip.append(socket.gethostbyname_ex(es)[2][0])
                 except Exception as ex:
                     print ex
 
             myaddr = socket.gethostbyname(myhost)
             if myaddr in es_cdaq_list_ip:
                 return 'es','escdaq'
-            elif myaddr in es_tribe_list_ip:
-                return 'es','tribe'
+            elif myaddr in es_local_list_ip:
+                return 'es','eslocal'
             else:
                 return 'unknown','unknown'
         except socket.gaierror, ex:
@@ -104,8 +99,8 @@ def getmachinetype():
             raise ex
     elif myhost.startswith('es-vm-cdaq'):
         return 'es','escdaq'
-    elif myhost.startswith('es-vm-tribe'):
-        return 'es','tribe'
+    elif myhost.startswith('es-vm-tribe'): #repurposed
+        return 'es','eslocal'
     else:
         print "unknown machine type"
         return 'unknown','unknown'
@@ -246,6 +241,7 @@ def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retr
     #print retval
     return retval
 
+#was used only for tribe:
 def getAllBU(requireFU=False):
 
     #setups = ['daq2','daq2val']
@@ -642,17 +638,8 @@ if __name__ == "__main__":
             buName = os.uname()[1].split(".")[0]
         else:
             buName = os.uname()[1]
-    elif type == 'tribe':
-        if env=='vm':
-          try:
-            #failover to no DB in VM mode
-            buDataAddr = getAllBU(requireFU=False)
-          except:
-            buDataAddr = vm_bu_override
-            tribe_checkAddr=False
-        else:
-          buDataAddr = getAllBU(requireFU=False)
-        buName='es-tribe'
+    elif type == 'eslocal':
+        buName='es-local'
 
     print "running configuration for machine",cnhostname,"of type",type,"in cluster",cluster,"; appliance bu is:",buName
     if buName==None: buName=""
@@ -734,59 +721,8 @@ if __name__ == "__main__":
                 escfg.reg('node.data','false')
             escfg.commit()
 
-        if type == 'tribe':
-            essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            if env=='vm':
-                essyscfg.reg('ES_HEAP_SIZE','1G')
-            else:
-                essyscfg.reg('ES_HEAP_SIZE','24G')
-            essyscfg.removeEntry('CONF_FILE')
-            essyscfg.commit()
+        if type == 'eslocal' or type == 'escdaq':
 
-            escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
-            escfg.reg('network.publish_host',es_publish_host)
-            if elasticsearch_new_bind:
-              escfg.reg('network.bind_host','_local_,'+es_publish_host)
-            escfg.reg('cluster.name','es-tribe')
-            escfg.reg('discovery.zen.ping.unicast.hosts','[]')
-            escfg.reg('discovery.zen.ping.multicast.enabled','false')
-            #escfg.reg('discovery.zen.ping.unicast.hosts','['+','.join(buDataAddr)+']')
-            escfg.reg('transport.tcp.compress','true')
-
-            escfg.reg('tribe','')
-            i=1;
-            for bu in buDataAddr:
-                if bu in tribe_ignore_list:continue
-
-                try:
-                    if tribe_checkAddr:
-                      socket.gethostbyname_ex(bu+'.cms')
-                except:
-                    print "skipping",bu," - unable to lookup IP address"
-                    continue
-
-                escfg.reg('    t'+str(i),'')
-                escfg.reg('         indices.analysis.hunspell.dictionary.lazy','true')
-                escfg.reg('         path.scripts','"/usr/share/elasticsearch/plugins"')
-                escfg.reg('         discovery.zen.ping.multicast.enabled','false')
-                if env!='vm':
-                  escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'.cms'+'"'+']')
-                else:
-                  escfg.reg('         discovery.zen.ping.unicast.hosts','['+'"'+bu+'"'+']')
-                escfg.reg('         network.host',es_publish_host)
-                if bu.endswith('.cern.ch'):
-                  escfg.reg('         cluster.name', 'appliance_'+bu[:-8])
-                else:
-                  escfg.reg('         cluster.name', 'appliance_'+bu)
-                i=i+1
-            escfg.commit()
-
-            #modify logging.yml
-            eslogcfg = FileManager(elasticlogconf,':',esEdited,'',' ')
-            eslogcfg.reg('es.logger.level','WARN')
-            eslogcfg.commit()
-
-        if type == 'escdaq':
             essyscfg = FileManager(elasticsysconf,'=',essysEdited)
             if env=='vm':
                 essyscfg.reg('ES_HEAP_SIZE','2G')
@@ -797,6 +733,39 @@ if __name__ == "__main__":
             essyscfg.removeEntry('CONF_FILE')
             essyscfg.commit()
 
+        if type == 'eslocal':
+            escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
+            escfg.reg('network.publish_host',es_publish_host)
+            if elasticsearch_new_bind:
+              escfg.reg('network.bind_host','_local_,'+es_publish_host)
+            escfg.reg('cluster.name','es-local')
+            if env=='vm':
+              escfg.reg('discovery.zen.minimum_master_nodes','1')
+            else:
+              escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_local_list))
+              escfg.reg('discovery.zen.minimum_master_nodes','3')
+            escfg.reg('discovery.zen.ping.multicast.enabled','false')
+            escfg.reg('transport.tcp.compress','true')
+            escfg.reg('script.groovy.sandbox.enabled','true')
+            escfg.reg('node.master','true')
+            escfg.reg('node.data','true')
+            #other optimizations:
+            if env!='vm':
+                escfg.reg('index.store.throttle.type','none')
+                escfg.reg('indices.store.throttle.type','none')
+                escfg.reg('threadpool.index.queue_size','1000')
+                escfg.reg('threadpool.bulk.queue_size','3000')
+                escfg.reg('index.translog.flush_threshold_ops','500000')
+                escfg.reg('index.translog.flush_threshold_size','4g')
+
+            escfg.commit()
+ 
+            #modify logging.yml
+            eslogcfg = FileManager(elasticlogconf,':',esEdited,'',' ')
+            eslogcfg.reg('es.logger.level','INFO')
+            eslogcfg.commit()
+
+        if type == 'escdaq':
             escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
             escfg.reg('network.publish_host',es_publish_host)
             if elasticsearch_new_bind:
@@ -818,6 +787,9 @@ if __name__ == "__main__":
             escfg.reg('script.groovy.sandbox.enabled','true')
             escfg.reg('node.master','true')
             escfg.reg('node.data','true')
+            if env!='vm':
+                escfg.reg('threadpool.index.queue_size','1000')
+                escfg.reg('threadpool.bulk.queue_size','3000')
             escfg.commit()
 
 

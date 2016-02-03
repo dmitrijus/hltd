@@ -258,6 +258,8 @@ class elasticBand():
         document['appliance']=self.bu_name
         try:document.pop('definition')
         except:pass
+        try:document.pop('source')
+        except:pass
         self.prcoutBuffer.setdefault(ls,[]).append(document)
         #self.es.index(self.indexName,'prc-out',document)
         #return int(ls[2:])
@@ -290,6 +292,8 @@ class elasticBand():
         document['fm_date']=str(infile.mtime)
         try:document.pop('definition')
         except:pass
+        try:document.pop('source')
+        except:pass
         self.fuoutBuffer.setdefault(ls,[]).append(document)
         #self.es.index(self.indexName,'fu-out',document)
 
@@ -310,6 +314,8 @@ class elasticBand():
         document['appliance']=self.bu_name
         document['fm_date']=str(infile.mtime)
         try:document.pop('definition')
+        except:pass
+        try:document.pop('source')
         except:pass
         #self.prcinBuffer.setdefault(ls,[]).append(document)
         self.tryBulkIndex('prc-in',[document],attempts=5)

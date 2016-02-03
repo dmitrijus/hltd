@@ -40,7 +40,6 @@ sleep_int=5
 #jar_path  = "/opt/fff/river-runriver-1.4.0-jar-with-dependencies.jar"
 jar_path  = "/opt/fff/river.jar"
 
-cnt=0
 keep_running = True
 #river doc mapping
 riverInstMapping = {
@@ -297,8 +296,9 @@ def runDaemon():
 
   syslog.syslog("attempts to push instance doc mapping:"+str(st)+" "+str(res))
  
+  cnt=0
   while keep_running:
-    if cnt%0==0:
+    if cnt%10==0:
       syslog.syslog('running loop...')
     cnt+=1
 

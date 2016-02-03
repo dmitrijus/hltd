@@ -552,7 +552,15 @@ class CMSSWLogESWriter(threading.Thread):
                         if reply['errors']==True:
                             self.logger.error("Error reply on bulk-index request(logcollector):"+ str(reply))
                     except Exception,ex:
-                        self.logger.error("es bulk index:"+str(ex))
+                        try:
+                          errinfo = list(ex)
+                          if errinfo[0]==403:
+                              self.logger.warning("es bulk index error:"+str(ex))
+                          else:
+                              self.logger.error("es bulk index:"+str(ex))
+                        except Exception as ex2:
+                            self.logger.warning("Unable to parse exception " + str(ex) + ":" + str(ex2))
+
             elif self.queue.qsize()>0:
                 while self.abort == False:
                     try:
@@ -564,7 +572,15 @@ class CMSSWLogESWriter(threading.Thread):
                                     hlc.esHandler.elasticize_cmsswlog(evt.document)
                                 self.eb.es.index(self.eb.indexName,'cmsswlog',evt.document)
                         except Exception,ex:
-                            self.logger.error("es index:"+str(ex))
+                            try:
+                              errinfo = list(ex)
+                              if errinfo[0]==403:
+                                  self.logger.warning("es bulk index error:"+str(ex))
+                              else:
+                                  self.logger.error("es bulk index:"+str(ex))
+                            except Exception as ex2:
+                                self.logger.warning("Unable to parse exception " + str(ex) + ":" + str(ex2))
+
                     except Queue.Empty:
                         break
             else:

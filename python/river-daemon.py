@@ -228,7 +228,7 @@ class river_thread(threading.Thread):
       #use custom as it might not be thread safe
       #TODO:successfully finished, remove document
     else:
-      syslog.syslog("WARNING:"+self.riverid+" exited with code"+str(retcode))
+      syslog.syslog("WARNING:"+self.riverid+" exited with code "+str(retcode))
       #crash: change status to crashed
 
       #update doc 

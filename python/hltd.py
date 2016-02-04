@@ -297,11 +297,8 @@ class hltd(Daemon2,object):
                 logger.fatal("error mounting - terminating service")
                 os._exit(10)
 
-            #?
-            try:
-                os.makedirs(conf.watch_directory)
-            except:
-                pass
+            try:os.makedirs(conf.watch_directory)
+            except:pass
 
             #recursively remove any stale run data and other commands in the FU watch directory
             #if conf.watch_directory.strip()!='/':

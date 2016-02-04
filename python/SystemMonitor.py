@@ -7,6 +7,7 @@ import datetime
 import logging
 
 from aUtils import ES_DIR_NAME
+from elasticbu import elasticBandBU
 
 class system_monitor(threading.Thread):
 
@@ -20,8 +21,10 @@ class system_monitor(threading.Thread):
         self.create_file=True
         self.threadEvent = threading.Event()
         self.threadEventStat = threading.Event()
+        self.threadEventESBox = threading.Event()
         self.statThread = None
-        self.stale_flag=False
+        self.esBoxThread = None
+        self.stale_flag = False
         self.highest_run_number = None
         self.state = stateInfo
         self.resInfo = resInfo
@@ -34,6 +37,8 @@ class system_monitor(threading.Thread):
         self.rehash()
         if conf.mount_control_path:
             self.startStatNFS()
+        #start direct injection into central index
+        self.startESBox()
 
     def rehash(self):
         if conf.role == 'fu':
@@ -61,6 +66,11 @@ class system_monitor(threading.Thread):
         self.logger.info("rehash found the following BU disk(s):"+str(self.file))
         for disk in self.file:
             self.logger.info(disk)
+
+    def startESBox(self):
+        if conf.role == "fu":
+            self.esBoxThread = threading.Thread(target=self.runESBox)
+            self.esBoxThread.start()
 
     def startStatNFS(self):
         if conf.role == "fu":
@@ -339,17 +349,7 @@ class system_monitor(threading.Thread):
                             if n_quarantined<0: n_quarantined=0
                             numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
 
-                            cloud_state = "off"
-                            if self.state.cloud_mode:
-                                if self.state.entering_cloud_mode: cloud_state="starting"
-                                elif self.state.exiting_cloud_mode:cloud_state="stopping"
-                                else: cloud_state="on"
-                            elif self.state.resources_blocked_flag:
-                                cloud_state = "resourcesReleased"
-                            elif self.state.masked_resources:
-                                cloud_state = "resourcesMasked"
-                            else:
-                                cloud_state = "off"
+                            cloud_state = self.getCloudState()
 
                             boxdoc = {
                                 'fm_date':tstring,
@@ -426,12 +426,52 @@ class system_monitor(threading.Thread):
         except:
             return "-1","-1"
 
+    def runESBox(self):
+        self.threadEventESBox.wait(1)
+        eb = elasticBandBU(conf,0,'',False,update_run_mapping=False)
+        while self.running:
+            try:
+                doc = {
+                    "date":datetime.datetime.utcfromtimestamp(time.time()).isoformat(),
+                    "cloudState":self.getCloudState(),
+                    "activeRunList":self.runList.getActiveRunNumbers()
+                    #TODO: CPU info, RAM info, DISK info, cpu usage, ram usage, net traffic
+                }
+                eb.elasticize_fubox(doc)
+            except Exception as ex:
+                self.logger.exception(ex)
+            try:
+                self.threadEventESBox.wait(5)
+            except:
+                self.logger.info("Interrupted ESBox thread - ending")
+                break
+        del eb
+
+
+    def getCloudState(self):
+        cloud_st = "off"
+        if self.state.cloud_mode:
+          if self.state.entering_cloud_mode: cloud_st="starting"
+          elif self.state.exiting_cloud_mode:cloud_st="stopping"
+          else: cloud_st="on"
+        elif self.state.resources_blocked_flag:
+            cloud_st = "resourcesReleased"
+        elif self.state.masked_resources:
+            cloud_st = "resourcesMasked"
+        else:
+            cloud_st = "off"
+        return cloud_st
+
+
     def stop(self):
         self.logger.debug("request to stop")
         self.running = False
         self.threadEvent.set()
         self.threadEventStat.set()
+        self.threadEventESBox.set()
         if self.statThread:
             self.statThread.join()
+        if self.esBoxThread:
+            self.esBoxThread.join()
 
 

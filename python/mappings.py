@@ -410,6 +410,15 @@ central_boxinfo_mapping = {
                              'default' :  '30d'
                            }
           },
+          "fu-box-status" : {
+            "_all": {"enabled": "false" },
+            "_timestamp" : {"enabled"   : "true"},
+            "properties": {
+              "date":{"type":"date"},
+              "cloudState":{"type":"string","index":"not_analyzed"},
+              "activeRunList":{"type":"integer"}
+            }
+          },
           'resource_summary' : {
             '_all': {'enabled': "false" },
             'properties' : {

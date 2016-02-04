@@ -10,7 +10,6 @@ import logging
 
 from aUtils import *
 
-
 class IndexCreator(threading.Thread):
 
     def __init__(self,es_server_url, indexSuffix, forceReplicas, forceShards, numPreCreate=10):

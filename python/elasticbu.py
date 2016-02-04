@@ -63,7 +63,7 @@ def getURLwithIP(url,nsslock=None):
 
 class elasticBandBU:
 
-    def __init__(self,conf,runnumber,startTime,runMode=True,nsslock=None,box_version=None):
+    def __init__(self,conf,runnumber,startTime,runMode=True,nsslock=None,box_version=None,update_run_mapping=True,update_box_mapping=True):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.conf=conf
         self.es_server_url=conf.elastic_runindex_url
@@ -83,8 +83,10 @@ class elasticBandBU:
         self.boxinfoFUMap = {}
         self.ip_url=None
         self.nsslock=nsslock
-        self.updateIndexMaybe(self.runindex_name,self.runindex_write,self.runindex_read,mappings.central_es_settings,mappings.central_runindex_mapping)
-        self.updateIndexMaybe(self.boxinfo_name,self.boxinfo_write,self.boxinfo_read,mappings.central_es_settings,mappings.central_boxinfo_mapping)
+        if update_run_mapping:
+            self.updateIndexMaybe(self.runindex_name,self.runindex_write,self.runindex_read,mappings.central_es_settings,mappings.central_runindex_mapping)
+        if update_box_mapping:
+            self.updateIndexMaybe(self.boxinfo_name,self.boxinfo_write,self.boxinfo_read,mappings.central_es_settings,mappings.central_boxinfo_mapping)
         #silence
         eslib_logger = logging.getLogger('elasticsearch')
         eslib_logger.setLevel(logging.ERROR)
@@ -119,7 +121,7 @@ class elasticBandBU:
                     self.ip_url=getURLwithIP(self.es_server_url,self.nsslock)
                     self.es = ElasticSearch(self.ip_url,timeout=20)
 
-                #check if runindex alias exists
+                #check if index alias exists
                 if requests.get(self.ip_url+'/_alias/'+alias_write).status_code == 200:
                     self.logger.info('writing to elastic index '+alias_write + ' on '+self.es_server_url+' - '+self.ip_url )
                     self.createDocMappingsMaybe(alias_write,mapping)
@@ -353,6 +355,13 @@ class elasticBandBU:
             self.logger.warning('box info not injected: '+str(ex))
             return
 
+    def elasticize_fubox(self,doc):
+        try:
+            doc_id = self.host
+            self.index_documents('fu-box-status',[doc],doc_id,bulk=False)
+        except Exception as ex:
+            self.logger.warning('fu box status not injected: '+str(ex))
+
     def elasticize_eols(self,infile):
         basename = infile.basename
         self.logger.info(basename)
@@ -381,7 +390,7 @@ class elasticBandBU:
         attempts=0
         destination_index = ""
         is_box=False
-        if name.startswith("boxinfo") or name=='resource_summary':
+        if name.startswith("boxinfo") or name=='resource_summary' or name=='fu-box-status':
             destination_index = self.boxinfo_write
             is_box=True
         else:
@@ -401,15 +410,21 @@ class elasticBandBU:
                         self.es.index(destination_index,name,documents[0])
                 return True
             except ElasticHttpError as ex:
-                if attempts<=1:continue
-                self.logger.error('elasticsearch HTTP error'+str(ex)+'. skipping document '+name)
+                if attempts<=1 and not is_box:continue
+                if is_box:
+                    self.logger.warning('elasticsearch HTTP error'+str(ex)+'. skipping document '+name)
+                else:
+                    self.logger.error('elasticsearch HTTP error'+str(ex)+'. skipping document '+name)
                 if is_box==True:break
                 #self.logger.exception(ex)
                 return False
             except (socket.gaierror,ConnectionError,Timeout) as ex:
                 if attempts>100 and self.runMode:
                     raise(ex)
-                self.logger.error('elasticsearch connection error' + str(ex)+'. retry.')
+                if is_box:
+                    self.logger.warning('elasticsearch connection error' + str(ex)+'. retry.')
+                elif (attempts-1)%10==0:
+                    self.logger.error('elasticsearch connection error' + str(ex)+'. retry.')
                 if self.stopping:return False
                 ip_url=getURLwithIP(self.es_server_url,self.nsslock)
                 self.es = ElasticSearch(ip_url,timeout=20)

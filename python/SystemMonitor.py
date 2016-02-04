@@ -37,7 +37,7 @@ class system_monitor(threading.Thread):
         self.rehash()
         if conf.mount_control_path:
             self.startStatNFS()
-        #start direct injection into central index
+        #start direct injection into central index (fu role)
         self.startESBox()
 
     def rehash(self):
@@ -431,12 +431,18 @@ class system_monitor(threading.Thread):
         eb = elasticBandBU(conf,0,'',False,update_run_mapping=False)
         while self.running:
             try:
+                dirstat = os.statvfs(conf.watch_directory)
+                d_used = ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20,
+                d_total =  (dirstat.f_blocks*dirstat.f_bsize)>>20,
                 doc = {
                     "date":datetime.datetime.utcfromtimestamp(time.time()).isoformat(),
                     "cloudState":self.getCloudState(),
-                    "activeRunList":self.runList.getActiveRunNumbers()
-                    #TODO: CPU info, RAM info, DISK info, cpu usage, ram usage, net traffic
+                    "activeRunList":self.runList.getActiveRunNumbers(),
+                    "usedDisk":d_used,
+                    "totalDisk":d_total
                 }
+                    #TODO: CPU info(cores,type, usage), RAM info(usage,full), net traffic, disk traffic(iostat)
+                    #see: http://stackoverflow.com/questions/1296703/getting-system-status-in-python
                 eb.elasticize_fubox(doc)
             except Exception as ex:
                 self.logger.exception(ex)

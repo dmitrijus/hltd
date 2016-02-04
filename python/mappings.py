@@ -416,7 +416,9 @@ central_boxinfo_mapping = {
             "properties": {
               "date":{"type":"date"},
               "cloudState":{"type":"string","index":"not_analyzed"},
-              "activeRunList":{"type":"integer"}
+              "activeRunList":{"type":"integer"},
+              "usedDisk":{"type":"integer"},
+              "totalDisk":{"type":"integer"}
             }
           },
           'resource_summary' : {

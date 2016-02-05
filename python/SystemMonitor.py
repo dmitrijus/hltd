@@ -428,7 +428,7 @@ class system_monitor(threading.Thread):
 
     def runESBox(self):
         self.threadEventESBox.wait(1)
-        eb = elasticBandBU(conf,0,'',False,update_run_mapping=False)
+        eb = elasticBandBU(conf,0,'',False,update_run_mapping=False,update_box_mapping=False,update_box_all_mapping=True)
         while self.running:
             try:
                 dirstat = os.statvfs('/')

@@ -63,7 +63,7 @@ def getURLwithIP(url,nsslock=None):
 
 class elasticBandBU:
 
-    def __init__(self,conf,runnumber,startTime,runMode=True,nsslock=None,box_version=None,update_run_mapping=True,update_box_mapping=True):
+    def __init__(self,conf,runnumber,startTime,runMode=True,nsslock=None,box_version=None,update_run_mapping=True,update_box_mapping=True,update_box_all_mapping=False):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.conf=conf
         self.es_server_url=conf.elastic_runindex_url
@@ -73,6 +73,12 @@ class elasticBandBU:
         self.boxinfo_write="boxinfo_"+conf.elastic_runindex_name+"_write"
         self.boxinfo_read="boxinfo_"+conf.elastic_runindex_name+"_read"
         self.boxinfo_name="boxinfo_"+conf.elastic_runindex_name
+
+        #special FU status box index
+        self.boxinfo_all_write="boxinfo_all_write"
+        self.boxinfo_all_read="boxinfo_all_read"
+        self.boxinfo_all_name="boxinfo_all_name"
+ 
         self.boxdoc_version=box_version
         self.runnumber = str(runnumber)
         self.startTime = startTime
@@ -87,6 +93,8 @@ class elasticBandBU:
             self.updateIndexMaybe(self.runindex_name,self.runindex_write,self.runindex_read,mappings.central_es_settings,mappings.central_runindex_mapping)
         if update_box_mapping:
             self.updateIndexMaybe(self.boxinfo_name,self.boxinfo_write,self.boxinfo_read,mappings.central_es_settings,mappings.central_boxinfo_mapping)
+        if update_box_all_mapping:
+            self.updateIndexMaybe(self.boxinfo_all_name,self.boxinfo_all_write,self.boxinfo_all_read,mappings.central_es_settings,mappings.central_boxinfo_all_mapping)
         #silence
         eslib_logger = logging.getLogger('elasticsearch')
         eslib_logger.setLevel(logging.ERROR)
@@ -358,6 +366,7 @@ class elasticBandBU:
     def elasticize_fubox(self,doc):
         try:
             doc_id = self.host
+            doc['subsystem'] = self.conf.elastic_runindex_name
             self.index_documents('fu-box-status',[doc],doc_id,bulk=False)
         except Exception as ex:
             self.logger.warning('fu box status not injected: '+str(ex))
@@ -390,7 +399,10 @@ class elasticBandBU:
         attempts=0
         destination_index = ""
         is_box=False
-        if name.startswith("boxinfo") or name=='resource_summary' or name=='fu-box-status':
+        if name=='fu-box-status':
+            destination_index = self.boxinfo_all_write
+            is_box=True
+        elif name.startswith("boxinfo") or name=='resource_summary':
             destination_index = self.boxinfo_write
             is_box=True
         else:

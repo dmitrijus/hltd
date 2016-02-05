@@ -410,21 +410,6 @@ central_boxinfo_mapping = {
                              'default' :  '30d'
                            }
           },
-          "fu-box-status" : {
-            "_all": {"enabled": "false" },
-            "_timestamp" : {"enabled"   : "true"},
-            "properties": {
-              "date":{"type":"date"},
-              "cloudState":{"type":"string","index":"not_analyzed"},
-              "activeRunList":{"type":"integer"},
-              "usedDisk":{"type":"integer"},
-              "totalDisk":{"type":"integer"},
-              "diskOccupancy":{"type":"float"},
-              "usedDiskVar":{"type":"integer"},
-              "totalDiskVar":{"type":"integer"},
-              "diskVarOccupancy":{"type":"float"}
-            }
-          },
           'resource_summary' : {
             '_all': {'enabled': "false" },
             'properties' : {
@@ -452,6 +437,23 @@ central_boxinfo_mapping = {
             }
           }
 
+central_boxinfo_all_mapping = {
+          "fu-box-status" : {
+            "_all": {"enabled": "false" },
+            "_timestamp" : {"enabled"   : "true"},
+            "properties": {
+              "date":{"type":"date"},
+              "cloudState":{"type":"string","index":"not_analyzed"},
+              "activeRunList":{"type":"integer"},
+              "usedDisk":{"type":"integer"},
+              "totalDisk":{"type":"integer"},
+              "diskOccupancy":{"type":"float"},
+              "usedDiskVar":{"type":"integer"},
+              "totalDiskVar":{"type":"integer"},
+              "diskVarOccupancy":{"type":"float"}
+            }
+          }
+}
 
 central_hltdlogs_mapping = {
             'hltdlog' : {

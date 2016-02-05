@@ -418,7 +418,11 @@ central_boxinfo_mapping = {
               "cloudState":{"type":"string","index":"not_analyzed"},
               "activeRunList":{"type":"integer"},
               "usedDisk":{"type":"integer"},
-              "totalDisk":{"type":"integer"}
+              "totalDisk":{"type":"integer"},
+              "diskOccupancy":{"type":"float"},
+              "usedDiskVar":{"type":"integer"},
+              "totalDiskVar":{"type":"integer"},
+              "diskVarOccupancy":{"type":"float"}
             }
           },
           'resource_summary' : {

@@ -313,8 +313,8 @@ class system_monitor(threading.Thread):
 
                         if fu_watchdir_is_mountpoint:
                             dirstat = os.statvfs(conf.watch_directory)
-                            d_used = ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20,
-                            d_total =  (dirstat.f_blocks*dirstat.f_bsize)>>20,
+                            d_used = ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20
+                            d_total =  (dirstat.f_blocks*dirstat.f_bsize)>>20
                         else:
                             p = subprocess.Popen("du -s --exclude " + ES_DIR_NAME + " --exclude mon --exclude open " + str(conf.watch_directory), shell=True, stdout=subprocess.PIPE)
                             p.wait()
@@ -431,15 +431,22 @@ class system_monitor(threading.Thread):
         eb = elasticBandBU(conf,0,'',False,update_run_mapping=False)
         while self.running:
             try:
-                dirstat = os.statvfs(conf.watch_directory)
-                d_used = ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20,
-                d_total =  (dirstat.f_blocks*dirstat.f_bsize)>>20,
+                dirstat = os.statvfs('/')
+                d_used = ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20
+                d_total =  (dirstat.f_blocks*dirstat.f_bsize)>>20
+                dirstat_var = os.statvfs('/var')
+                d_used_var = ((dirstat_var.f_blocks - dirstat_var.f_bavail)*dirstat_var.f_bsize)>>20
+                d_total_var =  (dirstat_var.f_blocks*dirstat_var.f_bsize)>>20
                 doc = {
                     "date":datetime.datetime.utcfromtimestamp(time.time()).isoformat(),
                     "cloudState":self.getCloudState(),
                     "activeRunList":self.runList.getActiveRunNumbers(),
                     "usedDisk":d_used,
-                    "totalDisk":d_total
+                    "totalDisk":d_total,
+                    "diskOccupancy":d_used/(1.*d_total) if d_total>0 else 0.,
+                    "usedDiskVar":d_used_var,
+                    "totalDiskVar":d_total_var,
+                    "diskVarOccupancy":d_used_var/(1.*d_total_var) if d_total_var>0 else 0.
                 }
                     #TODO: CPU info(cores,type, usage), RAM info(usage,full), net traffic, disk traffic(iostat)
                     #see: http://stackoverflow.com/questions/1296703/getting-system-status-in-python

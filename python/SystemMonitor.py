@@ -427,6 +427,31 @@ class system_monitor(threading.Thread):
         except:
             return "-1","-1"
 
+    def getCPUInfo(self):
+        try:
+            cpu_name = ""
+            cpu_freq = 0.
+            cpu_cores = 0
+            cpu_siblings = 0
+            with open('/proc/cpuinfo','r') as fi:
+              for line in fi.readlines():
+                if line.startswith("model name") and not cpu_name:
+                    for word in line[line.find(':')+1:].split():
+                      if word=='' or '(R)' in word  or '(TM)' in word or 'CPU' in word or '@' in word :continue
+                      if 'GHz' in word: cpu_freq = float(word[:word.find('GHz')])
+                      else:
+                        if cpu_name: cpu_name = cpu_name+" "+word
+                        else: cpu_name=word
+
+                if line.startswith("siblings") and not cpu_siblings:
+                    cpu_siblings = int(line.split()[-1])
+                if line.startswith("cpu cores") and not cpu_cores:
+                    cpu_cores = int(line.split()[-1])
+            return cpu_name,cpu_freq,cpu_cores,cpu_siblings
+        except:
+            return "",0.,0,0
+
+
     def runESBox(self):
 
         #find out BU name from bus_config
@@ -441,6 +466,8 @@ class system_monitor(threading.Thread):
                     break
         except:pass
 
+        cpu_name,cpu_freq,cpu_cores,cpu_siblings = self.getCPUInfo()
+
         self.threadEventESBox.wait(1)
         eb = elasticBandBU(conf,0,'',False,update_run_mapping=False,update_box_mapping=True)
         while self.running:
@@ -452,8 +479,12 @@ class system_monitor(threading.Thread):
                 d_used_var = ((dirstat_var.f_blocks - dirstat_var.f_bavail)*dirstat_var.f_bsize)>>20
                 d_total_var =  (dirstat_var.f_blocks*dirstat_var.f_bsize)>>20
                 doc = {
-                    "appliance":bu_name,
                     "date":datetime.datetime.utcfromtimestamp(time.time()).isoformat(),
+                    "appliance":bu_name,
+                    "cpu_name":cpu_name,
+                    "cpu_GHz":cpu_freq,
+                    "cpu_phys_cores":cpu_cores,
+                    "cpu_hyperthreads":cpu_siblings,
                     "cloudState":self.getCloudState(),
                     "activeRunList":self.runList.getActiveRunNumbers(),
                     "usedDisk":d_used,

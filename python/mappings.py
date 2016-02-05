@@ -439,8 +439,14 @@ central_boxinfo_mapping = {
             "_all": {"enabled": "false" },
             "_timestamp" : {"enabled"   : "true"},
             "properties": {
-              "appliance":{"type":"string","index":"not_analyzed"},
               "date":{"type":"date"},
+
+              "cpu_name":{"type":"string","index":"not_analyzed"},
+              "cpu_GHz":{"type":"float"},
+              "cpu_phys_cores":{"type":"integer"},
+              "cpu_hyperthreads":{"type":"integer"},
+
+              "appliance":{"type":"string","index":"not_analyzed"},
               "cloudState":{"type":"string","index":"not_analyzed"},
               "activeRunList":{"type":"integer"},
               "usedDisk":{"type":"integer"},

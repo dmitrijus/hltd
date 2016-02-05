@@ -38,7 +38,8 @@ class system_monitor(threading.Thread):
         if conf.mount_control_path:
             self.startStatNFS()
         #start direct injection into central index (fu role)
-        self.startESBox()
+        if conf.use_elasticsearch == True:
+            self.startESBox()
 
     def rehash(self):
         if conf.role == 'fu':

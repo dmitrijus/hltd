@@ -428,8 +428,21 @@ class system_monitor(threading.Thread):
             return "-1","-1"
 
     def runESBox(self):
+
+        #find out BU name from bus_config
+        self.logger.info("started ES box thread")
+        #parse bus.config to find BU name 
+        bu_name="unknown"
+        bus_config = os.path.join(os.path.dirname(conf.resource_base.rstrip(os.path.sep)),'bus.config')
+        try:
+            if os.path.exists(bus_config):
+                for line in open(bus_config,'r'):
+                    bu_name=line.split('.')[0]
+                    break
+        except:pass
+
         self.threadEventESBox.wait(1)
-        eb = elasticBandBU(conf,0,'',False,update_run_mapping=False,update_box_mapping=False,update_box_all_mapping=True)
+        eb = elasticBandBU(conf,0,'',False,update_run_mapping=False,update_box_mapping=True)
         while self.running:
             try:
                 dirstat = os.statvfs('/')
@@ -439,6 +452,7 @@ class system_monitor(threading.Thread):
                 d_used_var = ((dirstat_var.f_blocks - dirstat_var.f_bavail)*dirstat_var.f_bsize)>>20
                 d_total_var =  (dirstat_var.f_blocks*dirstat_var.f_bsize)>>20
                 doc = {
+                    "appliance":bu_name,
                     "date":datetime.datetime.utcfromtimestamp(time.time()).isoformat(),
                     "cloudState":self.getCloudState(),
                     "activeRunList":self.runList.getActiveRunNumbers(),

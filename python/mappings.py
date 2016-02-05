@@ -434,14 +434,12 @@ central_boxinfo_mapping = {
             '_timestamp' : {
               'enabled'   : "true"
               }
-            }
-          }
-
-central_boxinfo_all_mapping = {
+          },
           "fu-box-status" : {
             "_all": {"enabled": "false" },
             "_timestamp" : {"enabled"   : "true"},
             "properties": {
+              "appliance":{"type":"string","index":"not_analyzed"},
               "date":{"type":"date"},
               "cloudState":{"type":"string","index":"not_analyzed"},
               "activeRunList":{"type":"integer"},

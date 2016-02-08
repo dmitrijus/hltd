@@ -49,7 +49,7 @@ def printout(msg,usePrint,haveLog):
         logging.info(msg)
 
 
-def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,overrideTests=False, forceReplicas=-1, forceShards=-1, create_index_name=None):
+def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,overrideTests=False, forceReplicas=-1, forceShards=-1, create_index_name=None,subsystem="cdaq"):
 
     #ip_url=getURLwithIP(es_server_url)
     es = ElasticSearch(es_server_url,timeout=5)
@@ -64,7 +64,7 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
 
 
 
-    TEMPLATES = ["runappliance"]
+    TEMPLATES = ["runappliance_"+subsystem]
     loaddoc = None
     for template_name in TEMPLATES:
         if template_name not in templateList:
@@ -76,6 +76,7 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
                 loaddoc['settings']['index']['number_of_shards']=forceShards
         else:
             loaddoc = load_template(es,template_name)
+            loaddoc["template"]="run*"+subsystem
             if forceReplicas>=0:
                 loaddoc['settings']['index']['number_of_replicas']=forceReplicas
             if forceShards>=0:
@@ -165,18 +166,15 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
 
 if __name__ == '__main__':
 
-    if len(sys.argv) > 3:
-        print "Invalid argument number"
-        sys.exit(1)
-    if len(sys.argv) < 2:
-        print "Please provide an elasticsearch server url (e.g. http://localhost:9200)"
+    if len(sys.argv) < 3:
+        print "Please provide an elasticsearch server url (e.g. http://localhost:9200) and subsystem (e.g. cdaq,dv)"
         sys.exit(1)
 
     replaceOption=0
-    if len(sys.argv)>2:
-        if "replace" in sys.argv[2]:
+    if len(sys.argv)>3:
+        if "replace" in sys.argv[3]:
             replaceOption=1
-        if "forcereplace" in sys.argv[2]:
+        if "forcereplace" in sys.argv[3]:
             replaceOption=2
 
-    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True,overrideTests=True)
+    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True,overrideTests=True,subsystem=argv[2])

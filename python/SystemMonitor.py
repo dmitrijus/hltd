@@ -433,6 +433,7 @@ class system_monitor(threading.Thread):
             cpu_freq = 0.
             cpu_cores = 0
             cpu_siblings = 0
+            num_cpu = 1
             with open('/proc/cpuinfo','r') as fi:
               for line in fi.readlines():
                 if line.startswith("model name") and not cpu_name:
@@ -447,7 +448,10 @@ class system_monitor(threading.Thread):
                     cpu_siblings = int(line.split()[-1])
                 if line.startswith("cpu cores") and not cpu_cores:
                     cpu_cores = int(line.split()[-1])
-            return cpu_name,cpu_freq,cpu_cores,cpu_siblings
+                if line.startswith("physical id"):
+                    phys_id = int(line.split()[-1])
+                    if phys_id+1>num_cpu: num_cpu=phys_id+1
+            return cpu_name,cpu_freq,num_cpu*cpu_cores,num_cpu*cpu_siblings
         except:
             return "",0.,0,0
 

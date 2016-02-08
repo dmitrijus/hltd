@@ -901,20 +901,17 @@ if __name__ == "__main__":
 
                 hltdcfg.reg('elastic_cluster',clusterName,'[Monitoring]')
 
-                #only 1 replica in MiniDAQ appliances
-                #if myhost in minidaq_list:
-                #    hltdcfg.reg('force_replicas','0','[Monitoring]')
-
                 hltdcfg.reg('watch_directory',watch_dir_bu,'[General]')
                 #hltdcfg.reg('micromerge_output',out_dir_bu,'[General]')
                 hltdcfg.reg('elastic_runindex_url',elastic_host,'[Monitoring]')
                 hltdcfg.reg('elastic_runindex_name',runindex_name,'[Monitoring]')
                 if env=='vm':
                     hltdcfg.reg('es_local','es-vm-local','[Monitoring]')
+                    hltdcfg.reg('force_replicas','0','[Monitoring]')
                 else:
                     hltdcfg.reg('es_local','es-local','[Monitoring]')
+                    hltdcfg.reg('force_replicas','1','[Monitoring]')
                 hltdcfg.reg('force_shards','4','[Monitoring]')
-                hltdcfg.reg('force_replicas','0','[Monitoring]')
                 hltdcfg.reg('use_elasticsearch',use_elasticsearch,'[Monitoring]')
                 hltdcfg.reg('es_cmssw_log_level',cmsswloglevel,'[Monitoring]')
                 hltdcfg.reg('dqm_machine',dqmmachine,'[DQM]')
@@ -951,11 +948,12 @@ if __name__ == "__main__":
 
             if env=='vm':
                 hltdcfg.reg('es_local','es-vm-local','[Monitoring]')
+                hltdcfg.reg('force_replicas','0','[Monitoring]')
             else:
                 hltdcfg.reg('es_local','es-local','[Monitoring]')
+                hltdcfg.reg('force_replicas','1','[Monitoring]')
 
             hltdcfg.reg('force_shards','4','[Monitoring]')
-            hltdcfg.reg('force_replicas','0','[Monitoring]')
             hltdcfg.reg('use_elasticsearch',use_elasticsearch,'[Monitoring]')
             hltdcfg.reg('dqm_machine',dqmmachine,'[DQM]')
             hltdcfg.reg('auto_clear_quarantined',auto_clear_quarantined,'[Recovery]')

@@ -442,7 +442,7 @@ central_boxinfo_mapping = {
               "date":{"type":"date"},
 
               "cpu_name":{"type":"string","index":"not_analyzed"},
-              "cpu_GHz":{"type":"float"},
+              "cpu_MHz_nominal":{"type":"integer"},
               "cpu_phys_cores":{"type":"integer"},
               "cpu_hyperthreads":{"type":"integer"},
 

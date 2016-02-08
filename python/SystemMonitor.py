@@ -482,7 +482,7 @@ class system_monitor(threading.Thread):
                     "date":datetime.datetime.utcfromtimestamp(time.time()).isoformat(),
                     "appliance":bu_name,
                     "cpu_name":cpu_name,
-                    "cpu_GHz":cpu_freq,
+                    "cpu_MHz_nominal":int(cpu_freq*1000),
                     "cpu_phys_cores":cpu_cores,
                     "cpu_hyperthreads":cpu_siblings,
                     "cloudState":self.getCloudState(),

@@ -86,7 +86,7 @@ class ContextualCounter(object):
         except:
             if self.numberOfIds>=self.maxNumberOfIds:
                 if self.numberOfIds==self.maxNumberOfIds:
-                    self.logger.error("Reached maximum number of CMSSW message IDs. Logging disabled...")
+                    self.logger.error("Reached maximum number of CMSSW message IDs. Logging disabled for remaining lexical ids...(total:"+str(self.numberOfIds+1)+")")
                     self.numberOfIds+=1
                 return False
             self.idCounterMap[msgId]=[1,self.moduloInitial]
@@ -111,6 +111,7 @@ class ContextualCounter(object):
                 if (e.msgId==msgId):return False
 
             #message id not found in suppressed list..
+            self.logger.info("Start suppressing message of lexical id "+str(msgId))
             e = SuppressInfo(msgId,counter)
             if len(self.suppressList)<self.suppressMax:
                 self.suppressList.append(e)
@@ -124,11 +125,13 @@ class ContextualCounter(object):
                 self.suppressList.append(e)
                 return False
             else:
+                #drop other non-suppressed message from counter array
                 for item in self.suppressList:
                     if counter>item.counter:
                         self.suppressList.remove(item)
                         self.suppressList.append(e)
                         return False
+                #log anyway if too many suppressed messages
         return True
 
     def reset(self):
@@ -408,7 +411,7 @@ class CMSSWLogParser(threading.Thread):
         while pos < max:
             if not self.currentEvent:
             #check lines to ignore / count etc.
-                if len(buf[pos])==0:
+                if len(buf[pos])==0 or buf[pos]=="\n":
                     pass
                 elif buf[pos].startswith('----- Begin Processing'):
                     self.putInQueue(CMSSWLogEvent(self.rn,self.pid,EVENTLOG,DEBUGLEVEL,buf[pos],False))

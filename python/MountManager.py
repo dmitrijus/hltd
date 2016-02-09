@@ -77,8 +77,8 @@ class MountManager:
         self.bu_disk_list_ramdisk = [os.path.join(self.conf.bu_base_dir,self.conf.ramdisk_subdirectory)]
         self.bu_disk_list_output = [os.path.join(self.conf.bu_base_dir,self.conf.output_subdirectory)]
         if self.conf.instance=="main":
-            self.bu_disk_list_ramdisk_instance = self.conf.bu_disk_list_ramdisk
-            self.bu_disk_list_output_instance = self.conf.bu_disk_list_output
+            self.bu_disk_list_ramdisk_instance = self.bu_disk_list_ramdisk
+            self.bu_disk_list_output_instance = self.bu_disk_list_output
         else:
             self.bu_disk_list_ramdisk_instance = [os.path.join(self.bu_disk_list_ramdisk[0],self.conf.instance)]
             self.bu_disk_list_output_instance = [os.path.join(self.bu_disk_list_output[0],self.conf.instance)]

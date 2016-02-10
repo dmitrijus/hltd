@@ -97,9 +97,11 @@ class ContextualCounter(object):
         counter+=1
         self.idCounterMap[msgId][0]=counter
         if counter<self.moduloBase and modulo==1:
+            #message not suppressed
             return True
         elif counter%modulo == 0:
-            if counter==modulo:
+            #still print 1 in moduloBase messages
+            if counter==modulo*moduloBase:
                 #modulo level reached, increasing exponent
                 modulo *= self.moduloBase
                 self.idCounterMap[msgId][1]=modulo
@@ -137,12 +139,12 @@ class ContextualCounter(object):
     def reset(self):
         self.idCounterMap={}
         self.numberOfIds=0
-        self.maxNumberOfIds=1000
-        self.moduloBase=10
+        self.maxNumberOfIds=1024
+        self.moduloBase=8
         self.moduloInitial=1
-        self.suppressMax=10
+        self.suppressMax=32
         self.suppressList=[]
-        self.alwaysSuppressThreshold=200
+        self.alwaysSuppressThreshold=512
 
     def createTelescopicLog(self,event,modulo):
         event.append("Another "+ str(modulo) + " messages like this will be suppressed")
@@ -476,7 +478,7 @@ class CMSSWLogParser(threading.Thread):
                 elif self.currentEvent.type == STACKTRACE:
                     if buf[pos].startswith('Current states')==False:#FastMonitoringService
                         self.currentEvent.append(buf[pos])
-                else:
+                elif buf[pos]!="\n":
                     #append message line to event
                     self.currentEvent.append(buf[pos])
                 pos+=1

@@ -52,6 +52,10 @@ riverInstMapping = {
 			"type" : "string",
 			"index":"not_analyzed"
 		},
+		"boxinfo_read" : {
+			"type" : "string",
+			"index":"not_analyzed"
+		},
 		"es_tribe_cluster" : {
 			"type" : "string",
 			"index":"not_analyzed"
@@ -221,17 +225,15 @@ class river_thread(threading.Thread):
     retcode = self.proc.returncode
     tmp_conn = httplib.HTTPConnection(host=host,port=9200)
     if retcode == 0:
+      #TODO:make sure exit 0 only happens when plugin is truly finished
       syslog.syslog(str(self.riverid)+" successfully finished. Deleting river document..")
       success,st,res = query(tmp_conn,"DELETE","/river/instance/"+str(self.riverid),retry=True)
-      
-      #use custom as it might not be thread safe
-      #TODO:successfully finished, remove document
     else:
       syslog.syslog("WARNING:"+self.riverid+" exited with code "+str(retcode))
       #crash: change status to crashed
 
       #update doc 
-      success,st,res = query(tmp_conn,"POST","/river/instance/"+str(self.riverid)+'/_update',json.dumps({'doc':gen_node_doc('crashed')}),retry=True)
+      success,st,res = query(tmp_conn,"POST","/river/instance/"+str(self.riverid)+'/_update&refresh=true',json.dumps({'doc':gen_node_doc('crashed')}),retry=True)
       if st == 200:
         #ok, given for restarts
         pass
@@ -271,7 +273,7 @@ def runRiver(doc):
   #check again, as we executed run another query
   if doc['_source']['node']['status']=='created' or doc['_source']['node']['status']=='crashed': #or stale!
     #update doc 
-    success,st,res = query(gconn,"POST","/river/instance/"+str(doc_id)+'/_update?version='+str(doc_ver),json.dumps({'doc':gen_node_doc('starting')}))
+    success,st,res = query(gconn,"POST","/river/instance/"+str(doc_id)+'/_update?version='+str(doc_ver)+'&refresh=true',json.dumps({'doc':gen_node_doc('starting')}))
     if st == 200:
       #success,proceed with fork
       syslog.syslog("successfully updated "+str(doc_id)+" document. will start the instance")
@@ -285,6 +287,40 @@ def runRiver(doc):
     else:
       syslog.syslog("ERROR:Failed to update document; status:"+str(st)+" "+res )
 
+def checkRivers():
+
+  #get all plugins running on the same node
+  success,st,res = query(gconn,"GET","/river/_search/instance?size=1000",json.dumps({"query":{"term":{"node.name":os.uname()[1]}}}),retry = False)
+  if success:
+    doc_json = json.loads(res)
+    for hit in doc_json['hits']['hits']:
+      doc_st = hit["_source"]["node"]["status"]
+      doc_id = hit["_id"]
+      if doc_st=='running' or doc_st=='starting': #other states are handled
+        found_rt = None
+        for rt in river_threads:
+          if rt.riverid == doc_id:
+            found_rt = rt
+            break
+        if found_rt:continue #river exists
+        else:
+          #check again the doc and get the version to update
+          success,st,res = query(gconn,"GET","/river/instance/"+doc_id,retry = False)
+          if success:
+            doc_json = json.loads(res)
+            doc_st = doc_json["_source"]["node"]["status"]
+            doc_ver = doc_json["_source"]['_version']
+            syslog.syslog("No mother thread found for river id "+ doc_id + " in state " + doc_st)
+            if doc_st == 'running' or doc_st=='starting':
+              success,st,res = query(gconn,"POST","/river/instance/"+str(doc_id)+'/_update?version='+str(doc_ver)+'&refresh=true',
+                                     json.dumps({'doc':gen_node_doc('crashed')}),retry = False)
+              if success:syslog.syslog("reinserted document to restart river instance "+doc_id+" which is not present")
+            else:continue #was update in the meantime
+          else:continue #can't get doc, don't do anything right until we can
+    return True
+  else:
+    time.sleep(1)
+    return False
 
 
 def runDaemon():
@@ -300,6 +336,9 @@ def runDaemon():
   while keep_running:
     if cnt%10==0:
       syslog.syslog('running loop...')
+      #check if there are any docs running on this host for which there is no active thread
+      ### check_res = checkRivers()
+
     cnt+=1
 
     #join threads that have finished (needed?)

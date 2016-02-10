@@ -97,16 +97,18 @@ if __name__ == "__main__":
 
     if 'start' == sys.argv[1]:
         if reconfigureScript()==0:
-            rc1=executeService('elasticsearch','start')
+            #rc1=executeService('elasticsearch','start')
             rc2=executeService('hltd','start')
-            sys.exit(rc1|rc2)
+            #sys.exit(rc1|rc2)
+            sys.exit(rc2)
         else:
             sys.exit(1)
 
     elif 'stop' == sys.argv[1]:
         rc1=executeService('hltd','stop')
-        rc2=executeService('elasticsearch','stop')
-        sys.exit(rc1|rc2)
+        #rc2=executeService('elasticsearch','stop')
+        #sys.exit(rc1|rc2)
+        sys.exit(rc1)
 
     elif sys.argv[1].startswith('restart'):
         if sys.argv[1] == 'restartUnblacklisted':
@@ -115,19 +117,21 @@ if __name__ == "__main__":
             sys.exit(1)
 
         executeService('hltd','stop')
-        executeService('elasticsearch','stop')
+        #executeService('elasticsearch','stop')
         time.sleep(.5)
         if reconfigureScript()==0:
-            rc1=executeService('elasticsearch','restart')
+            #rc1=executeService('elasticsearch','restart')
             rc2=executeService('hltd','restart')
-            sys.exit(rc1|rc2)
+            #sys.exit(rc1|rc2)
+            sys.exit(rc2)
         else:
             sys.exit(1)
 
     elif 'status' == sys.argv[1]:
       rc1=executeService('hltd',sys.argv[1])
-      rc2=executeService('elasticsearch',sys.argv[1])
-      sys.exit(rc1|rc2)
+      #rc2=executeService('elasticsearch',sys.argv[1])
+      #sys.exit(rc1|rc2)
+      sys.exit(rc1)
 
     elif sys.argv[1].startswith('disable'):
       if (sys.argv[1]=='disableBlacklisted' and isBlacklisted()) or True:

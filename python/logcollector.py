@@ -101,7 +101,7 @@ class ContextualCounter(object):
             return True
         elif counter%modulo == 0:
             #still print 1 in moduloBase messages
-            if counter==modulo*moduloBase:
+            if counter==modulo*self.moduloBase:
                 #modulo level reached, increasing exponent
                 modulo *= self.moduloBase
                 self.idCounterMap[msgId][1]=modulo
@@ -462,8 +462,6 @@ class CMSSWLogParser(threading.Thread):
 
                     self.currentEvent = CMSSWLogEventStackTrace(self.rn,self.pid,buf[pos],self.central_left>0)
                     self.central_left-=1
-                elif buf[pos]=='\n':
-                    pass
                 else:
                     self.putInQueue(CMSSWLogEvent(self.rn,self.pid,UNFORMATTED,DEBUGLEVEL,buf[pos],False))
                 pos+=1

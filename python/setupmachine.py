@@ -39,7 +39,7 @@ dblogin = 'empty'
 dbpwd = 'empty'
 equipmentSet = 'latest'
 minidaq_list = ["bu-c2f13-14-01","bu-c2f13-16-01","bu-c2f13-25-01","bu-c2f13-27-01",
-                "bu-c2f13-37-01","bu-c2f13-39-01","fu-c2f13-09-01","fu-c2f13-09-02",
+                "bu-c2f13-37-01","bu-c2f13-39-01","fu-c2f13-09-01","fu-c2f13-09-02","fu-c2f13-09-03",
                 "fu-c2f13-20-01","fu-c2f13-20-02","fu-c2f13-20-03","fu-c2f13-33-01","fu-c2f13-33-02","bu-c2f13-41-01","bu-c2f13-29-01"]
 dqm_list     = ["bu-c2f11-09-01",
                 "fu-c2f11-11-01","fu-c2f11-11-02","fu-c2f11-11-03","fu-c2f11-11-04"]

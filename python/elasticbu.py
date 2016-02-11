@@ -358,6 +358,7 @@ class elasticBandBU:
     def elasticize_fubox(self,doc):
         try:
             doc_id = self.host
+            doc['id']=doc_id
             self.index_documents('fu-box-status',[doc],doc_id,bulk=False)
         except Exception as ex:
             self.logger.warning('fu box status not injected: '+str(ex))

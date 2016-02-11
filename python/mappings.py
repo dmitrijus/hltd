@@ -447,6 +447,7 @@ central_boxinfo_mapping = {
               "cpu_hyperthreads":{"type":"integer"},
 
               "appliance":{"type":"string","index":"not_analyzed"},
+              "id":{"type":"string","index":"not_analyzed"},
               "cloudState":{"type":"string","index":"not_analyzed"},
               "activeRunList":{"type":"integer"},
               "usedDisk":{"type":"integer"},

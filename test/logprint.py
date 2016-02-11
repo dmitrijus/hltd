@@ -46,16 +46,16 @@ if len(sys.argv)>1:
             dmode = arg[arg.find('=')+1:].strip()
             if dmode=='cdaq':
                 runDiscoveryUrl='http://es-cdaq.cms:9200/runindex_cdaq_read/run/_search?size=2'
-                connurl='http://es-tribe.cms:9200'
+                connurl='http://es-local.cms:9200'
             elif dmode=='daq2val':
                 runDiscoveryUrl='http://es-cdaq.cms:9200/runindex_dv_read/run/_search?size=2'
-                connurl='http://es-tribe.cms:9200'
+                connurl='http://es-local.cms:9200'
             elif dmode=='minidaq':
                 runDiscoveryUrl='http://es-cdaq.cms:9200/runindex_minidaq_read/run/_search?size=2'
-                connurl='http://es-tribe.cms:9200'
+                connurl='http://es-local.cms:9200'
             elif dmode=='vm2':
                 runDiscoveryUrl='http://es-vm-cdaq:9200/runindex_cdaq_read/run/_search?size=2'
-                connurl='http://es-vm-tribe.cern.ch:9200'
+                connurl='http://es-vm-local.cern.ch:9200'
 
 if printHelp==True:
     print "Usage: . logprint.py -c=%URL -l=%[DEBUG,INFO,WARNING,ERROR,FATAL] -r=%[-1,0,...] --black --light"
@@ -88,54 +88,54 @@ suppressionMap = {}
 alreadySuppressed = {}
 
 filter1 =  { "range": {
-               "_timestamp": {
-                 "from": "",
-                 "to": ""
-               }
+       "date": {
+         "from": "",
+         "to": ""
+       }
 #               ,"severityVal" : { "gte" :  str(logThreshold+1)}
-             }
-           }
-         
+     }
+   }
+ 
 
 
 filter2 =  { "and" : [
-               {"range": {
-                 "_timestamp": {
-                   "from": "",
-                   "to": ""
-                 }
-               }},
-               {"range": {
-                 "severityVal" : { "gte" :  str(logThreshold)}
-               }}
-             ]
-           }
-               #,{"or": [{"term":{"severity":"INFO"}},{"term":{"severity":"WARNINIG"}},{"term":{"severity":"ERROR"}},{"term":{"severity":"FATAL"}}] }
-               #,{"not":{"term":{"severity":"DEBUG"}}}
+       {"range": {
+         "date": {
+           "from": "",
+           "to": ""
+         }
+       }},
+       {"range": {
+         "severityVal" : { "gte" :  str(logThreshold)}
+       }}
+     ]
+   }
+       #,{"or": [{"term":{"severity":"INFO"}},{"term":{"severity":"WARNINIG"}},{"term":{"severity":"ERROR"}},{"term":{"severity":"FATAL"}}] }
+       #,{"not":{"term":{"severity":"DEBUG"}}}
 
 
 
 qdoc = { 
-  "fields":["_timestamp", "_source"], 
-  "size":100, 
-  "query": { 
-    "filtered": {"query": {"match_all": {}}
+"fields":["date", "_source"], 
+"size":100, 
+"query": { 
+"filtered": {"query": {"match_all": {}}
 #      "filter": {
 #        "range": {
-#          "_timestamp": {
+#          "date": {
 #            "from": "",
 #            "to": ""
 #          }
 #        }
 #      }
-    }
-  },
-  "sort": { "_timestamp": { "order": "asc" }}
+}
+},
+"sort": { "date": { "order": "asc" }}
 }
 
 if logThreshold==0:
-    useFilters2=False
-    qdoc['query']['filtered']['filter'] = filter1
+useFilters2=False
+qdoc['query']['filtered']['filter'] = filter1
 else:
     useFilters2=True
     qdoc['query']['filtered']['filter'] = filter2
@@ -201,11 +201,11 @@ while True:
     #hack
     #tbefore2 =  datetime.datetime.fromtimestamp(t_now-tzdeltaSec-3600).isoformat()
     if useFilters2:
-        qdoc['query']['filtered']['filter']['and'][0]['range']['_timestamp']['from']=tbefore
-        qdoc['query']['filtered']['filter']['and'][0]['range']['_timestamp']['to']=tnow
+        qdoc['query']['filtered']['filter']['and'][0]['range']['date']['from']=tbefore
+        qdoc['query']['filtered']['filter']['and'][0]['range']['date']['to']=tnow
     else:
-        qdoc['query']['filtered']['filter']['range']['_timestamp']['from']=tbefore
-        qdoc['query']['filtered']['filter']['range']['_timestamp']['to']=tnow
+        qdoc['query']['filtered']['filter']['range']['date']['from']=tbefore
+        qdoc['query']['filtered']['filter']['range']['date']['to']=tnow
     q = json.dumps(qdoc)
 
     resp = requests.post(urlcustom, q)

@@ -11,7 +11,7 @@ from elasticbu import elasticBandBU
 
 class system_monitor(threading.Thread):
 
-    def __init__(self,confClass,stateInfo,resInfo,runList,mountMgr,boxInfo,indexCreator):
+    def __init__(self,confClass,stateInfo,resInfo,runList,mountMgr,boxInfo):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.running = True
@@ -31,15 +31,21 @@ class system_monitor(threading.Thread):
         self.runList = runList
         self.mm = mountMgr
         self.boxInfo = boxInfo
-        self.indexCreator = indexCreator
         global conf
         conf = confClass
-        self.rehash()
-        if conf.mount_control_path:
-            self.startStatNFS()
+        self.indexCreator = None #placeholder
+        #self.rehash()
+        #if conf.mount_control_path:
+        #    self.startStatNFS()
         #start direct injection into central index (fu role)
         if conf.use_elasticsearch == True:
             self.startESBox()
+
+    def preStart(self):
+        self.rehash()
+        if conf.mount_control_path:
+            self.startStatNFS()
+ 
 
     def rehash(self):
         if conf.role == 'fu':
@@ -71,6 +77,7 @@ class system_monitor(threading.Thread):
     def startESBox(self):
         if conf.role == "fu":
             self.esBoxThread = threading.Thread(target=self.runESBox)
+            self.esBoxThread.daemon=True #set as daemon thread (not blocking process termination). this should be tested
             self.esBoxThread.start()
 
     def startStatNFS(self):

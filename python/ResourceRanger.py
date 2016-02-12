@@ -14,13 +14,14 @@ from aUtils import fileHandler
 
 class ResourceRanger:
 
-    def __init__(self,confClass,stateInfo,resInfo,runList,mountMgr,boxInfo,indexCreator,resource_lock):
+    def __init__(self,confClass,stateInfo,resInfo,runList,mountMgr,boxInfo,monitor,resource_lock):
         self.inotifyWrapper = InotifyWrapper(self)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.state = stateInfo
         self.resInfo = resInfo
         self.runList = runList
-        self.managed_monitor = SystemMonitor.system_monitor(confClass,stateInfo,resInfo,runList,mountMgr,boxInfo,indexCreator)
+        self.managed_monitor = monitor
+        self.managed_monitor.preStart()
         self.managed_monitor.start()
         self.regpath = []
         self.mm = mountMgr

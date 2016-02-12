@@ -27,6 +27,7 @@ from Run import RunList
 from ResourceRanger import ResourceRanger
 from RunRanger import RunRanger
 from MountManager import MountManager
+import SystemMonitor
 
 from elasticbu import BoxInfoUpdater
 from elasticBand import IndexCreator
@@ -287,6 +288,17 @@ class hltd(Daemon2,object):
 
             resInfo.calculate_threadnumber()
 
+            #ensure that working directory is ready
+            try:os.makedirs(conf.watch_directory)
+            except:pass
+
+            #run class init
+            runList = RunList()
+
+            #start monitor thread to get fu-box-status docs inserted early in case of mount problems
+            boxInfo = BoxInfo()
+            sm = SystemMonitor.system_monitor(conf,state,resInfo,runList,mm,boxInfo)
+
             """
             recheck mount points
             this is done at start and whenever the file /etc/appliance/bus.config is modified
@@ -296,9 +308,6 @@ class hltd(Daemon2,object):
             if not mm.cleanup_mountpoints(nsslock):
                 logger.fatal("error mounting - terminating service")
                 os._exit(10)
-
-            try:os.makedirs(conf.watch_directory)
-            except:pass
 
             #recursively remove any stale run data and other commands in the FU watch directory
             #if conf.watch_directory.strip()!='/':
@@ -322,7 +331,6 @@ class hltd(Daemon2,object):
             restartLogCollector(conf,logger,logCollector,self.instance)
 
         #BU mode threads
-        boxInfo = BoxInfo()
         indexCreator = None
         if conf.role == 'bu':
             #update_success,machine_blacklist=updateBlacklist()
@@ -346,11 +354,8 @@ class hltd(Daemon2,object):
                 #disabled until tested
                 #indexCreator.start()
 
-        #run class
-        runList = RunList()
-
-        #start monitoring resources
-        rr = ResourceRanger(conf,state,resInfo,runList,mm,boxInfo,indexCreator,resource_lock)
+        sm.indexCreator=indexCreator
+        rr = ResourceRanger(conf,state,resInfo,runList,mm,boxInfo,sm,resource_lock)
 
         #init resource ranger
         try:

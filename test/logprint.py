@@ -134,8 +134,8 @@ qdoc = {
 }
 
 if logThreshold==0:
-useFilters2=False
-qdoc['query']['filtered']['filter'] = filter1
+    useFilters2=False
+    qdoc['query']['filtered']['filter'] = filter1
 else:
     useFilters2=True
     qdoc['query']['filtered']['filter'] = filter2

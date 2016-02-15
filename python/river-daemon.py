@@ -233,7 +233,7 @@ class river_thread(threading.Thread):
       #crash: change status to crashed
 
       #update doc 
-      success,st,res = query(tmp_conn,"POST","/river/instance/"+str(self.riverid)+'/_update&refresh=true',json.dumps({'doc':gen_node_doc('crashed')}),retry=True)
+      success,st,res = query(tmp_conn,"POST","/river/instance/"+str(self.riverid)+'/_update?refresh=true',json.dumps({'doc':gen_node_doc('crashed')}),retry=True)
       if st == 200:
         #ok, given for restarts
         pass

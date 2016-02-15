@@ -122,13 +122,14 @@ pluginname4="hq"
 pluginfile4="hq-v2.0.3.zip"
 
 #es 1.4 compatible:
-riverfile="river-runriver-1.3.7-jar-with-dependencies.jar"
+#riverfile="river-runriver-1.3.7-jar-with-dependencies.jar"
+riverfile="river-runriver-1.4.0-jar-with-dependencies.jar"
 
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta-elastic.spec <<EOF
 Name: $PACKAGENAME
-Version: 1.9.1
+Version: 1.9.2
 Release: 0
 Summary: hlt daemon
 License: gpl
@@ -139,11 +140,10 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires:elasticsearch => 1.4.5, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45 , php >= 5.3.3, php-oci8 >= 1.4.9 
+Requires:elasticsearch => 2.2, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45, php >= 5.3.3, php-oci8 >= 1.4.9
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/setupmachine.py
-Provides:/opt/fff/closeRunIndices.php
 Provides:/etc/init.d/fffmeta
 Provides:/etc/init.d/fff-es
 Provides:/opt/fff/daemon2.py
@@ -190,8 +190,6 @@ cp $BASEDIR/esplugins/install.sh %{buildroot}/opt/fff/esplugins/install.sh
 cp $BASEDIR/esplugins/uninstall.sh %{buildroot}/opt/fff/esplugins/uninstall.sh
 cp $BASEDIR/scripts/fff-es %{buildroot}/etc/init.d/fff-es
 
-cp $BASEDIR/scripts/closeRunIndices.php %{buildroot}/opt/fff/closeRunIndices.php
-
 echo "#!/bin/bash"                       >> %{buildroot}/etc/init.d/fffmeta
 echo "#"                                 >> %{buildroot}/etc/init.d/fffmeta
 echo "# chkconfig:   2345 79 22"         >> %{buildroot}/etc/init.d/fffmeta
@@ -226,7 +224,6 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 755 ,root, root) /opt/fff/river-daemon.pyc
 %attr( 755 ,root, root) /opt/fff/river-daemon.pyo
 %attr( 700 ,root, root) /opt/fff/configurefff.sh
-%attr( 755 ,root, root) /opt/fff/closeRunIndices.php
 %attr( 755 ,root, root) /etc/init.d/fffmeta
 %attr( 755 ,root, root) /etc/init.d/fff-es
 %attr( 755 ,root, root) /etc/init.d/riverd

@@ -757,7 +757,7 @@ if __name__ == "__main__":
                 escfg.reg('threadpool.bulk.queue_size','3000')
                 escfg.reg('index.translog.flush_threshold_ops','500000')
                 escfg.reg('index.translog.flush_threshold_size','4g')
-
+            escfg.reg('index.translog.durability', 'async') #in 2.2 this allows index requests to return quickly, before disk fsync in server
             escfg.commit()
  
             #modify logging.yml
@@ -788,8 +788,11 @@ if __name__ == "__main__":
             escfg.reg('node.master','true')
             escfg.reg('node.data','true')
             if env!='vm':
+                escfg.reg('index.store.throttle.type','none')
+                escfg.reg('indices.store.throttle.type','none')
                 escfg.reg('threadpool.index.queue_size','1000')
                 escfg.reg('threadpool.bulk.queue_size','3000')
+            escfg.reg('index.translog.durability', 'async')
             escfg.commit()
 
 

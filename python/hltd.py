@@ -292,19 +292,33 @@ class hltd(Daemon2,object):
             try:os.makedirs(conf.watch_directory)
             except:pass
 
-            #run class init
-            runList = RunList()
+        #run class init
+        runList = RunList()
 
-            #start monitor thread to get fu-box-status docs inserted early in case of mount problems
-            boxInfo = BoxInfo()
-            sm = SystemMonitor.system_monitor(conf,state,resInfo,runList,mm,boxInfo)
+        #start monitor thread to get fu-box-status docs inserted early in case of mount problems
+        boxInfo = BoxInfo()
+        sm = SystemMonitor.system_monitor(conf,state,resInfo,runList,mm,boxInfo)
 
+        if conf.role == 'fu':
             """
             recheck mount points
             this is done at start and whenever the file /etc/appliance/bus.config is modified
             mount points depend on configuration which may be updated (by runcontrol)
             (notice that hltd does not NEED to be restarted since it is watching the file all the time)
             """
+
+            #switch to cloud mode if active, but hltd did not have cores in cloud directory in the last session
+            if not res_in_cloud and state.cloud_status() == 1:
+                    logger.warning("cloud is on on this host at hltd startup, switching to cloud mode")
+                    resInfo.move_resources_to_cloud()
+                    state.cloud_mode=True
+
+
+            if conf.watch_directory.startswith('/fff/'):
+                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/*',shell=True)
+                p.wait()
+
+
             if not mm.cleanup_mountpoints(nsslock):
                 logger.fatal("error mounting - terminating service")
                 os._exit(10)
@@ -313,16 +327,6 @@ class hltd(Daemon2,object):
             #if conf.watch_directory.strip()!='/':
             #    p = subprocess.Popen("rm -rf " + conf.watch_directory.strip()+'/{run*,end*,quarantined*,exclude,include,suspend*,populationcontrol,herod,logrestart,emu*}',shell=True)
             #    p.wait()
-
-            if conf.watch_directory.startswith('/fff/'):
-                p = subprocess.Popen("rm -rf " + conf.watch_directory+'/*',shell=True)
-                p.wait()
-
-            #switch to cloud mode if active, but hltd did not have cores in cloud directory in the last session
-            if not res_in_cloud and state.cloud_status() == 1:
-                    logger.warning("cloud is on on this host at hltd startup, switching to cloud mode")
-                    resInfo.move_resources_to_cloud()
-                    state.cloud_mode=True
 
         #startup es log collector
         logCollector = None

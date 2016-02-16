@@ -27,8 +27,10 @@ def load_template(es,name):
 def send_template(es,name,doc):
     es.send_request('PUT', ['_template', name], doc, query_params=None)
 
-def create_template(es,name):
-    doc = load_template(es,name)
+def create_template(es,name,label,subsystem):
+    doc = load_template(es,label)
+    doc["template"]="run*"+subsystem
+    doc["order"]=1
     send_template(es,name,doc)
     return doc
 
@@ -67,16 +69,18 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
     TEMPLATES = ["runappliance_"+subsystem]
     loaddoc = None
     for template_name in TEMPLATES:
+        template_label = template_name.split('_')[0]
         if template_name not in templateList:
-            printout(template_name+"template not present. It will be created. ",doPrint,False)
-            loaddoc = create_template(es,template_name)
+            printout(template_name + " template not present. It will be created. ",doPrint,False)
+            loaddoc = create_template(es,template_name,template_label,subsystem)
             if forceReplicas>=0:
                 loaddoc['settings']['index']['number_of_replicas']=forceReplicas
             if forceShards>=0:
                 loaddoc['settings']['index']['number_of_shards']=forceShards
         else:
-            loaddoc = load_template(es,template_name)
+            loaddoc = load_template(es,template_label)
             loaddoc["template"]="run*"+subsystem
+            loaddoc["order"]=1
             if forceReplicas>=0:
                 loaddoc['settings']['index']['number_of_replicas']=forceReplicas
             if forceShards>=0:
@@ -114,7 +118,7 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
                             except:pass
                         #delete_template(es,template_name)
                         printout("Updating "+template_name+" ES template",doPrint,True)
-                        create_template(es,template_name)
+                        create_template(es,template_name,template_label,subsystem)
                     else:
                         printout('runappliance ES template is up to date',doPrint,True)
 
@@ -167,7 +171,7 @@ def setupES(es_server_url='http://localhost:9200',deleteOld=1,doPrint=False,over
 if __name__ == '__main__':
 
     if len(sys.argv) < 3:
-        print "Please provide an elasticsearch server url (e.g. http://localhost:9200) and subsystem (e.g. cdaq,dv)"
+        print "Please provide an elasticsearch server url (e.g. http://es-local:9200) and subsystem (e.g. cdaq,dv)"
         sys.exit(1)
 
     replaceOption=0
@@ -177,4 +181,4 @@ if __name__ == '__main__':
         if "forcereplace" in sys.argv[3]:
             replaceOption=2
 
-    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True,overrideTests=True,subsystem=argv[2])
+    setupES(es_server_url=sys.argv[1],deleteOld=replaceOption,doPrint=True,overrideTests=True,subsystem=sys.argv[2])

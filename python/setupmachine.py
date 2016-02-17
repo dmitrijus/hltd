@@ -747,6 +747,9 @@ if __name__ == "__main__":
             escfg.reg('discovery.zen.ping.multicast.enabled','false')
             escfg.reg('transport.tcp.compress','true')
             escfg.reg('script.groovy.sandbox.enabled','true')
+            escfg.reg("script.engine.groovy.inline.aggs", 'true')
+            escfg.reg("script.engine.groovy.inline.search", 'true')
+            #escfg.reg('script.inline.enabled','true')
             escfg.reg('node.master','true')
             escfg.reg('node.data','true')
             #other optimizations:
@@ -785,6 +788,9 @@ if __name__ == "__main__":
             escfg.reg('index.mapper.dynamic','false')
             escfg.reg('transport.tcp.compress','true')
             escfg.reg('script.groovy.sandbox.enabled','true')
+            escfg.reg("script.engine.groovy.inline.aggs", 'true')
+            escfg.reg("script.engine.groovy.inline.search", 'true')
+            #escfg.reg('script.inline.enabled','true')
             escfg.reg('node.master','true')
             escfg.reg('node.data','true')
             if env!='vm':

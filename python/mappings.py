@@ -443,9 +443,9 @@ central_boxinfo_mapping = {
 
               "cpu_name":{"type":"string","index":"not_analyzed"},
               "cpu_MHz_nominal":{"type":"integer"},
+              "cpu_MHz_average":{"type":"float"},
               "cpu_phys_cores":{"type":"integer"},
               "cpu_hyperthreads":{"type":"integer"},
-
               "appliance":{"type":"string","index":"not_analyzed"},
               "host":{"type":"string","index":"not_analyzed"},
               "cloudState":{"type":"string","index":"not_analyzed"},
@@ -455,7 +455,12 @@ central_boxinfo_mapping = {
               "diskOccupancy":{"type":"float"},
               "usedDiskVar":{"type":"integer"},
               "totalDiskVar":{"type":"integer"},
-              "diskVarOccupancy":{"type":"float"}
+              "diskVarOccupancy":{"type":"float"},
+              "memTotal":{"type":"integer"},
+              "memUsed":{"type":"integer"},
+              "memUsedFrac":{"type":"float"},
+              "dataNetIn":{"type":"integer"},
+              "dataNetOut":{"type":"integer"}
             }
           }
 }

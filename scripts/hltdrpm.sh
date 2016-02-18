@@ -221,7 +221,7 @@ Provides:/etc/logrotate.d/hltd
 Provides:/etc/init.d/hltd
 Provides:/etc/init.d/soap2file
 Provides:/usr/lib64/python2.6/site-packages/prctl.pyc
-Requires:python,libcap,python-six >= 1.4 ,python-requests,SOAPpy,python-simplejson >= 3.3.1,jsonMerger
+Requires:python,libcap,python-six >= 1.4 ,python-requests,SOAPpy,python-simplejson >= 3.3.1,jsonMerger,python-psutil
 
 %description
 fff hlt daemon

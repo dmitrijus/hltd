@@ -5,7 +5,9 @@ import threading
 import simplejson as json
 import datetime
 import logging
+import psutil
 
+import getnifs
 from aUtils import ES_DIR_NAME
 from elasticbu import elasticBandBU
 
@@ -39,6 +41,7 @@ class system_monitor(threading.Thread):
         #    self.startStatNFS()
         #start direct injection into central index (fu role)
         if conf.use_elasticsearch == True:
+            self.found_data_interfaces=False
             self.startESBox()
 
     def preStart(self):
@@ -462,6 +465,69 @@ class system_monitor(threading.Thread):
         except:
             return "",0.,0,0
 
+    def getCPUFreqInfo(self):
+      avg=0.
+      avg_c = 0
+      try:
+        #obtain cpu frequencies and get avg (in GHz)
+        p = subprocess.Popen('/usr/bin/cpufreq-info | grep "current CPU"', shell=True, stdout=subprocess.PIPE)
+        p.wait()
+        std_out=p.stdout.readlines()
+        for stdl in std_out:
+          avg+=float(stdl.strip().split()[4])*1000
+          avg_c+=1
+      except:pass
+      if avg_c == 0:return 0
+      else: return avg/avg_c
+
+    def getMEMInfo(self):
+      return dict((i.split()[0].rstrip(':'),int(i.split()[1])) for i in open('/proc/meminfo').readlines())
+
+    def findMountInterfaces(self):
+        ipaddrs = []
+        for line in open('/proc/mounts').readlines():
+          mountpoint = line.split()[1]
+          if mountpoint.startswith('/fff/'):
+            opts = line.split()[3].split(',')
+            for opt in opts:
+              if opt.startswith('clientaddr='):
+                ipaddrs.append(opt.split('=')[1])
+        ipaddrs = list(set(ipaddrs))
+        ifs = []
+        if len(ipaddrs):
+          self.found_data_interfaces=True
+          ifcdict = getnifs.get_network_interfaces()
+          for ifc in ifcdict:
+            name = ifc.name
+            addresses = ifc.addresses
+            if addresses[2][0] in ipaddrs:
+              ifs.append(name)
+              self.logger.info('monitoring '+name)
+          ifs = list(set(ifs))
+          self.ifs_in=0
+          self.ifs_out=0
+          self.ifs = ifs
+          self.ifs_last = time.time()
+
+    def getRatesMBs(self,silent=True):
+        try:
+          sum_in=0
+          sum_out=0
+          for ifc in self.ifs:
+            sum_in+=int(open('/sys/class/net/'+ifc+'/statistics/rx_bytes').read())
+            sum_out+=int(open('/sys/class/net/'+ifc+'/statistics/tx_bytes').read())
+          new_time = time.time()
+          old_time = self.ifs_last
+          delta_in = ((sum_in - self.ifs_in) / (new_time-self.ifs_last)) / 1024 # Bytes/ms >> 10 == MB/s
+          delta_out = ((sum_out - self.ifs_out) / (new_time-self.ifs_last)) /1024
+          self.ifs_in = sum_in
+          self.ifs_out = sum_out
+          self.ifs_last = new_time
+          return [delta_in,delta_out,new_time-old_time]
+        except Exception as ex:
+          if not silent:
+            self.logger.exception(ex)
+          return [-1,-1,0]
 
     def runESBox(self):
 
@@ -478,17 +544,28 @@ class system_monitor(threading.Thread):
         except:pass
 
         cpu_name,cpu_freq,cpu_cores,cpu_siblings = self.getCPUInfo()
-
         self.threadEventESBox.wait(1)
         eb = elasticBandBU(conf,0,'',False,update_run_mapping=False,update_box_mapping=True)
+        rc = 0
         while self.running:
             try:
+                if not self.found_data_interfaces or (rc%10)==0:
+                  #check mountpoints every 10 loops
+                  self.findMountInterfaces()
+                  self.threadEventESBox.wait(0.1)
+                  self.getRatesMBs(silent=False) #read first time
+                  self.threadEventESBox.wait(0.1)
                 dirstat = os.statvfs('/')
                 d_used = ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20
                 d_total =  (dirstat.f_blocks*dirstat.f_bsize)>>20
                 dirstat_var = os.statvfs('/var')
                 d_used_var = ((dirstat_var.f_blocks - dirstat_var.f_bavail)*dirstat_var.f_bsize)>>20
                 d_total_var =  (dirstat_var.f_blocks*dirstat_var.f_bsize)>>20
+                meminfo = self.getMEMInfo()
+                #convert to MB
+                memtotal = meminfo['MemTotal'] >> 10
+                memused = memtotal - ((meminfo['MemFree']+meminfo['Buffers']+meminfo['Cached']+meminfo['SReclaimable']) >> 10)
+                netrates = self.getRatesMBs()
                 doc = {
                     "date":datetime.datetime.utcfromtimestamp(time.time()).isoformat(),
                     "appliance":bu_name,
@@ -496,6 +573,7 @@ class system_monitor(threading.Thread):
                     "cpu_MHz_nominal":int(cpu_freq*1000),
                     "cpu_phys_cores":cpu_cores,
                     "cpu_hyperthreads":cpu_siblings,
+                    "cpu_usage_frac":psutil.cpu_percent()/100.,
                     "cloudState":self.getCloudState(),
                     "activeRunList":self.runList.getActiveRunNumbers(),
                     "usedDisk":d_used,
@@ -503,15 +581,22 @@ class system_monitor(threading.Thread):
                     "diskOccupancy":d_used/(1.*d_total) if d_total>0 else 0.,
                     "usedDiskVar":d_used_var,
                     "totalDiskVar":d_total_var,
-                    "diskVarOccupancy":d_used_var/(1.*d_total_var) if d_total_var>0 else 0.
+                    "diskVarOccupancy":d_used_var/(1.*d_total_var) if d_total_var>0 else 0.,
+                    "memTotal":memtotal,
+                    "memUsed":memused,
+                    "memUsedFrac":float(memused)/memtotal,
+                    "dataNetIn":netrates[0],
+                    "dataNetOut":netrates[1],
+                    "cpu_MHz_average":self.getCPUFreqInfo()
                 }
-                    #TODO: CPU info(cores,type, usage), RAM info(usage,full), net traffic, disk traffic(iostat)
+                    #TODO: disk traffic(iostat)
                     #see: http://stackoverflow.com/questions/1296703/getting-system-status-in-python
                 eb.elasticize_fubox(doc)
             except Exception as ex:
                 self.logger.exception(ex)
             try:
                 self.threadEventESBox.wait(5)
+                rc+=1
             except:
                 self.logger.info("Interrupted ESBox thread - ending")
                 break

@@ -479,7 +479,21 @@ class system_monitor(threading.Thread):
           avg_c+=1
       except:pass
       if avg_c == 0:return 0
-      else: return avg/avg_c
+      else: return int(avg/avg_c)
+
+    def getTurbostatInfo(self):
+        try:
+          #turbostat is compiled to take counters for 5ms
+          p = subprocess.Popen('/opt/hltd/bin/turbostat', shell=False, stderr=subprocess.PIPE)
+          p.wait()
+          std_out=p.stderr.readlines()
+          cnt=0
+          for stdl in std_out:
+            if cnt==1:return (int(float(stdl.strip().split()[1])*1000))
+            cnt+=1
+        except:
+          return 0
+
 
     def getMEMInfo(self):
         return dict((i.split()[0].rstrip(':'),int(i.split()[1])) for i in open('/proc/meminfo').readlines())
@@ -573,6 +587,8 @@ class system_monitor(threading.Thread):
                 memtotal = meminfo['MemTotal'] >> 10
                 memused = memtotal - ((meminfo['MemFree']+meminfo['Buffers']+meminfo['Cached']+meminfo['SReclaimable']) >> 10)
                 netrates = self.getRatesMBs()
+                cpu_freq_avg = self.getCPUFreqInfo() 
+                cpu_freq_avg_real = self.getTurbostatInfo() 
                 doc = {
                     "date":datetime.datetime.utcfromtimestamp(time.time()).isoformat(),
                     "appliance":bu_name,
@@ -594,7 +610,8 @@ class system_monitor(threading.Thread):
                     "memUsedFrac":float(memused)/memtotal,
                     "dataNetIn":netrates[0],
                     "dataNetOut":netrates[1],
-                    "cpu_MHz_average":self.getCPUFreqInfo()
+                    "cpu_MHz_avg":cpu_freq_avg,
+                    "cpu_MHz_avg_real":cpu_freq_avg_real
                 }
                     #TODO: disk traffic(iostat)
                     #see: http://stackoverflow.com/questions/1296703/getting-system-status-in-python

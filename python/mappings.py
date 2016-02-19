@@ -443,7 +443,8 @@ central_boxinfo_mapping = {
 
               "cpu_name":{"type":"string","index":"not_analyzed"},
               "cpu_MHz_nominal":{"type":"integer"},
-              "cpu_MHz_average":{"type":"float"},
+              "cpu_MHz_avg":{"type":"integer"},
+              "cpu_MHz_avg_real":{"type":"integer"},
               "cpu_phys_cores":{"type":"integer"},
               "cpu_hyperthreads":{"type":"integer"},
               "cpu_usage_frac":{"type":"float"},

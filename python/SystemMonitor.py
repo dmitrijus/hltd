@@ -42,6 +42,7 @@ class system_monitor(threading.Thread):
         #start direct injection into central index (fu role)
         if conf.use_elasticsearch == True:
             self.found_data_interfaces=False
+            self.log_ifconfig=0
             self.startESBox()
 
     def preStart(self):
@@ -481,7 +482,7 @@ class system_monitor(threading.Thread):
       else: return avg/avg_c
 
     def getMEMInfo(self):
-      return dict((i.split()[0].rstrip(':'),int(i.split()[1])) for i in open('/proc/meminfo').readlines())
+        return dict((i.split()[0].rstrip(':'),int(i.split()[1])) for i in open('/proc/meminfo').readlines())
 
     def findMountInterfaces(self):
         ipaddrs = []
@@ -500,14 +501,17 @@ class system_monitor(threading.Thread):
           for ifc in ifcdict:
             name = ifc.name
             addresses = ifc.addresses
-            if addresses[2][0] in ipaddrs:
-              ifs.append(name)
-              self.logger.info('monitoring '+name)
+            if 2 in addresses and len(addresses[2]):
+              if addresses[2][0] in ipaddrs:
+                ifs.append(name)
+                if self.log_ifconfig<2:
+                  self.logger.info('monitoring '+name)
           ifs = list(set(ifs))
           self.ifs_in=0
           self.ifs_out=0
           self.ifs = ifs
           self.ifs_last = time.time()
+        self.log_ifconfig+=1
 
     def getRatesMBs(self,silent=True):
         try:
@@ -518,8 +522,8 @@ class system_monitor(threading.Thread):
             sum_out+=int(open('/sys/class/net/'+ifc+'/statistics/tx_bytes').read())
           new_time = time.time()
           old_time = self.ifs_last
-          delta_in = ((sum_in - self.ifs_in) / (new_time-self.ifs_last)) / 1024 # Bytes/ms >> 10 == MB/s
-          delta_out = ((sum_out - self.ifs_out) / (new_time-self.ifs_last)) /1024
+          delta_in = ((sum_in - self.ifs_in) / (new_time-self.ifs_last)) / (1024*1024) # Bytes/ms >> 10 == MB/s
+          delta_out = ((sum_out - self.ifs_out) / (new_time-self.ifs_last)) /(1024*1024)
           self.ifs_in = sum_in
           self.ifs_out = sum_out
           self.ifs_last = new_time
@@ -551,10 +555,13 @@ class system_monitor(threading.Thread):
             try:
                 if not self.found_data_interfaces or (rc%10)==0:
                   #check mountpoints every 10 loops
-                  self.findMountInterfaces()
-                  self.threadEventESBox.wait(0.1)
-                  self.getRatesMBs(silent=False) #read first time
-                  self.threadEventESBox.wait(0.1)
+                  try:
+                    self.findMountInterfaces()
+                    if self.log_ifconfig<2:
+                      self.threadEventESBox.wait(0.1)
+                      self.getRatesMBs(silent=False) #read first time
+                      self.threadEventESBox.wait(0.1)
+                  except:pass
                 dirstat = os.statvfs('/')
                 d_used = ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20
                 d_total =  (dirstat.f_blocks*dirstat.f_bsize)>>20

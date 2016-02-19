@@ -196,7 +196,7 @@ cd opt/hltd/lib/python-procname/
 cp build/lib.linux-x86_64-2.6/procname.so $TOPDIR/usr/lib64/python2.6/site-packages
 
 cd $TOPDIR/opt/hltd/bin
-gcc turbostat.c -o turbostat
+#gcc turbostat.c -o turbostat
 rm -rf turbostat.c
 
 rm -rf $TOPDIR/opt/hltd/rpm

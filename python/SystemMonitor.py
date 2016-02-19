@@ -6,6 +6,7 @@ import simplejson as json
 import datetime
 import logging
 import psutil
+import struct
 
 import getnifs
 from aUtils import ES_DIR_NAME
@@ -481,19 +482,55 @@ class system_monitor(threading.Thread):
       if avg_c == 0:return 0
       else: return int(avg/avg_c)
 
-    def getTurbostatInfo(self):
-        try:
-          #turbostat is compiled to take counters for 5ms
-          p = subprocess.Popen('/opt/hltd/bin/turbostat', shell=False, stderr=subprocess.PIPE)
-          p.wait()
-          std_out=p.stderr.readlines()
-          cnt=0
-          for stdl in std_out:
-            if cnt==1:return (int(float(stdl.strip().split()[1])*1000))
-            cnt+=1
-        except:
-          return 0
 
+    def testCPURange(self):
+      cnt=0
+      while True:
+        try: 
+          fd = os.open("/dev/cpu/"+str(cnt)+"/msr",os.O_RDONLY)
+          os.close(fd)
+        except:
+          try:os.close(fd)
+          except:pass
+          return cnt
+        cnt+=1
+
+    def getIntelCPUPerfAvgs(self,nthreads):
+      tsc=0
+      aperf=0
+      mperf=0
+      cnt=0
+      while cnt<nthreads:
+        try:
+          fd = os.open("/dev/cpu/"+str(cnt)+"/msr",os.O_RDONLY)
+          os.lseek(fd,0x10,os.SEEK_SET)
+          tsc += struct.unpack("Q",os.read(fd,8))[0]
+          os.lseek(fd,0xe7,os.SEEK_SET)
+          mperf += struct.unpack("Q",os.read(fd,8))[0]
+          os.lseek(fd,0xe8,os.SEEK_SET)
+          aperf += struct.unpack("Q",os.read(fd,8))[0]
+          cnt+=1
+          os.close(fd)
+        except OSError as ex:
+          self.logger.exception(ex)
+          try:os.close(fd)
+          except:pass
+          return 0,0,0
+      return tsc,mperf,aperf
+
+
+    #def getTurbostatInfo(self):
+    #    try:
+    #      #turbostat is compiled to take counters for 5ms
+    #      p = subprocess.Popen('/opt/hltd/bin/turbostat', shell=False, stderr=subprocess.PIPE)
+    #      p.wait()
+    #      std_out=p.stderr.readlines()
+    #      cnt=0
+    #      for stdl in std_out:
+    #        if cnt==1:return (int(float(stdl.strip().split()[1])*1000))
+    #        cnt+=1
+    #    except:
+    #      return 0
 
     def getMEMInfo(self):
         return dict((i.split()[0].rstrip(':'),int(i.split()[1])) for i in open('/proc/meminfo').readlines())
@@ -560,8 +597,10 @@ class system_monitor(threading.Thread):
                     bu_name=line.split('.')[0]
                     break
         except:pass
-
         cpu_name,cpu_freq,cpu_cores,cpu_siblings = self.getCPUInfo()
+        num_cpus = self.testCPURange() 
+        ts_old = time.time()
+        tsc_old,mperf_old,aperf_old=self.getIntelCPUPerfAvgs(num_cpus)
         self.threadEventESBox.wait(1)
         eb = elasticBandBU(conf,0,'',False,update_run_mapping=False,update_box_mapping=True)
         rc = 0
@@ -587,8 +626,21 @@ class system_monitor(threading.Thread):
                 memtotal = meminfo['MemTotal'] >> 10
                 memused = memtotal - ((meminfo['MemFree']+meminfo['Buffers']+meminfo['Cached']+meminfo['SReclaimable']) >> 10)
                 netrates = self.getRatesMBs()
-                cpu_freq_avg = self.getCPUFreqInfo() 
-                cpu_freq_avg_real = self.getTurbostatInfo() 
+                cpu_freq_avg = self.getCPUFreqInfo()
+
+                #check cpu counters to estimate "Turbo" frequency
+                ts_new = time.time()
+                tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(num_cpus)
+                if num_cpus>0 and mperf_new-mperf_old>0 and ts_new-ts_old>0:
+                  cpu_freq_avg_real = int((1.* (tsc_new-tsc_old))/num_cpus / 1000000 * (aperf_new-aperf_old) / (mperf_new-mperf_old) /(ts_new-ts_old))
+                else:
+                  cpu_freq_avg_real = 0
+                ts_old=ts_new
+                tsc_old=tsc_new
+                aperf_old=aperf_new
+                mperf_old=mperf_new
+
+                #cpu_freq_avg_real = self.getTurbostatInfo() 
                 doc = {
                     "date":datetime.datetime.utcfromtimestamp(time.time()).isoformat(),
                     "appliance":bu_name,

@@ -157,22 +157,6 @@ TOPDIR=$PWD
 echo "working in $PWD"
 ls
 
-pluginpath="/opt/fff/esplugins/"
-pluginname1="bigdesk"
-pluginfile1="bigdesk-505b32e-mod2.zip"
-#head
-pluginname2="head"
-pluginfile2="head-master.zip"
-
-#kopf not installed in appliances because of size
-pluginname3="kopf"
-pluginfile3="elasticsearch-kopf-2.1.1.zip"
-pluginname4="paramedic"
-pluginfile4="paramedic"
-
-#old versions:
-#pluginfile1="lukas-vlcek-bigdesk-v2.4.0-2-g9807b92-mod.zip"
-
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta.spec <<EOF
@@ -187,7 +171,7 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires:elasticsearch >= 1.4.5, hltd >= 1.9.0, cx_Oracle >= 5.1.2, java-1.8.0-oracle-headless >= 1.8.0.45
+Requires: hltd >= 1.9.0, cx_Oracle >= 5.1.2
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/dbcheck.sh
@@ -199,8 +183,6 @@ Provides:/opt/fff/instances.input
 Provides:/etc/init.d/fffmeta
 Provides:/etc/init.d/fff
 
-#Provides:/opt/fff/backup/elasticsearch.yml
-#Provides:/opt/fff/backup/elasticsearch
 #Provides:/opt/fff/backup/hltd.conf
 
 %description
@@ -214,10 +196,8 @@ rm -rf \$RPM_BUILD_ROOT
 mkdir -p \$RPM_BUILD_ROOT
 %__install -d "%{buildroot}/opt/fff"
 %__install -d "%{buildroot}/opt/fff/backup"
-%__install -d "%{buildroot}/opt/fff/esplugins"
 %__install -d "%{buildroot}/etc/init.d"
 
-mkdir -p opt/fff/esplugins
 mkdir -p opt/fff/backup
 mkdir -p etc/init.d/
 cp $BASEDIR/python/setupmachine.py %{buildroot}/opt/fff/setupmachine.py
@@ -228,18 +208,16 @@ echo "#!/bin/bash" > %{buildroot}/opt/fff/configurefff.sh
 echo
 
 echo "if [ -n \"\\\$1\" ]; then"                                       >> %{buildroot}/opt/fff/configurefff.sh
-echo "  if [ \\\$1 == \"elasticsearch\" ]; then"                       >> %{buildroot}/opt/fff/configurefff.sh
-echo "    python2.6 /opt/fff/setupmachine.py elasticsearch $params"    >> %{buildroot}/opt/fff/configurefff.sh
-echo "  elif [ \\\$1 == \"hltd\" ]; then"                              >> %{buildroot}/opt/fff/configurefff.sh
+echo "  if [ \\\$1 == \"hltd\" ]; then"                                >> %{buildroot}/opt/fff/configurefff.sh
 echo "    python2.6 /opt/hltd/python/fillresources.py"                 >> %{buildroot}/opt/fff/configurefff.sh
 echo "    python2.6 /opt/fff/setupmachine.py hltd $params"             >> %{buildroot}/opt/fff/configurefff.sh
 echo "  elif [ \\\$1 == \"init\" ]; then"                              >> %{buildroot}/opt/fff/configurefff.sh
-echo "    python2.6 /opt/hltd/python/fillresources.py ignorecloud"       >> %{buildroot}/opt/fff/configurefff.sh
-echo "    python2.6 /opt/fff/setupmachine.py elasticsearch,hltd $params" >> %{buildroot}/opt/fff/configurefff.sh 
+echo "    python2.6 /opt/hltd/python/fillresources.py ignorecloud"     >> %{buildroot}/opt/fff/configurefff.sh
+echo "    python2.6 /opt/fff/setupmachine.py hltd $params"             >> %{buildroot}/opt/fff/configurefff.sh 
 echo "  fi"                                                            >> %{buildroot}/opt/fff/configurefff.sh
 echo "else"                                                            >> %{buildroot}/opt/fff/configurefff.sh
 echo "  python2.6 /opt/hltd/python/fillresources.py"                   >> %{buildroot}/opt/fff/configurefff.sh
-echo "  python2.6 /opt/fff/setupmachine.py elasticsearch,hltd $params" >> %{buildroot}/opt/fff/configurefff.sh 
+echo "  python2.6 /opt/fff/setupmachine.py hltd $params"               >> %{buildroot}/opt/fff/configurefff.sh 
 echo "fi"                                                              >> %{buildroot}/opt/fff/configurefff.sh
 
 echo "#!/bin/bash" > %{buildroot}/opt/fff/dbcheck.sh
@@ -250,11 +228,6 @@ echo "  python2.6 /opt/fff/dbcheck.py $dblogin $dbpwd $dbsid"       >> %{buildro
 echo "fi"                                                           >> %{buildroot}/opt/fff/dbcheck.sh
 
 echo " { \"login\":\"${dblogin}\" , \"password\":\"${dbpwd}\" , \"sid\":\"${dbsid}\" }"    >> %{buildroot}/opt/fff/db.jsn
-
-#cp $BASEDIR/esplugins/$pluginfile1 %{buildroot}/opt/fff/esplugins/$pluginfile1
-cp $BASEDIR/esplugins/$pluginfile2 %{buildroot}/opt/fff/esplugins/$pluginfile2
-cp $BASEDIR/esplugins/install.sh %{buildroot}/opt/fff/esplugins/install.sh
-cp $BASEDIR/esplugins/uninstall.sh %{buildroot}/opt/fff/esplugins/uninstall.sh
 
 cp $BASEDIR/scripts/fff %{buildroot}/etc/init.d/fff
 
@@ -294,48 +267,12 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 700 ,root, root) /opt/fff/db.jsn
 %attr( 755 ,root, root) /etc/init.d/fffmeta
 %attr( 755 ,root, root) /etc/init.d/fff
-#%attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile1
-%attr( 444 ,root, root) /opt/fff/esplugins/$pluginfile2
-%attr( 755 ,root, root) /opt/fff/esplugins/install.sh
-%attr( 755 ,root, root) /opt/fff/esplugins/uninstall.sh
 
 %post
 #echo "post install trigger"
 chkconfig --del fffmeta
 chkconfig --add fffmeta
 #disabled, can be run manually for now
-
-%triggerin -- elasticsearch
-#echo "triggered on elasticsearch update or install"
-/sbin/service elasticsearch stop
-python2.6 /opt/fff/setupmachine.py restore,elasticsearch
-python2.6 /opt/fff/setupmachine.py elasticsearch $params
-#update permissions in case new rpm changed uid/guid
-chown -R elasticsearch:elasticsearch /var/log/elasticsearch
-chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
-
-#plugins
-/opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname1 > /dev/null
-#/opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile1 $pluginname1
-
-/opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname2 > /dev/null
-/opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile2 $pluginname2
-
-/opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname3 > /dev/null
-
-/opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname4 > /dev/null
-
-#not starting elasticsearch by default
-#/sbin/service elasticsearch start
-chkconfig --del elasticsearch
-#chkconfig --add elasticsearch
-
-#taskset elasticsearch process
-#sleep 1
-#ESPID=`cat /var/run/elasticsearch/elasticsearch.pid` || (echo "could not find elasticsearch pid";ESPID=0)
-#if[ \$ESPID !="0" ]; then
-#taskset -pc 3,4 \$ESPID
-#fi
 
 %triggerin -- hltd
 #echo "triggered on hltd update or install"
@@ -379,14 +316,7 @@ if [ \$1 == 0 ]; then
 
   /sbin/service hltd stop || true
 
-  /sbin/service elasticsearch stop || true
-  /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname1 || true
-  /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname2 || true
-  /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname3 || true
-  /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname4 || true
-
-
-  python2.6 /opt/fff/setupmachine.py restore,hltd,elasticsearch
+  python2.6 /opt/fff/setupmachine.py restore,hltd
 fi
 
 #TODO:

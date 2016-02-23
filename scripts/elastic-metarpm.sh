@@ -148,7 +148,6 @@ Provides:/etc/init.d/fffmeta
 Provides:/etc/init.d/fff-es
 Provides:/opt/fff/daemon2.py
 Provides:/opt/fff/river-daemon.py
-Provides:/opt/fff/istribe.py
 Provides:/etc/init.d/riverd
 Provides:/opt/ff/river.jar
 Provides:/etc/rsyslog.d/48-river.conf
@@ -174,7 +173,6 @@ mkdir -p etc/init.d/
 mkdir -p etc/rsyslog.d
 cp $BASEDIR/etc/rsyslog.d/48-river.conf %{buildroot}/etc/rsyslog.d/48-river.conf
 cp $BASEDIR/python/setupmachine.py %{buildroot}/opt/fff/setupmachine.py
-cp $BASEDIR/python/istribe.py %{buildroot}/opt/fff/istribe.py
 cp $BASEDIR/python/daemon2.py %{buildroot}/opt/fff/daemon2.py
 cp $BASEDIR/python/river-daemon.py %{buildroot}/opt/fff/river-daemon.py
 cp $BASEDIR/python/riverd %{buildroot}/etc/init.d/riverd
@@ -214,9 +212,6 @@ echo "fi"                                >> %{buildroot}/etc/init.d/fffmeta
 %attr( 755 ,root, root) /opt/fff/setupmachine.py
 %attr( 755 ,root, root) /opt/fff/setupmachine.pyc
 %attr( 755 ,root, root) /opt/fff/setupmachine.pyo
-%attr( 755 ,root, root) /opt/fff/istribe.py
-%attr( 755 ,root, root) /opt/fff/istribe.pyc
-%attr( 755 ,root, root) /opt/fff/istribe.pyo
 %attr( 755 ,root, root) /opt/fff/daemon2.py
 %attr( 755 ,root, root) /opt/fff/daemon2.pyc
 %attr( 755 ,root, root) /opt/fff/daemon2.pyo
@@ -253,25 +248,15 @@ python2.6 /opt/fff/setupmachine.py elasticsearch,web $params
 chown -R elasticsearch:elasticsearch /var/log/elasticsearch
 chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
 chmod a+r -R /etc/elasticsearch
-tr=\$(python2.6 /opt/fff/istribe.py);
-if [ \$tr == "es-tribe" ]; then
-  echo "Tribe machine: not installing plugins" #some seem to break tribe
-elif [ \$tr == "es-vm-tribe" ]; then
-  echo "Tribe VM machine: not installing plugins" #some seem to break tribe
-else
-  echo "Installing plugins..."
-  /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname1 > /dev/null
-  /opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile1 $pluginname1
-
-  /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname2 > /dev/null
-  /opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile2 $pluginname2
-
-  /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname3 > /dev/null
-  /opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile3 $pluginname3
-
-  /opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname4 > /dev/null
-  /opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile4 $pluginname4
-fi
+echo "Installing plugins..."
+/opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname1 > /dev/null
+/opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile1 $pluginname1
+/opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname2 > /dev/null
+/opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile2 $pluginname2
+/opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname3 > /dev/null
+/opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile3 $pluginname3
+/opt/fff/esplugins/uninstall.sh /usr/share/elasticsearch $pluginname4 > /dev/null
+/opt/fff/esplugins/install.sh /usr/share/elasticsearch $pluginfile4 $pluginname4
 
 chkconfig --del elasticsearch
 chkconfig --add elasticsearch

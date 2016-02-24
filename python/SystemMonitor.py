@@ -43,6 +43,7 @@ class system_monitor(threading.Thread):
         #start direct injection into central index (fu role)
         if conf.use_elasticsearch == True:
             self.found_data_interfaces=False
+            self.ifs=[]
             self.log_ifconfig=0
             self.startESBox()
 
@@ -546,7 +547,8 @@ class system_monitor(threading.Thread):
                 ipaddrs.append(opt.split('=')[1])
         ipaddrs = list(set(ipaddrs))
         ifs = []
-        if len(ipaddrs):
+        #update list and reset counters only if interface is missing from the previous list 
+        if len(ipaddrs)>len(self.ifs):
           self.found_data_interfaces=True
           ifcdict = getnifs.get_network_interfaces()
           for ifc in ifcdict:
@@ -558,10 +560,12 @@ class system_monitor(threading.Thread):
                 if self.log_ifconfig<2:
                   self.logger.info('monitoring '+name)
           ifs = list(set(ifs))
+          self.ifs = ifs
           self.ifs_in=0
           self.ifs_out=0
-          self.ifs = ifs
-          self.ifs_last = time.time()
+          self.ifs_last = 0
+          self.getRatesMBs(silent=self.log_ifconfig<2) #initialize
+          self.threadEventESBox.wait(0.1)
         self.log_ifconfig+=1
 
     def getRatesMBs(self,silent=True):
@@ -573,16 +577,23 @@ class system_monitor(threading.Thread):
             sum_out+=int(open('/sys/class/net/'+ifc+'/statistics/tx_bytes').read())
           new_time = time.time()
           old_time = self.ifs_last
-          delta_in = ((sum_in - self.ifs_in) / (new_time-self.ifs_last)) / (1024*1024) # Bytes/ms >> 10 == MB/s
-          delta_out = ((sum_out - self.ifs_out) / (new_time-self.ifs_last)) /(1024*1024)
-          self.ifs_in = sum_in
-          self.ifs_out = sum_out
+          delta_t = new_time-self.ifs_last
           self.ifs_last = new_time
-          return [delta_in,delta_out,new_time-old_time]
+          #return 0 if this is first read (last counters=0)
+          if self.ifs_in==0 or self.ifs_out==0:
+            self.ifs_in = sum_in
+            self.ifs_out = sum_out
+            return [0,0,new_time-old_time]
+          else: 
+            self.ifs_in = sum_in
+            self.ifs_out = sum_out
+            delta_in = ((sum_in - self.ifs_in) / delta_t) / (1024*1024) # Bytes/ms >> 10 == MB/s
+            delta_out = ((sum_out - self.ifs_out) / delta_t) /(1024*1024)
+            return [delta_in,delta_out,new_time-old_time]
         except Exception as ex:
           if not silent:
             self.logger.exception(ex)
-          return [-1,-1,0]
+          return [0,0,0]
 
     def runESBox(self):
 
@@ -610,11 +621,8 @@ class system_monitor(threading.Thread):
                   #check mountpoints every 10 loops
                   try:
                     self.findMountInterfaces()
-                    if self.log_ifconfig<2:
-                      self.threadEventESBox.wait(0.1)
-                      self.getRatesMBs(silent=False) #read first time
-                      self.threadEventESBox.wait(0.1)
-                  except:pass
+                  except:
+                    pass
                 dirstat = os.statvfs('/')
                 d_used = ((dirstat.f_blocks - dirstat.f_bavail)*dirstat.f_bsize)>>20
                 d_total =  (dirstat.f_blocks*dirstat.f_bsize)>>20

@@ -8,6 +8,7 @@ echo startDqmRun invoked $TODAY with arguments $1 $2 $3 $4 $5 $6 $7 $8 >| $logna
 export http_proxy="http://cmsproxy.cms:3128"
 export https_proxy="https://cmsproxy.cms:3128/"
 export NO_PROXY=".cms"
+export HOME=/tmp
 export SCRAM_ARCH=$2
 cd $1
 cd base

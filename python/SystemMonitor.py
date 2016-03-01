@@ -617,7 +617,7 @@ class system_monitor(threading.Thread):
         rc = 0
         while self.running:
             try:
-                if not self.found_data_interfaces or ((rc%10)==0 and rc<50):
+                if not self.found_data_interfaces or (rc%10)==0:
                   #check mountpoints every 10 loops
                   try:
                     self.findMountInterfaces()

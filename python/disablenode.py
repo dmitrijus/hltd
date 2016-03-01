@@ -1,4 +1,5 @@
 #!/bin/env python
+#THIS IS OBSOLETE
 
 import os,sys,socket
 import shutil

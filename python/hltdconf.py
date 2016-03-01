@@ -66,20 +66,7 @@ class hltdConf:
         self.service_log_level = getattr(logging,self.service_log_level)
         self.autodetect_parameters()
 
-        if self.es_local!='localhost':
-          self.elastic_cluster=self.elastic_runindex_name
-
-        #read cluster name from elastic search configuration file (if not set up directly)
-        if not self.elastic_cluster and self.use_elasticsearch:
-            try:
-                with open('/etc/elasticsearch/elasticsearch.yml') as fi:
-                    lines = fi.readlines()
-                    for line in lines:
-                        sline = line.strip()
-                        if line.startswith("cluster.name"):
-                            self.elastic_cluster = line.split(':')[1].strip()
-            except:
-                pass
+        self.elastic_cluster=self.elastic_runindex_name
 
     def dump(self):
         logging.info( '<hltd STATUS time="' + str(datetime.datetime.now()).split('.')[0] + '" user:' + self.user + ' role:' + self.role + '>')

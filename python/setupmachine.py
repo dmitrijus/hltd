@@ -658,17 +658,6 @@ if __name__ == "__main__":
 
         #determine elasticsearch version
         elasticsearch_new_bind=True
-        prpm = subprocess.Popen("/bin/rpm -q elasticsearch", shell=True, stdout=subprocess.PIPE)
-        prpm.wait()
-        std_out_rpm=prpm.stdout.read()
-        if std_out_rpm.startswith('elasticsearch-1') or std_out_rpm.startswith('elasticsearch-2.0') or std_out_rpm.startswith('elasticsearch-2.1'):
-          elasticsearch_new_bind = False
-          print "Elasticsearch 1.X, 2.0 or 2.1  detected. Not using new bind syntax supported in 2.0"
-        else:
-          print "Elasticsearch 2.X or higher detected. Using new bind syntax."
-
-
-
 
         #print "will modify sysconfig elasticsearch configuration"
         #maybe backup vanilla versions
@@ -680,46 +669,6 @@ if __name__ == "__main__":
         esEdited =  checkModifiedConfigInFile(elasticconf)
         if esEdited == False:
             shutil.copy(elasticconf,os.path.join(backup_dir,os.path.basename(elasticconf)))
-
-        if type == 'fu' or type == 'bu':
-
-            essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            essyscfg.reg('ES_HEAP_SIZE','1G')
-            essyscfg.reg('MAX_LOCKED_MEMORY','unlimited')
-            essyscfg.reg('ES_USE_GC_LOGGING','false')
-            essyscfg.removeEntry('CONF_FILE')
-            if type == 'fu':
-                    #if myhost.startswith('fu-c2d'):#Megware FU racks
-                    #essyscfg.reg('ES_JAVA_OPTS','"-verbose:gc -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10M -Xloggc:/var/log/elasticsearch/gc.log -XX:NewSize=500m -XX:MaxNewSize=600m"')
-                essyscfg.reg('ES_JAVA_OPTS','""')
-            essyscfg.commit()
-
-            escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
-            escfg.reg('cluster.name',clusterName)
-            escfg.reg('node.name',cnhostname)
-            escfg.reg('discovery.zen.ping.multicast.enabled','false')
-            escfg.reg('network.publish_host',es_publish_host)
-            if elasticsearch_new_bind:
-              escfg.reg('network.bind_host','_local_,'+es_publish_host)
-            escfg.reg('transport.tcp.compress','true')
-            escfg.reg('script.groovy.sandbox.enabled','true')
-
-            if type == 'fu':
-                if env=="vm":
-                    escfg.reg('discovery.zen.ping.unicast.hosts',"[\"" + buName + "\"]")
-                else:
-                    escfg.reg('discovery.zen.ping.unicast.hosts',"[\"" + buName + ".cms" + "\"]")
-                escfg.reg('indices.fielddata.cache.size', '50%')
-                escfg.reg('indices.fielddata.cache.expire','600m')
-                escfg.reg('index.cache.field.expire','600m')
-                escfg.reg('bootstrap.mlockall','false')
-                escfg.reg('node.master','false')
-                escfg.reg('node.data','true')
-            if type == 'bu':
-                #escfg.reg('discovery.zen.ping.unicast.hosts','[ \"'+elastic_host2+'\" ]')
-                escfg.reg('node.master','true')
-                escfg.reg('node.data','false')
-            escfg.commit()
 
         if type == 'eslocal' or type == 'escdaq':
 

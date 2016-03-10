@@ -62,6 +62,9 @@ central_runindex_mapping = {
                     'activeBUs':{
                         'type':'integer'
                     },
+                    'totalBUs':{
+                        'type':'integer'
+                    },
                     'rawDataSeenByHLT':{
                         'type':'boolean'
                     },

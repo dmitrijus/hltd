@@ -293,7 +293,7 @@ class elasticBandBU:
         self.logger.info(str(endtime)+" going into buffer")
         doc_id = self.runnumber
         #first update: endtime field
-        self.index_documents('run',[{"doc":{"endTime":endtime}}],doc_id,bulk=False,update_only=True)
+        self.index_documents('run',[{"endTime":endtime}],doc_id,bulk=False,update_only=True)
         #second update:decrease atomically active BU counter
         self.index_documents('run',[{"script":"ctx._source.activeBUs-=1"}],doc_id,bulk=False,update_only=True,script=True,retry_on_conflict=300)
 

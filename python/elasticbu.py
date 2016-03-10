@@ -116,7 +116,7 @@ class elasticBandBU:
             document['startTime'] = startTime
             document['activeBUs'] = 1
             document['totalBUs'] = 1
-            document['rawDataSeenByHLT']=false
+            document['rawDataSeenByHLT']=False
             if version: document['CMSSW_version']=version
             if arch: document['CMSSW_arch']=arch
             documents = [document]

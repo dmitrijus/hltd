@@ -58,7 +58,19 @@ central_runindex_mapping = {
                             },
                     'completedTime' : {
                         'type':'date'
-                            }
+                            },
+                    'activeBUs':{
+                        'type':'integer'
+                    },
+                    'rawDataSeenByHLT':{
+                        'type':'boolean'
+                    },
+                    'CMSSW_version':{
+	              'type':'string','index':'not_analyzed'}
+                    },
+                    'CMSSW_arch':{
+	              'type':'string','index':'not_analyzed'}
+                    }
                 },
                 '_timestamp' : {
                     'enabled' : "true"

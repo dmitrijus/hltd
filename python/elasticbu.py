@@ -97,17 +97,32 @@ class elasticBandBU:
         else:
             self.hostinst = self.host+'_'+self.conf.instance
 
+        #this naturally fits with the 'run' document
+        try:
+            version = None
+            arch = None
+            with open(os.path.join(mainDir,'hlt',conf.paramfile_name,'r') as fp:
+                fffparams = json.load(fp)
+                version = fffparams['CMSSW_VERSION']
+                arch = fffparams['SCRAM_ARCH']
+        except:
+          pass
+
         #write run number document
         if runMode == True and self.stopping==False:
             document = {}
             doc_id = self.runnumber
             document['runNumber'] = doc_id
             document['startTime'] = startTime
+            document['activeBUs'] = 1
+            document['rawDataSeenByHLT']=false
+            if version: document['CMSSW_version']=version
+            if arch: document['CMSSW_arch']=arch
             documents = [document]
-            self.index_documents('run',documents,doc_id,bulk=False,overwrite_existing=False)
-            #except ElasticHttpError as ex:
-            #    self.logger.info(ex)
-            #    pass
+            ret = self.index_documents('run',documents,doc_id,bulk=False,overwrite=False)
+            if isinstance(ret,tuple) and ret[1]==409:
+                #run document was already created by another BU. In that case increase atomically active BU counter
+                self.index_documents('run',[{"script":"ctx._source.activeBUs+=1"}],doc_id,bulk=False,update_only=True,script=True,retry_on_conflict=300)
 
 
     def updateIndexMaybe(self,index_name,alias_write,alias_read,settings,mapping):
@@ -274,15 +289,12 @@ class elasticBandBU:
         return self.index_documents('stream_label',[document],doc_id,doc_params=doc_pars,bulk=False)
 
     def elasticize_runend_time(self,endtime):
-
         self.logger.info(str(endtime)+" going into buffer")
-        document = {}
         doc_id = self.runnumber
-        #document['runNumber']=doc_id
-        #document['startTime'] = self.startTime
-        #document['endTime'] = endtime
-        documents = [{"doc":{"endTime":endtime}]
-        self.index_documents('run',documents,doc_id,bulk=False,update=True)
+        #first update: endtime field
+        self.index_documents('run',[{"doc":{"endTime":endtime}}],doc_id,bulk=False,update_only=True)
+        #second update:decrease atomically active BU counter
+        self.index_documents('run',[{"script":"ctx._source.activeBUs-=1"}],doc_id,bulk=False,update_only=True,script=True,retry_on_conflict=300)
 
     def elasticize_resource_summary(self,jsondoc):
         self.logger.debug('injecting resource summary document')
@@ -390,18 +402,15 @@ class elasticBandBU:
         doc_pars = {"parent":str(self.runnumber)}
         self.index_documents('eols',documents,doc_id,doc_params=doc_pars,bulk=False)
 
-    def index_documents(self,name,documents,doc_id=None,doc_params=None,bulk=True,overwrite=True,update=False):
-        attempts=0
-        destination_index = ""
-        is_box=False
-        if name=='fu-box-status':
-            destination_index = self.boxinfo_write
-            is_box=True
-        elif name.startswith("boxinfo") or name=='resource_summary':
+    def index_documents(self,name,documents,doc_id=None,doc_params=None,bulk=True,overwrite=True,update_only=False,retry_on_conflict=0,script=False):
+
+        if name=='fu-box-status' or name.startswith("boxinfo") or name=='resource_summary':
             destination_index = self.boxinfo_write
             is_box=True
         else:
             destination_index = self.runindex_write
+            is_box=False
+        attempts=0
         while True:
             attempts+=1
             try:
@@ -409,8 +418,11 @@ class elasticBandBU:
                     self.es.bulk_index(destination_index,name,documents)
                 else:
                     if doc_id:
-                      if update:
-                        self.es.update(index=destination_index,doc_type=name,id=doc_id,doc=documents[0])
+                      if update_only:
+                        if script:
+                          self.es.update(index=destination_index,doc_type=name,id=doc_id,script=documents[0],upsert=False,retry_on_conflict=retry_on_conflict)
+                        else:
+                          self.es.update(index=destination_index,doc_type=name,id=doc_id,doc=documents[0],upsert=False,retry_on_conflict=retry_on_conflict)
                       else:
                         #overwrite existing can be used with id specified
                         if doc_params:
@@ -420,7 +432,11 @@ class elasticBandBU:
                     else:
                         self.es.index(destination_index,name,documents[0])
                 return True
+
             except ElasticHttpError as ex:
+                if name=='run' and ex[0]==409: #create failed because overwrite was forbidden
+                    return (False,ex[0])
+
                 if attempts<=1 and not is_box:continue
                 if is_box:
                     self.logger.warning('elasticsearch HTTP error'+str(ex)+'. skipping document '+name)
@@ -440,7 +456,8 @@ class elasticBandBU:
                 ip_url=getURLwithIP(self.es_server_url,self.nsslock)
                 self.es = ElasticSearch(ip_url,timeout=20)
                 time.sleep(0.1)
-                if is_box==True:break
+                if is_box==True:#give up on too many box retries as they are indexed again every 5 seconds
+                  break
         return False
 
 

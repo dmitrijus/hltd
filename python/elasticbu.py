@@ -101,7 +101,7 @@ class elasticBandBU:
         try:
             version = None
             arch = None
-            with open(os.path.join(mainDir,'hlt',conf.paramfile_name,'r') as fp:
+            with open(os.path.join(mainDir,'hlt',conf.paramfile_name),'r') as fp:
                 fffparams = json.load(fp)
                 version = fffparams['CMSSW_VERSION']
                 arch = fffparams['SCRAM_ARCH']

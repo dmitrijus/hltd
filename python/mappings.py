@@ -69,10 +69,10 @@ central_runindex_mapping = {
                         'type':'boolean'
                     },
                     'CMSSW_version':{
-	              'type':'string','index':'not_analyzed'}
+	              'type':'string','index':'not_analyzed'
                     },
                     'CMSSW_arch':{
-	              'type':'string','index':'not_analyzed'}
+	              'type':'string','index':'not_analyzed'
                     }
                 },
                 '_timestamp' : {

@@ -611,7 +611,12 @@ class system_monitor(threading.Thread):
         cpu_name,cpu_freq,cpu_cores,cpu_siblings = self.getCPUInfo()
         num_cpus = self.testCPURange() 
         ts_old = time.time()
-        tsc_old,mperf_old,aperf_old=self.getIntelCPUPerfAvgs(num_cpus)
+        if cpu_name.startswith('AMD'):
+          tsc_old=mperf_old=aperf_old=tsc_new=mperf_new=aperf_new=0
+          is_intel=False
+        else:
+          tsc_old,mperf_old,aperf_old=self.getIntelCPUPerfAvgs(num_cpus)
+          is_intel = True
         self.threadEventESBox.wait(1)
         eb = elasticBandBU(conf,0,'',False,update_run_mapping=False,update_box_mapping=True)
         rc = 0
@@ -638,7 +643,8 @@ class system_monitor(threading.Thread):
 
                 #check cpu counters to estimate "Turbo" frequency
                 ts_new = time.time()
-                tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(num_cpus)
+                if is_intel:
+                  tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(num_cpus)
                 if num_cpus>0 and mperf_new-mperf_old>0 and ts_new-ts_old>0:
                   cpu_freq_avg_real = int((1.* (tsc_new-tsc_old))/num_cpus / 1000000 * (aperf_new-aperf_old) / (mperf_new-mperf_old) /(ts_new-ts_old))
                 else:

@@ -104,7 +104,7 @@ class elasticBandBU:
             document['runNumber'] = doc_id
             document['startTime'] = startTime
             documents = [document]
-            self.index_documents('run',documents,doc_id,bulk=False)
+            self.index_documents('run',documents,doc_id,bulk=False,overwrite_existing=False)
             #except ElasticHttpError as ex:
             #    self.logger.info(ex)
             #    pass
@@ -278,11 +278,11 @@ class elasticBandBU:
         self.logger.info(str(endtime)+" going into buffer")
         document = {}
         doc_id = self.runnumber
-        document['runNumber']=doc_id
-        document['startTime'] = self.startTime
-        document['endTime'] = endtime
-        documents = [document]
-        self.index_documents('run',documents,doc_id,bulk=False)
+        #document['runNumber']=doc_id
+        #document['startTime'] = self.startTime
+        #document['endTime'] = endtime
+        documents = [{"doc":{"endTime":endtime}]
+        self.index_documents('run',documents,doc_id,bulk=False,update=True)
 
     def elasticize_resource_summary(self,jsondoc):
         self.logger.debug('injecting resource summary document')
@@ -390,7 +390,7 @@ class elasticBandBU:
         doc_pars = {"parent":str(self.runnumber)}
         self.index_documents('eols',documents,doc_id,doc_params=doc_pars,bulk=False)
 
-    def index_documents(self,name,documents,doc_id=None,doc_params=None,bulk=True):
+    def index_documents(self,name,documents,doc_id=None,doc_params=None,bulk=True,overwrite=True,update=False):
         attempts=0
         destination_index = ""
         is_box=False
@@ -409,10 +409,14 @@ class elasticBandBU:
                     self.es.bulk_index(destination_index,name,documents)
                 else:
                     if doc_id:
+                      if update:
+                        self.es.update(index=destination_index,doc_type=name,id=doc_id,doc=documents[0])
+                      else:
+                        #overwrite existing can be used with id specified
                         if doc_params:
-                          self.es.index(destination_index,name,documents[0],doc_id,parent=doc_params['parent'])
+                          self.es.index(destination_index,name,documents[0],doc_id,parent=doc_params['parent'],overwrite_existing=overwrite)
                         else:
-                          self.es.index(destination_index,name,documents[0],doc_id)
+                          self.es.index(destination_index,name,documents[0],doc_id,overwrite_existing=overwrite)
                     else:
                         self.es.index(destination_index,name,documents[0])
                 return True

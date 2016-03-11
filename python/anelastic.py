@@ -293,6 +293,15 @@ class LumiSectionRanger:
         if infile.writeout(empty=True,verbose=False):
             self.errIniFile.set()
 
+        #'touch' empty Error INI file stream for monitoring
+        localmonfilepath = os.path.join(self.infile.dir,'mon',filename)
+        if not os.path.exists(localmonfilepath):
+            try:
+                with open(localmonfilepath,'w') as fp:
+                    pass
+            except:
+                self.logger.warning('could not create '+localmonfilepath)
+
         self.logger.info("created error ini file")
 
 

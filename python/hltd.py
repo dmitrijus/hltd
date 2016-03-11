@@ -138,9 +138,10 @@ class StateInfo:
             if proc.returncode==0:
                 return True
             else:
-                logger.error("cloud igniter start returned code "+str(proc.returncode))
-            if proc.returncode>1:
-                logger.error(out)
+                if proc.returncode>1:
+                  logger.error("cloud igniter start returned code "+str(proc.returncode)+ ' and console output: ' + out)
+                if proc.returncode==1:
+                  logger.error("cloud igniter start returned exit code 1")
 
         except OSError as ex:
             if ex.errno==2:

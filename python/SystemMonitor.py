@@ -585,10 +585,11 @@ class system_monitor(threading.Thread):
             self.ifs_out = sum_out
             return [0,0,new_time-old_time]
           else: 
+            divisor = 1. / (delta_t*1024*1024.)
+            delta_in = (sum_in - self.ifs_in) * divisor # Bytes/ms >> 10 == MB/s
+            delta_out = (sum_out - self.ifs_out) * divisor
             self.ifs_in = sum_in
             self.ifs_out = sum_out
-            delta_in = ((sum_in - self.ifs_in) / delta_t) / (1024*1024) # Bytes/ms >> 10 == MB/s
-            delta_out = ((sum_out - self.ifs_out) / delta_t) /(1024*1024)
             return [delta_in,delta_out,new_time-old_time]
         except Exception as ex:
           if not silent:

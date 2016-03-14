@@ -588,9 +588,11 @@ class fileHandler(object):
         #delete input files
         for input in self.inputs:
             ifile = input.getFieldByName('Filelist')
-            if nproc==0:continue
-            try:os.remove(ifile)
-            except:pass
+            if not ifile:
+              continue
+            try:os.remove(os.path.join(dirname,ifile))
+            except Exception as ex:
+              self.logger.exception(ex)
 
         self.setFieldByName("Filesize",json_size)
         if doChecksum:

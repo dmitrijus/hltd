@@ -767,7 +767,8 @@ class Run:
         for r in self.online_resource_list:
             try:
                 if r.watchdog.quarantined==False or r.processstate==100:allQuarantined=False
-            except:
+            except Exception as ex:
+                self.logger.warning(str(ex))
                 allQuarantined=False
         if allQuarantined==True:
             return True

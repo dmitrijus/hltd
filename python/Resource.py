@@ -362,7 +362,7 @@ class ProcessWatchdog(threading.Thread):
                         pass
                     try:
                         with open(conf.watch_directory+'/quarantined'+rnsuffix,'w+') as fp:
-                            pass
+                            self.quarantined = False
                     except Exception as ex:
                         self.logger.exception(ex)
 

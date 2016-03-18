@@ -125,7 +125,7 @@ class RunRanger:
                         self.runList.add(run)
                         try:
                             if conf.role=='fu' and not self.state.entering_cloud_mode and not self.resInfo.has_active_resources():
-                                self.logger.error('trying to start a run '+str(run.runnumber)+ ' without any available resources - this requires manual intervention !')
+                                self.logger.error("RUN:"+str(run.runnumber)+' trying to start a run without any available resources - this requires manual intervention !')
                         except Exception,ex:
                             self.logger.exception(ex)
 
@@ -146,10 +146,10 @@ class RunRanger:
                             main_ramdisk = os.path.dirname(os.path.normpath(conf.watch_directory))
                             os.symlink(fullpath,os.path.join(main_ramdisk,os.path.basename(fullpath)))
                     except OSError as ex:
-                        self.logger.error("Exception in new run handler: "+str(ex)+" / "+ex.filename)
+                        self.logger.error("RUN:"+str(nr)+" exception in new run handler: "+str(ex)+" / "+ex.filename)
                         self.logger.exception(ex)
                     except Exception as ex:
-                        self.logger.error("RunRanger: unexpected exception encountered in forking hlt slave")
+                        self.logger.error("RUN:"+str(nr)+" RunRanger: unexpected exception encountered in forking hlt slave")
                         self.logger.exception(ex)
                     try:self.resource_lock.release()
                     except:pass
@@ -162,7 +162,8 @@ class RunRanger:
                     start a new BU emulator run here - this will trigger the start of the HLT test run
                     """
                     #TODO:fix this constructor in buemu.py
-                    self.bu_emulator = BUEmu(conf,self.mm.bu_disk_list_ramdisk_instance,preexec_function)
+                    #self.bu_emulator = BUEmu(conf,self.mm.bu_disk_list_ramdisk_instance,preexec_function)
+                    self.bu_emulator = BUEmu(conf,self.mm.bu_disk_list_ramdisk_instance)
                     self.bu_emulator.startNewRun(nr)
 
                 except Exception as ex:

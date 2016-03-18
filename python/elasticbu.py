@@ -756,11 +756,14 @@ if __name__ == "__main__":
     import procname
     procname.setprocname('elasticbu')
 
-    conf=initConf(sys.argv[1])
+    conf=initConf(sys.argv[2])
+
+    try:run_str = ' : run'+sys.argv[1].zfill(conf.run_number_padding)
+    except:run_str = ''
 
     logging.basicConfig(filename=os.path.join(conf.log_dir,"elasticbu.log"),
                     level=conf.service_log_level,
-                    format='%(levelname)s:%(asctime)s - %(funcName)s - %(message)s',
+                    format='%(levelname)s:%(asctime)s'+run_str+' - %(funcName)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
     logger = logging.getLogger(os.path.basename(__file__))
 
@@ -770,7 +773,7 @@ if __name__ == "__main__":
 
     eventQueue = Queue.Queue()
 
-    runnumber = sys.argv[2]
+    runnumber = sys.argv[1]
     watchdir = conf.watch_directory
     mainDir = os.path.join(watchdir,'run'+ runnumber.zfill(conf.run_number_padding))
     dt=os.path.getctime(mainDir)

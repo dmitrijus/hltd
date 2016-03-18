@@ -9,7 +9,7 @@ def preexec_function():
     prctl.set_pdeathsig(SIGKILL)
  
 class BUEmu:
-    def __init__(self,conf):
+    def __init__(self,conf,disklist):
         self.process=None
         self.runnumber = None
         self.conf = conf

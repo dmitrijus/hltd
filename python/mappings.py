@@ -497,6 +497,7 @@ central_hltdlogs_mapping = {
                     'severityVal'  : {'type' : 'integer'},
                     'message'   : {'type' : 'string'},
                     'lexicalId' : {'type' : 'string',"index" : "not_analyzed"},
+                    "run"       : {'type':'integer'},
                     'msgtime' : {
                             'type' : 'date',
                             'format':'YYYY-mm-dd HH:mm:ss||dd-MM-YYYY HH:mm:ss'

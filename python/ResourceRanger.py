@@ -91,7 +91,7 @@ class ResourceRanger:
                     try:
                         reslist = os.listdir('/'+resourcepath)
                     except Exception as ex:
-                        self.logger.error("exception encountered in looking for resources")
+                        self.logger.error("RUN:"+str(run.runnumber)+" exception encountered in looking for resources")
                         self.logger.exception(ex)
                     #put inotify-ed resource as the first item
                     fileFound=False
@@ -200,7 +200,7 @@ class ResourceRanger:
             newRes = None
             if lrun!=None:
                 if lrun.checkStaleResourceFile(event.fullpath):
-                    self.logger.error("Run "+str(lrun.runnumber)+" notification: skipping resource "+basename+" which is stale")
+                    self.logger.error("RUN:"+str(lrun.runnumber)+" notification: skipping resource "+basename+" which is stale")
                     self.resource_lock.release()
                     return
                 self.logger.info('Try attaching FU resource: last run is '+str(lrun.runnumber))

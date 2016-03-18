@@ -808,14 +808,16 @@ class HLTDLogIndex():
                 self.threadEvent.wait(2)
                 continue
 
-    def elasticize_log(self,type,severity,timestamp,msg):
+    def elasticize_log(self,type,severity,timestamp,run,msg):
         document= {}
         document['date']=int(time.time()*1000)
         document['host']=self.host
         document['type']=type
         document['severity']=severityStr[severity]
         document['severityVal']=severity
+        if isinstance(run,int): document['run']=run
         document['message']=''
+
         if len(msg):
 
             #filter cgi "error" messages
@@ -886,20 +888,42 @@ class HLTDLogParser(threading.Thread):
         self.msglevel = -1
         self.timestamp = None
         self.msg = []
+        self.runnr=None
 
     def parseEntry(self,level,line,openNew=True):
         if self.logOpen:
             #ship previous
             self.logOpen=False
-            self.esHandler.elasticize_log(self.type,self.msglevel,self.timestamp,self.msg)
+            self.esHandler.elasticize_log(self.type,self.msglevel,self.timestamp,self.runnr,self.msg)
 
         if openNew:
             begin = line.find(':')+1
             end = line.find(':')+20
-            msgbegin = line.find(':')+23
+            rmsgbegin = line.find(':')+23
+            msgbegin2 = line.find(':',rmsgbegin)
+
+            rmsgend = line.find('-',rmsgbegin)
+            if msgbegin2<0 or msgbegin2>rmsgend:
+                msgbegin=rmsgbegin
+                runstr=""
+            else:
+                msgbegin = rmsgend+2
+                runstr = line[rmsgbegin:rmsgend].strip()
+                self.runnr = int(runstr[3:])
+
             self.msglevel=level
             self.timestamp = line[begin:end]
             self.msg = [line[msgbegin:]]
+            if self.msg[0].startswith('RUN:'):
+              try:
+                rnend = self.msg[0].find(' ')
+                if rnend!=-1:
+                  runstr=self.msg[0][4:rnend].strip()
+                  self.runnr = int(runstr)
+                  #self.msg = self.msg[rnend+1:]
+              except:
+                 self.logger.warning('could not parse run number from msg'+self.msg)
+
             self.logOpen=True
             if len(self.timestamp)<=1:
                 self.logger.warning("Invalid timestamp "+str(self.timestamp))

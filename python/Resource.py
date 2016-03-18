@@ -74,17 +74,17 @@ class OnlineResource:
                 connection.request("GET",'cgi-bin/start_cgi.py?run='+str(runnumber))
                 response = connection.getresponse()
                 #do something intelligent with the response code
-                self.logger.error("response was "+str(response.status))
+                self.logger.info("response was "+str(response.status))
                 if response.status > 300: pass #self.hoststate = 1
                 else:
                     self.logger.info(response.read())
                 break
             except Exception as ex:
                 if attemptsLeft>0:
-                    self.logger.error(str(ex))
+                    self.logger.error('RUN:'+str(self.runnumber)+' '+str(ex))
                     self.logger.info('retrying connection to '+str(self.cpu[0]))
                 else:
-                    self.logger.error('Exhausted attempts to contact '+str(self.cpu[0]))
+                    self.logger.error('RUN:'+str(self.runnumber)+' exhausted attempts to contact '+str(self.cpu[0]))
                     self.logger.exception(ex)
 
     def NotifyShutdown(self):
@@ -278,7 +278,7 @@ class ProcessWatchdog(threading.Thread):
 
             if conf.dqm_machine==False and returncode==90 and inputdir_exists:
                 if not os.path.exists(os.path.join(self.inputdirpath,'hlt','HltConfig.py')):
-                    self.logger.error("input run dir exists, but " + str(os.path.join(self.inputdirpath,'hlt','HltConfig.py')) + " is not present (cmsRun exit code 90)")
+                    self.logger.error('RUN:'+str(self.resource.runnumber)+" input run dir exists, but " + str(os.path.join(self.inputdirpath,'hlt','HltConfig.py')) + " is not present (cmsRun exit code 90)")
                     configuration_reachable=False
 
             #cleanup actions- remove process from list and attempt restart on same resource
@@ -288,14 +288,13 @@ class ProcessWatchdog(threading.Thread):
                 self.resource.parent.num_errors+=1
 
                 if returncode < 0:
-                    self.logger.error("process "+str(pid)
-                              +" for run "+str(self.resource.runnumber)
+                    self.logger.error('RUN:' + str(self.resource.runnumber)+" process "+str(pid)
                               +" on resource(s) " + str(self.resource.cpu)
                               +" exited with signal "
                               +str(returncode) + ', retries left: '+str(self.retry_limit-self.resource.retry_attempts)
                               )
                 else:
-                    self.logger.error("process "+str(pid)
+                    self.logger.error('RUN:'+str(self.resource.runnumber)+" process "+str(pid)
                               +" for run "+str(self.resource.runnumber)
                               +" on resource(s) " + str(self.resource.cpu)
                               +" exited with code "
@@ -312,11 +311,11 @@ class ProcessWatchdog(threading.Thread):
                         self.logger.warning('for this type of error, restarting this process is disabled')
                         self.resource.retry_attempts=self.retry_limit
                     if returncode==127:
-                        self.logger.fatal('Exit code indicates that CMSSW environment might not be available (cmsRun executable not in path).')
+                        self.logger.fatal('RUN:'+str(self.resource.runnumber)+ 'exit code indicates that CMSSW environment might not be available (cmsRun executable not in path).')
                     elif returncode==90:
-                        self.logger.fatal('Exit code indicates that there might be a python error in the CMSSW configuration.')
+                        self.logger.fatal('RUN:'+str(self.resource.runnumber)+ 'exit code indicates that there might be a python error in the CMSSW configuration.')
                     else:
-                        self.logger.fatal('Exit code indicates that there might be a C/C++ error in the CMSSW configuration.')
+                        self.logger.fatal('RUN:'+str(self.resource.runnumber)+ 'exit code indicates that there might be a C/C++ error in the CMSSW configuration.')
 
                 #generate crashed pid json file like: run000001_ls0000_crash_pid12345.jsn
                 oldpid = "pid"+str(pid).zfill(5)

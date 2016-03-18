@@ -159,9 +159,13 @@ if __name__ == "__main__":
     procname.setprocname('elastic')
 
     conf=initConf()
+
+    try:run_str = ' : run'+sys.argv[1].zfill(conf.run_number_padding)
+    except:run_str = ''
+
     logging.basicConfig(filename=os.path.join(conf.log_dir,"elastic.log"),
                     level=conf.service_log_level,
-                    format='%(levelname)s:%(asctime)s - %(funcName)s - %(message)s',
+                    format='%(levelname)s:%(asctime)s'+run_str+' - %(funcName)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
     logger = logging.getLogger(os.path.basename(__file__))
 
@@ -174,9 +178,9 @@ if __name__ == "__main__":
 
     eventQueue = Queue.Queue()
 
-    dirname = sys.argv[1]
-    inmondir = sys.argv[2]
-    expected_processes = int(sys.argv[3])
+    dirname = sys.argv[2]
+    inmondir = sys.argv[3]
+    expected_processes = int(sys.argv[4])
     indexSuffix = conf.elastic_cluster
     update_modulo=conf.fastmon_insert_modulo
     rundirname = os.path.basename(os.path.normpath(dirname))

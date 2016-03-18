@@ -596,7 +596,10 @@ class elasticBoxCollectorBU():
                 except ValueError as ex:
                     self.logger.exception(ex)
                 except IOError as ex:
-                    self.logger.warning("IOError on reading "+event.fullpath)
+                    if isinstance(event,JsonEvent):
+                        self.logger.warning("IOError on reading JSON " + str(event.json) + ' ' + str(ex))
+                    else:
+                        self.logger.warning("IOError on reading "+event.fullpath +' '+ str(ex))
             else:
                 time.sleep(1.0)
         self.logger.info("elasticBoxCollectorBU: stop main loop")

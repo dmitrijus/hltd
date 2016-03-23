@@ -913,7 +913,8 @@ class LumiSectionHandler():
                             self.datfileList.remove(datfile)
                     if not foundDat and errEntry<self.totalEvent:
                         success = False
-                        destinationpath = os.path.join(self.outdir,outfile.run,outfile.stream,outfile.name+".dat")
+                        destinationpath = os.path.join(self.outdir,outfile.run,outfile.stream,"data",outfile.name+".dat")
+                        #destinationpath = os.path.join(self.outdir,outfile.run,outfile.stream,outfile.name+".dat")
                         try:
                             try:
                                 os.stat(os.path.join(self.tempdir,outfile.run,outfile.name+".dat")).st_size
@@ -921,9 +922,10 @@ class LumiSectionHandler():
                             except:
                                 pass
                             success = outfile.mergeDatInputs(destinationpath,conf.output_adler32)
+			    #os.rename(destinationpath_tmp,destinationpath)
                             outfile.writeout()
                             #test
-                            os.stat(os.path.join(self.outdir,outfile.run,outfile.stream,outfile.name+".dat")).st_size
+                            os.stat(destinationpath).st_size
                         except Exception as ex:
                             self.logger.fatal("Failed micro-merge: "+destinationpath)
                             self.logger.exception(ex)

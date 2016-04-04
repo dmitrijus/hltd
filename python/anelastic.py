@@ -636,7 +636,10 @@ class LumiSectionHandler():
             if not self.emptyLumiStreams:
                 self.emptyLumiStreams = ['Error']
                 #self.logger.info('empty lumisection detected for pid '+str(pid))
-                self.outputErrorStream()
+                if self.EOLS:
+                    self.outputErrorStream()
+                else:
+                    self.logger.info('Error stream output not created for empty lumi (' + str(ls) + ') streamError because no EoLS file was present')
 
             if not infile.data:
                 return False

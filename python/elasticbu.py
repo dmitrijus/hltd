@@ -366,6 +366,8 @@ class elasticBandBU:
             document['host']=basename
             try:document.pop('version')
             except:pass
+            try:document.pop('ip')
+            except:pass
             self.index_documents('boxinfo',[document],doc_id,bulk=False)
         except Exception as ex:
             self.logger.warning('box info not injected: '+str(ex))

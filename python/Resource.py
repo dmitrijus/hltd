@@ -33,7 +33,7 @@ class RunCommon:
 
 class OnlineResource:
 
-    def __init__(self,parent,resourcenames,resource_lock):
+    def __init__(self,parent,resourcenames,resource_lock,f_ip=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.parent = parent
         global conf
@@ -41,6 +41,7 @@ class OnlineResource:
         self.resInfo = parent.resInfo
         #self.hoststate = 0 #@@MO what is this used for?
         self.cpu = resourcenames
+        self.hostip = f_ip
         self.process = None
         self.processstate = None
         self.watchdog = None
@@ -70,7 +71,9 @@ class OnlineResource:
         while attemptsLeft>0:
             attemptsLeft-=1
             try:
-                connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)
+                if self.hostip: resaddr = self.hostip
+                else: resaddr = self.cpu[0]
+                connection = httplib.HTTPConnection(resaddr, conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)
                 connection.request("GET",'cgi-bin/start_cgi.py?run='+str(runnumber))
                 response = connection.getresponse()
                 #do something intelligent with the response code
@@ -89,7 +92,9 @@ class OnlineResource:
 
     def NotifyShutdown(self):
         try:
-            connection = httplib.HTTPConnection(self.cpu[0], conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
+            if self.hostip: resaddr = self.hostip
+            else: resaaddr = self.cpu[0]
+            connection = httplib.HTTPConnection(resaddr, conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
             connection.request("GET",'cgi-bin/stop_cgi.py?run='+str(self.runnumber))
             time.sleep(0.05)
             response = connection.getresponse()

@@ -199,12 +199,13 @@ class ResourceRanger:
             lrun = self.runList.getLastRun()
             newRes = None
             if lrun!=None:
-                if lrun.checkStaleResourceFile(event.fullpath):
+                is_stale,f_ip = lrun.checkStaleResourceFile(event.fullpath)
+                if is_stale:
                     self.logger.error("RUN:"+str(lrun.runnumber)+" notification: skipping resource "+basename+" which is stale")
                     self.resource_lock.release()
                     return
                 self.logger.info('Try attaching FU resource: last run is '+str(lrun.runnumber))
-                newRes = lrun.maybeNotifyNewRun(basename,resourceage)
+                newRes = lrun.maybeNotifyNewRun(basename,resourceage,f_ip)
             self.resource_lock.release()
             if newRes:
                 newRes.NotifyNewRun(lrun.runnumber)

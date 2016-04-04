@@ -7,6 +7,7 @@ import datetime
 import logging
 import psutil
 import struct
+import socket
 
 import getnifs
 from aUtils import ES_DIR_NAME
@@ -17,6 +18,12 @@ class system_monitor(threading.Thread):
     def __init__(self,confClass,stateInfo,resInfo,runList,mountMgr,boxInfo):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(self.__class__.__name__)
+        try:
+          self.hostip = socket.gethostbyname_ex(os.uname()[1])[2][0]
+        except Exception as ex:
+          #fallback:let BU query DNS
+          self.logger.warning('Unable to get IP address from DNS: ' + str(ex))
+          self.hostip = os.uname()[1]
         self.running = True
         self.hostname = os.uname()[1]
         self.directory = []
@@ -383,7 +390,8 @@ class system_monitor(threading.Thread):
                                 'activeRunStats':self.runList.getStateDoc(),
                                 'cloudState':cloud_state,
                                 'detectedStaleHandle':self.stale_flag,
-                                'version':self.boxInfo.boxdoc_version
+                                'version':self.boxInfo.boxdoc_version,
+                                'ip':self.hostip
                             }
                             with open(mfile,'w+') as fp:
                                 json.dump(boxdoc,fp,indent=True)

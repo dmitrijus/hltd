@@ -325,8 +325,8 @@ class Run:
                     return res.cpu
         return None
 
-    def ContactResource(self,resourcename):
-        self.online_resource_list.append(Resource.OnlineResource(self,resourcename,self.resource_lock))
+    def ContactResource(self,resourcename,f_ip):
+        self.online_resource_list.append(Resource.OnlineResource(self,resourcename,self.resource_lock,f_ip))
         #self.online_resource_list[-1].ping() #@@MO this is not doing anything useful, afaikt
 
     def ReleaseResource(self,res):
@@ -363,12 +363,14 @@ class Run:
 
         for cpu in dirlist:
             #skip self
+            f_ip = None
             if conf.role=='bu':
                 if cpu == os.uname()[1]:continue
                 if cpu in self.rr.boxInfo.machine_blacklist:
                     self.logger.info("skipping blacklisted resource "+str(cpu))
                     continue
-                if self.checkStaleResourceFile(os.path.join(res_dir,cpu)):
+                is_stale,f_ip = self.checkStaleResourceFileAndIP(os.path.join(res_dir,cpu)) 
+                if is_stale:
                     self.logger.error('RUN:'+str(self.runnumber)+" skipping stale resource "+str(cpu))
                     continue
 
@@ -385,28 +387,33 @@ class Run:
                     self.logger.info("found resource "+cpu+" which is "+str(age)+" seconds old")
                     if age < 10:
                         cpus = [cpu]
-                        self.ContactResource(cpus)
+                        self.ContactResource(cpus,f_ip)
             except Exception as ex:
                 self.logger.error('RUN:'+str(self.runnumber)+' encountered exception in acquiring resource '+str(cpu)+':'+str(ex))
         return True
         #self.lock.release()
 
-    def checkStaleResourceFile(self,resourcepath):
+    def checkStaleResourceFileAndIP(self,resourcepath):
+        f_ip=None
         try:
             with open(resourcepath,'r') as fi:
                 doc = json.load(fi)
+                try:f_ip = doc['ip']
+                except:pass
                 if doc['detectedStaleHandle']==True:
-                    return True
+                    return True,f_ip
         except:
             time.sleep(.05)
             try:
                 with open(resourcepath,'r') as fi:
                     doc = json.load(fi)
+                    try:f_ip = doc['ip']
+                    except:pass
                     if doc['detectedStaleHandle']==True:
-                        return True
+                        return True,f_ip
             except:
                 self.logger.warning('can not parse ' + str(resourcepath))
-        return False
+        return False,f_ip
 
     def CheckTemplate(self,run=None):
         if conf.role=='bu' and conf.use_elasticsearch and conf.update_es_template:
@@ -449,7 +456,7 @@ class Run:
             self.startElasticBUWatchdog()
             self.startCompletedChecker()
 
-    def maybeNotifyNewRun(self,resourcename,resourceage):
+    def maybeNotifyNewRun(self,resourcename,resourceage,f_ip):
         if conf.role=='fu':
             self.logger.fatal('RUN:'+str(self.runnumber)+' this function should *never* have been called when role == fu')
             return
@@ -473,7 +480,7 @@ class Run:
         age = current_time - resourceage
         self.logger.info("found resource "+resourcename+" which is "+str(age)+" seconds old")
         if age < 10:
-            self.ContactResource([resourcename])
+            self.ContactResource([resourcename],f_ip)
             return self.online_resource_list[-1]
         else:
             return None

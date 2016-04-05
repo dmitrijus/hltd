@@ -2,6 +2,10 @@ import os
 import subprocess
 import demote
 import prctl
+from signal import SIGINT,SIGKILL
+import logging
+
+conf = None
 
 def preexec_function():
     dem = demote.demote(conf.user)
@@ -9,22 +13,25 @@ def preexec_function():
     prctl.set_pdeathsig(SIGKILL)
  
 class BUEmu:
-    def __init__(self,conf,disklist):
+    def __init__(self,config,disklist):
         self.process=None
         self.runnumber = None
-        self.conf = conf
+        self.conf = config
+        global conf
+        conf = config
+
         self.disklist = disklist
 
     def startNewRun(self,nr):
         if self.runnumber:
-            logger.error("Another BU emulator run "+str(self.runnumber)+" is already ongoing")
+            logging.error("Another BU emulator run "+str(self.runnumber)+" is already ongoing")
             return
         self.runnumber = nr
         configtouse = conf.test_bu_config
         destination_base = None
         if conf.role == 'fu':
             startindex = 0
-            destination_base = disklist[startindex%len(self.disklist)]
+            destination_base = self.disklist[startindex%len(self.disklist)]
         else:
             destination_base = conf.watch_directory
 
@@ -54,8 +61,8 @@ class BUEmu:
                                             close_fds=True
                                             )
         except Exception as ex:
-            logger.error("Error in forking BU emulator process")
-            logger.exception(ex)
+            logging.error("Error in forking BU emulator process")
+            logging.exception(ex)
 
     def stop(self):
         os.kill(self.process.pid,SIGINT)

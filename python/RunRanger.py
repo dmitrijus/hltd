@@ -524,7 +524,7 @@ class RunRanger:
 
         elif dirname.startswith('include') and conf.role == 'fu':
             if not self.state.cloud_mode:
-                self.logger.error('received notification to exit from cloud but machine is not in cloud mode!')
+                self.logger.warning('received notification to exit from cloud but machine is not in cloud mode!')
                 if self.state.cloud_status():
                     self.logger.info('cloud scripts are running, trying to stop')
                     self.state.extinguish_cloud()

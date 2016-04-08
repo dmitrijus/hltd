@@ -526,8 +526,8 @@ class RunRanger:
             if not self.state.cloud_mode:
                 self.logger.warning('received notification to exit from cloud but machine is not in cloud mode!')
                 if self.state.cloud_status():
-                    self.logger.info('cloud scripts are running, trying to stop')
-                    self.state.extinguish_cloud()
+                    self.logger.info('cloud scripts are still running, trying to stop')
+                    returnstatus = self.state.extinguish_cloud(True)
                 os.remove(fullpath)
                 return
 
@@ -545,17 +545,26 @@ class RunRanger:
             #unlock before stopping cloud scripts
             self.resource_lock.release()
 
-            if not self.state.cloud_status():
+            #cloud is being switched off so we don't care if its running status is ok or not
+            if not self.state.cloud_status(reportExitCodeError=False):
                 self.logger.warning('received command to deactivate cloud, but external script reports that cloud is not running!')
 
             #stop cloud
-            self.state.extinguish_cloud()
+            returnstatus = self.state.extinguish_cloud(True)
+
+            retried=False
+            attempts=0
 
             while True:
                 last_status = self.state.cloud_status()
                 if last_status==1: #state: running
                     self.logger.info('cloud is still active')
                     time.sleep(1)
+                    attempts+=1
+                    if attempts%60==0 and not retried:
+                        self.logger.info('retrying cloud kill after 1 minute')
+                        returnstatus = self.state.extinguish_cloud(True)
+                        retried=True
                     continue
                 else:
                     if last_status>1:

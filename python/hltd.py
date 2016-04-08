@@ -151,15 +151,21 @@ class StateInfo:
                 logger.exception(ex)
         return False
 
-    def extinguish_cloud(self):
+    def extinguish_cloud(self,repeat=False):
         try:
             proc = subprocess.Popen([conf.cloud_igniter_path,'stop'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             out = proc.communicate()[0]
             if proc.returncode in [0,1]:
                 return True
             else:
-                logger.error("cloud igniter stop returned "+str(proc.returncode))
-                if len(out):logger.error(out)
+                if repeat: #retry once in case cloud script returns funny exit code
+                  logger.warning("cloud igniter stop returned with "+str(proc.returncode)+". retry once..")
+                  if len(out):logger.warning(out)
+                  time.sleep(.1)
+                  self.extinguish_cloud()
+                else:
+                  logger.error("cloud igniter stop returned with "+str(proc.returncode))
+                  if len(out):logger.error(out)
 
         except OSError as ex:
             if ex.errno==2:
@@ -169,13 +175,15 @@ class StateInfo:
                 logger.exception(ex)
         return False
 
-    def cloud_status(self):
+    def cloud_status(self,reportExitCodeError=True):
         try:
             proc = subprocess.Popen([conf.cloud_igniter_path,'status'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             out = proc.communicate()[0]
             if proc.returncode >1:
-                logger.error("cloud igniter status returned error code "+str(proc.returncode))
-                logger.error(out)
+                if reportExitCodeError:
+                    logger.error("cloud igniter status returned error code "+str(proc.returncode) + " output: "+str(out))
+                else:
+                    logger.warning("cloud igniter status returned error code "+str(proc.returncode) + " output: "+str(out))
         except OSError as ex:
             if ex.errno==2:
                 logger.warning(conf.cloud_igniter_path + ' is missing')

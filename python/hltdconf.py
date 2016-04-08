@@ -19,6 +19,7 @@ class hltdConf:
         self.elastic_cluster = None
         self.log_dir = "/var/log/hltd"
         self.es_local = ""
+        self.cloud_igniter_path = None
 
         for sec in cfg.sections():
             for item,value in cfg.items(sec):

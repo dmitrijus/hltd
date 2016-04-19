@@ -86,7 +86,7 @@ class system_monitor(threading.Thread):
                 p.wait()
                 std_out=p.stdout.read()
                 out = std_out.strip().split()
-                self.boot_id = out[2]+out[3]+out[4]
+                self.boot_id = out[2]+'-'+out[3]+'-'+out[4]
             except:
                 self.boot_id = "empty"
 
@@ -222,7 +222,7 @@ class system_monitor(threading.Thread):
                 tstring = datetime.datetime.utcfromtimestamp(time.time()).isoformat()
 
                 #update BU boot id if not set
-                if conf.role=='fu' and not self.mm.buBootid and len(self.directory): self.mm.buBootId = self.buBootIdFetch(self.directory[0])
+                if conf.role=='fu' and not self.mm.buBootId and len(self.directory): self.mm.buBootId = self.buBootIdFetch(self.directory[0])
 
                 ramdisk = None
                 if conf.role == 'bu':

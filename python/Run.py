@@ -748,9 +748,9 @@ class Run:
                     self.resource_lock.release()
                     result = self.state.ignite_cloud()
                     c_status = self.state.cloud_status()
-                    if c_status == 0:  self.logger.info("cloud is activated")
-                    elif c_status == 1:  self.logger.info("cloud is not activated")
-                    else:  self.logger.warning("cloud is in error state:"+str(c_status))
+                    if c_status == 0:  self.logger.warning("igniter status : cloud is NOT active (hltd will remain in cloud-on state until it is included back in HLT)")
+                    elif c_status == 1:  self.logger.info("igniter status : cloud has been activated")
+                    else:  self.logger.warning("cloud is in error state:" + str(c_status))
 
         except Exception as ex:
             self.logger.error('RUN:'+str(self.runnumber)+" exception encountered in ending run")

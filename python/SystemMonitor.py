@@ -82,11 +82,9 @@ class system_monitor(threading.Thread):
 
             #find boot time so that machine reboot can be detected through the mount point
             try:
-                p = subprocess.Popen("who -b", shell=True, stdout=subprocess.PIPE)
+                p = subprocess.Popen("/usr/bin/stat -c %z /proc/", shell=True, stdout=subprocess.PIPE)
                 p.wait()
-                std_out=p.stdout.read()
-                out = std_out.strip().split()
-                self.boot_id = out[2]+'-'+out[3]+'-'+out[4]
+                self.boot_id = p.stdout.read().strip('\n')
             except:
                 self.boot_id = "empty"
 

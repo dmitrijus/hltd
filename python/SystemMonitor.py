@@ -44,9 +44,7 @@ class system_monitor(threading.Thread):
         global conf
         conf = confClass
         self.indexCreator = None #placeholder
-        #self.rehash()
-        #if conf.mount_control_path:
-        #    self.startStatNFS()
+
         #start direct injection into central index (fu role)
         if conf.use_elasticsearch == True:
             self.found_data_interfaces=False
@@ -72,6 +70,7 @@ class system_monitor(threading.Thread):
                 if len(self.mm.bu_disk_list_ramdisk_instance):
                     self.directory = [os.path.join(self.mm.bu_disk_list_ramdisk_instance[0],'appliance','boxes')]
             self.check_file = [os.path.join(x,self.hostname) for x in self.check_directory]
+
         else:
             self.directory = [os.path.join(conf.watch_directory,'appliance/boxes/')]
             try:
@@ -80,6 +79,16 @@ class system_monitor(threading.Thread):
                     os.makedirs(self.directory[0])
             except OSError:
                 pass
+
+            #find boot time so that machine reboot can be detected through the mount point
+            try:
+                p = subprocess.Popen("who -b", shell=True, stdout=subprocess.PIPE)
+                p.wait()
+                std_out=p.stdout.read()
+                out = std_out.strip().split()
+                self.boot_id = out[2]+out[3]+out[4]
+            except:
+                self.boot_id = "empty"
 
         self.file = [os.path.join(x,self.hostname) for x in self.directory]
 
@@ -122,6 +131,9 @@ class system_monitor(threading.Thread):
                 if ex.errno == 116:
                     if fu_stale_counter==0 or fu_stale_counter%500==0:
                         self.logger.fatal('detected stale file handle: '+str(disk))
+                        #if BU boot id not same, trigger local suspend (suspend0) mechanism which will perform remount
+                        if not self.buBootIdCheck():
+                            with open(os.path.join(conf.watch_directory,'suspend0'),'w'):pass
                 else:
                     self.logger.warning('stat mountpoint ' + str(disk) + ' caught Error: '+str(ex))
                 fu_stale_counter+=1
@@ -169,6 +181,30 @@ class system_monitor(threading.Thread):
             if not conf.mount_control_path:
                 return
 
+    def buBootIdCheck(self):
+       #skip duplicate check
+       if self.mm.stale_handle_remount_required or self.state.suspended: return
+       if conf.role=='fu' and len(self.directory):
+           if not self.mm.buBootId:
+               self.mm.buBootId = self.buBootIdFetch(self.directory[0])
+           elif self.mm.buBootId:
+               id_check =  self.buBootIdFetch(self.directory[0])
+               if id_check != self.mm.buBootId: #check if there is new boot timestamp
+                   self.mm.stale_handle_remount_required = True
+                   return False
+       return True
+
+    def buBootIdFetch(self,buboxdir):
+        try:
+          for bf in os.listdir(buboxdir):
+            if bf.startswith('bu-') or bf.startswith('dvbu-'):
+              with open(os.path.join(buboxdir,bf),'r') as fp:
+                return json.load(fp)['boot_id']
+              break
+        except Exception as ex:
+          self.logger.warning('unable to read BU boot_id: '+str(ex))
+        return None
+
     def run(self):
         try:
             self.logger.debug('entered system monitor thread ')
@@ -184,6 +220,9 @@ class system_monitor(threading.Thread):
                 counter=counter%5
                 if self.state.suspended: continue
                 tstring = datetime.datetime.utcfromtimestamp(time.time()).isoformat()
+
+                #update BU boot id if not set
+                if conf.role=='fu' and not self.mm.buBootid and len(self.directory): self.mm.buBootId = self.buBootIdFetch(self.directory[0])
 
                 ramdisk = None
                 if conf.role == 'bu':
@@ -220,6 +259,12 @@ class system_monitor(threading.Thread):
 
                     current_time = time.time()
                     stale_machines = []
+
+                    #counters used to calculate if all FUs are in cloud (or switching to cloud)
+                    #stale FUs are not used in calculation
+                    reporting_fus = 0
+                    reporting_fus_cloud = 0
+
                     try:
                         current_runnumber = self.runList.getLastRun().runnumber
                     except:
@@ -257,9 +302,12 @@ class system_monitor(threading.Thread):
                                 resource_count_broken+=edata['broken']
                                 resource_count_quarantined+=edata['quarantined']
 
+                                reporting_fus+=1
                                 #active resources reported to BU if cloud state is off
                                 if edata['cloudState'] == "off":
                                     active_res+=active_addition
+                                else:
+                                    reporting_fus_cloud+=1
 
                             cloud_count+=edata['cloud']
                             fu_data_alarm = edata['fuDataAlarm'] or fu_data_alarm
@@ -291,6 +339,9 @@ class system_monitor(threading.Thread):
                                     maxcmsswls = int(edata['activeRunCMSSWMaxLS'])
                                     if maxcmsswls>activeRunCMSSWMaxLumi:activeRunCMSSWMaxLumi=maxcmsswls
                             except:pass
+                    #signal BU to stop requesting if all FUs switch to cloud. This will coincide with active_resources being reported as 0
+                    #flag is disabled if there are no non-stale FUs
+                    bu_stop_requests_flag=True if reporting_fus>0 and reporting_fus_cloud==reporting_fus else False
                     res_doc = {
                                 "active_resources":active_res,
                                 "active_resources_activeRun":resource_count_activeRun,
@@ -306,7 +357,8 @@ class system_monitor(threading.Thread):
                                 "activeRunNumQueuedLS":activeRunQueuedLumisNum,
                                 "activeRunCMSSWMaxLS":activeRunCMSSWMaxLumi,
                                 "ramdisk_occupancy":ramdisk_occ,
-                                "fuDiskspaceAlarm":fu_data_alarm
+                                "fuDiskspaceAlarm":fu_data_alarm,
+                                "bu_stop_requests_flag":bu_stop_requests_flag
                               }
                     with open(res_path_temp,'w') as fp:
                         json.dump(res_doc,fp,indent=True)
@@ -420,7 +472,8 @@ class system_monitor(threading.Thread):
                             'usedOutput':((outdir.f_blocks - outdir.f_bavail)*outdir.f_bsize)>>20,
                             'totalOutput':(outdir.f_blocks*outdir.f_bsize)>>20,
                             'activeRuns':self.runList.getActiveRunNumbers(),
-                            "version":self.boxInfo.boxdoc_version
+                            "version":self.boxInfo.boxdoc_version,
+                            "boot_id":self.boot_id
                         }
                         with open(mfile,'w+') as fp:
                             json.dump(boxdoc,fp,indent=True)

@@ -179,7 +179,7 @@ class StateInfo:
         try:
             proc = subprocess.Popen([conf.cloud_igniter_path,'status'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             out = proc.communicate()[0]
-            if proc.returncode >1:
+            if proc.returncode >1 and proc.returncode != 14:
                 if reportExitCodeError:
                     logger.error("cloud igniter status returned error code "+str(proc.returncode) + " output: "+str(out))
                 else:

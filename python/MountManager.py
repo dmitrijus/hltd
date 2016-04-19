@@ -25,12 +25,15 @@ class MountManager:
         self.reset()
 
     def reset(self):
+        #self.bu_addr_parsed = None
         self.bu_disk_list_ramdisk = []
         self.bu_disk_list_output = []
         self.bu_disk_list_ramdisk_instance = []
         self.bu_disk_list_output_instance = []
         self.bu_disk_ramdisk_CI=None
         self.bu_disk_ramdisk_CI_instance=None
+        self.buBootId=None
+        self.stale_handle_remount_required=False
 
     def umount_helper(self,point,nsslock,attemptsLeft=3,initial=True):
 
@@ -202,6 +205,7 @@ class MountManager:
 
 
             busconfig_age = os.path.getmtime(bus_config)
+            #self.bu_addr_parsed = None
             for line in lines:
                 self.logger.info("found BU to mount at "+line.strip())
                 try:
@@ -233,6 +237,8 @@ class MountManager:
                             return self.cleanup_mountpoints(nsslock,remount)
                         attemptsLeft=8
                         #sys.exit(1)
+                #try:self.bu_addr_parsed = line.strip().split('.')[0]
+                #except:pass
                 if True:
                     self.logger.info("trying to mount "+line.strip()+':/fff/'+self.conf.ramdisk_subdirectory+' '+os.path.join('/'+self.conf.bu_base_dir+str(i),self.conf.ramdisk_subdirectory))
                     try:

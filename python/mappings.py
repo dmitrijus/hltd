@@ -444,7 +444,8 @@ central_boxinfo_mapping = {
               "pending_resources" :          { "type" : "integer" },
               "ramdisk_occupancy" :          { "type" : "float" },
               "stale_resources" :            { "type" : "integer" },
-              "used" :                       { "type" : "integer" }
+              "used" :                       { "type" : "integer" },
+              "bu_stop_requests_flag":       { "type" : "boolean" }
               },
             '_timestamp' : {
               'enabled'   : "true"

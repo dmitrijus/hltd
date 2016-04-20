@@ -160,12 +160,12 @@ if __name__ == "__main__":
 
     conf=initConf()
 
-    try:run_str = ' : run'+sys.argv[1].zfill(conf.run_number_padding)
+    try:run_str = ' - RUN:'+sys.argv[1].zfill(conf.run_number_padding)
     except:run_str = ''
 
     logging.basicConfig(filename=os.path.join(conf.log_dir,"elastic.log"),
                     level=conf.service_log_level,
-                    format='%(levelname)s:%(asctime)s'+run_str+' - %(funcName)s - %(message)s',
+                    format='%(levelname)s:%(asctime)s - %(funcName)s'+run_str+' - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
     logger = logging.getLogger(os.path.basename(__file__))
 

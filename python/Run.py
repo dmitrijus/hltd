@@ -175,7 +175,7 @@ class Run:
                     if not os.path.exists(bu_dir):
                         self.logger.info("FFF parameter or HLT menu files not found in ramdisk - BU run directory is gone")
                     else:
-                        self.logger.error('RUN:'+str(self.runnumber) + " FFF parameter or HLT menu files not found in ramdisk")
+                        self.logger.error('RUN:'+str(self.runnumber) + " - FFF parameter or HLT menu files not found in ramdisk")
                     break
             readMenuAttempts+=1
             time.sleep(.1)
@@ -209,11 +209,11 @@ class Run:
                 os.stat(self.rawinputdir)
                 self.inputdir_exists = True
             except Exception, ex:
-                self.logger.error('RUN:'+str(self.runnumber)+" failed to stat "+self.rawinputdir)
+                self.logger.error('RUN:'+str(self.runnumber)+" - failed to stat "+self.rawinputdir)
             try:
                 os.mkdir(self.rawinputdir+'/mon')
             except Exception, ex:
-                self.logger.error('RUN:'+str(self.runnumber)+" could not create mon dir inside the run input directory")
+                self.logger.error('RUN:'+str(self.runnumber)+" - could not create mon dir inside the run input directory")
         else:
             self.rawinputdir= os.path.join(self.mm.bu_disk_list_ramdisk_instance[0],'run' + str(self.runnumber).zfill(conf.run_number_padding))
 
@@ -244,7 +244,7 @@ class Run:
                                                         close_fds=True
                                                         )
             except OSError as ex:
-                self.logger.error('RUN:'+str(self.runnumber)+" failed to start elasticsearch client")
+                self.logger.error('RUN:'+str(self.runnumber)+" - failed to start elasticsearch client")
                 self.logger.error(ex)
             try:self.nsslock.release()
             except:pass
@@ -257,7 +257,7 @@ class Run:
                                                     close_fds=True
                                                     )
             except OSError as ex:
-                self.logger.fatal('RUN:'+str(self.runnumber)+" failed to start anelastic.py client:")
+                self.logger.fatal('RUN:'+str(self.runnumber)+" - failed to start anelastic.py client:")
                 self.logger.exception(ex)
                 sys.exit(1)
 
@@ -354,12 +354,12 @@ class Run:
                 time.sleep(0.05)
                 attempts-=1
                 if attempts<=0:
-                    self.logger.error('RUN:'+str(self.runnumber)+' timeout waiting for directory '+ bldir)
+                    self.logger.error('RUN:'+str(self.runnumber)+' - timeout waiting for directory '+ bldir)
                     break
             if os.path.exists(blpath):
                 update_success,self.rr.boxInfo.machine_blacklist=updateBlacklist(conf,self.logger,blpath)
             else:
-                self.logger.error('RUN:'+str(self.runnumber)+" unable to find blacklist file in "+bldir)
+                self.logger.error('RUN:'+str(self.runnumber)+" - unable to find blacklist file in "+bldir)
 
         for cpu in dirlist:
             #skip self
@@ -371,7 +371,7 @@ class Run:
                     continue
                 is_stale,f_ip = self.checkStaleResourceFileAndIP(os.path.join(res_dir,cpu)) 
                 if is_stale:
-                    self.logger.error('RUN:'+str(self.runnumber)+" skipping stale resource "+str(cpu))
+                    self.logger.error('RUN:'+str(self.runnumber)+" - skipping stale resource "+str(cpu))
                     continue
 
             count = count+1
@@ -389,7 +389,7 @@ class Run:
                         cpus = [cpu]
                         self.ContactResource(cpus,f_ip)
             except Exception as ex:
-                self.logger.error('RUN:'+str(self.runnumber)+' encountered exception in acquiring resource '+str(cpu)+':'+str(ex))
+                self.logger.error('RUN:'+str(self.runnumber)+' - encountered exception in acquiring resource '+str(cpu)+':'+str(ex))
         return True
         #self.lock.release()
 
@@ -423,7 +423,7 @@ class Run:
                 new_index_name = 'run'+str(self.runnumber)+'_'+conf.elastic_cluster
                 setupES(es_server_url='http://'+conf.es_local+':9200',forceReplicas=conf.force_replicas,forceShards=conf.force_shards,create_index_name=new_index_name,subsystem=conf.elastic_runindex_name)
             except Exception as ex:
-                self.logger.error('RUN:'+str(self.runnumber)+" unable to check run appliance template:"+str(ex))
+                self.logger.error('RUN:'+str(self.runnumber)+" - unable to check run appliance template:"+str(ex))
 
     def Start(self):
         self.is_ongoing_run = True
@@ -458,7 +458,7 @@ class Run:
 
     def maybeNotifyNewRun(self,resourcename,resourceage,f_ip):
         if conf.role=='fu':
-            self.logger.fatal('RUN:'+str(self.runnumber)+' this function should *never* have been called when role == fu')
+            self.logger.fatal('RUN:'+str(self.runnumber)+' - this function should *never* have been called when role == fu')
             return
 
         if self.rawinputdir != None:
@@ -471,7 +471,7 @@ class Run:
 
         for resource in self.online_resource_list:
             if resourcename in resource.cpu:
-                self.logger.error('RUN:'+str(self.runnumber)+' resource '+str(resource.cpu)+' was already processing run. Will not participate in this run.')
+                self.logger.error('RUN:'+str(self.runnumber)+' - resource '+str(resource.cpu)+' was already processing run. Will not participate in this run.')
                 return None
             if resourcename in self.rr.boxInfo.machine_blacklist:
                 self.logger.info("skipping blacklisted resource "+str(resource.cpu))
@@ -509,7 +509,7 @@ class Run:
                 bu_eols_files = filter(lambda x: x.endswith("_EoLS.jsn"),os.listdir(self.rawinputdir))
                 bu_lumis = (sorted([int(x.split('_')[1][2:]) for x in bu_eols_files]))
             except:
-                self.logger.error('RUN:'+str(self.runnumber)+" unable to parse BU EoLS files")
+                self.logger.error('RUN:'+str(self.runnumber)+" - unable to parse BU EoLS files")
             ls_delay=3
             if len(bu_lumis):
                 self.logger.info('last closed lumisection in ramdisk is '+str(bu_lumis[-1])+', requesting to close at LS '+ str(bu_lumis[-1]+ls_delay))
@@ -753,7 +753,7 @@ class Run:
                     else:  self.logger.warning("cloud is in error state:" + str(c_status))
 
         except Exception as ex:
-            self.logger.error('RUN:'+str(self.runnumber)+" exception encountered in ending run")
+            self.logger.error('RUN:'+str(self.runnumber)+" - exception encountered in ending run")
             self.logger.exception(ex)
         try:self.resource_lock.release()
         except:pass
@@ -765,7 +765,7 @@ class Run:
             fp = open(self.dirname+'/'+marker,'w+')
             fp.close()
         else:
-            self.logger.error('RUN:'+str(self.runnumber)+" there are more than one markers for run ")
+            self.logger.error('RUN:'+str(self.runnumber)+" - there are more than one markers for run ")
             return
 
     def checkQuarantinedLimit(self):
@@ -823,7 +823,7 @@ class Run:
             self.completedChecker = threading.Thread(target=self.runCompletedChecker)
             self.completedChecker.start()
         except Exception,ex:
-            self.logger.error('RUN:'+str(self.runnumber)+' failure to start run completion checker')
+            self.logger.error('RUN:'+str(self.runnumber)+' - failure to start run completion checker')
             self.logger.exception(ex)
 
     def runCompletedChecker(self):

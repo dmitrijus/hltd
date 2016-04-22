@@ -175,6 +175,14 @@ class StateInfo:
                 logger.exception(ex)
         return False
 
+    def cloud_script_available(self):
+        try:
+            os.stat(conf.cloud_igniter_path)
+            return True
+        except:
+            return False
+
+
     def cloud_status(self,reportExitCodeError=True):
         try:
             proc = subprocess.Popen([conf.cloud_igniter_path,'status'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
@@ -315,18 +323,25 @@ class hltd(Daemon2,object):
             mount points depend on configuration which may be updated (by runcontrol)
             (notice that hltd does not NEED to be restarted since it is watching the file all the time)
             """
-
             #switch to cloud mode if active, but hltd did not have cores in cloud directory in the last session
-            if not res_in_cloud and state.cloud_status() == 1:
-                    logger.warning("cloud is on on this host at hltd startup, switching to cloud mode")
-                    resInfo.move_resources_to_cloud()
-                    state.cloud_mode=True
-
+            if not res_in_cloud and state.cloud_script_available():
+                    cl_status = state.cloud_status()
+                    cnt = 5
+                    while not (cl_status == 1 or cl_status == 0) and cnt>0:
+                      time.sleep(1)
+                      cnt-=1
+                      cl_status = state.cloud_status()
+                    if cl_status >0:
+                        if cl_status > 1:
+                            logger.error('cloud status script returns error exit code (status:'+str(cl_status)+') after 5 attempts. HLT mode disabled')
+                        else:
+                            logger.warning("cloud is on on this host at hltd startup, switching to cloud mode")
+                        resInfo.move_resources_to_cloud()
+                        state.cloud_mode=True
 
             if conf.watch_directory.startswith('/fff/'):
                 p = subprocess.Popen("rm -rf " + conf.watch_directory+'/*',shell=True)
                 p.wait()
-
 
             if not mm.cleanup_mountpoints(nsslock):
                 logger.fatal("error mounting - terminating service")

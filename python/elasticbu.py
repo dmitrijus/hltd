@@ -468,13 +468,14 @@ class elasticBandBU:
 
 class elasticCollectorBU():
 
-    def __init__(self, es, inRunDir):
+    def __init__(self, es, inRunDir, outRunDir):
         self.logger = logging.getLogger(self.__class__.__name__)
 
 
         self.insertedModuleLegend = False
         self.insertedPathLegend = False
         self.inRunDir=inRunDir
+        self.outRunDir=outRunDir
 
         self.stoprequest = threading.Event()
         self.emptyQueue = threading.Event()
@@ -499,6 +500,13 @@ class elasticCollectorBU():
                     self.infile = fileHandler(event.fullpath)
                     self.emptyQueue.clear()
                     if self.infile.filetype==EOR:
+                        #check if event content is 0 and create output dir (triggers deletion in case of no FUs available)
+                        try:
+                            with open(event.fullpath,'r') as feor:
+                              if int(json.load(feor)['data'][0])==0:
+                                  self.makeOutputDir()
+                        except Exception as ex:
+                            self.logger.warning('unable to parse EoR file content '+str(ex))
                         if self.es:
                             try:
                                 dt=os.path.getctime(event.fullpath)
@@ -531,6 +539,13 @@ class elasticCollectorBU():
                     break
         self.logger.info("Stop main loop (watching directory " + str(self.inRunDir) + ")")
 
+    def makeOutputDir(self):
+        try:
+            os.mkdir(self.outRunDir)
+            os.chmod(self.outRunDir,0777)
+        except:
+            #this is opportunistic, will fail in normal conditions fail
+            pass
 
     def setSource(self,source):
         self.source = source
@@ -780,6 +795,7 @@ if __name__ == "__main__":
     runnumber = sys.argv[1]
     watchdir = conf.watch_directory
     mainDir = os.path.join(watchdir,'run'+ runnumber.zfill(conf.run_number_padding))
+    mainOutDir = os.path.join('/fff/output','run'+ runnumber.zfill(conf.run_number_padding))
     dt=os.path.getctime(mainDir)
     startTime = datetime.datetime.utcfromtimestamp(dt).isoformat()
     #EoR file path to watch for
@@ -811,7 +827,7 @@ if __name__ == "__main__":
         es = elasticBandBU(conf,runnumber,startTime)
 
         #starting elasticCollector thread
-        ec = elasticCollectorBU(es,mainDir)
+        ec = elasticCollectorBU(es,mainDir,mainOutDir)
         ec.setSource(eventQueue)
         ec.start()
 

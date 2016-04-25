@@ -161,7 +161,7 @@ cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta.spec <<EOF
 Name: $PACKAGENAME
-Version: 1.9.4
+Version: 1.9.5
 Release: 0
 Summary: hlt daemon
 License: gpl
@@ -171,7 +171,7 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires: hltd >= 1.9.0, cx_Oracle >= 5.1.2
+Requires: hltd >= 1.9.4, cx_Oracle >= 5.1.2
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/dbcheck.sh

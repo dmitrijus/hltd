@@ -19,7 +19,6 @@ UNKNOWN,OUTPUTJSD,DEFINITION,STREAM,INDEX,FAST,SLOW,OUTPUT,STREAMERR,STREAMDQMHI
 TO_ELASTICIZE = [STREAM,INDEX,OUTPUT,STREAMERR,STREAMDQMHISTOUTPUT,EOLS,EOR,COMPLETE,FLUSH]
 TEMPEXT = ".recv"
 STREAMERRORNAME = 'streamError'
-STREAMDQMHISTNAME = 'streamDQMHistograms'
 THISHOST = os.uname()[1]
 
 jsdCache = {}
@@ -249,7 +248,6 @@ class fileHandler(object):
                 elif "_BOLS" in name: return BOLS
                 elif "_EOR" in name: return EOR
         if ext==".jsn":
-            if STREAMDQMHISTNAME.upper() in name and "_PID" not in name: return STREAMDQMHISTOUTPUT
             if "_STREAM" in name and "_PID" not in name: return OUTPUT
             if name.startswith("QUEUE_STATUS"): return QSTATUS
             if name.startswith("SLOWMONI"): return SLOW
@@ -677,7 +675,7 @@ class fileHandler(object):
         self.data["source"] = host
 
         self.inputs.append(infile)
-
+        pbOutput = False
         if self.filetype!=STREAMDQMHISTOUTPUT:
             #append list of files if this is json metadata stream
             try:
@@ -689,10 +687,16 @@ class fileHandler(object):
                             self.inputData.append(os.path.join(self.dir,l))
                         else:
                             self.inputData.append(l)
+                    elif l.endswith('.pb'):
+                      pbOuutput=True
             except Exception as ex:
                 self.logger.exception(ex)
                 pass
             self.writeout()
+
+        #detect streams with pb files as DQM Histogram streams and change outfile type
+        if pbOutput:
+          self.filetype = STREAMDQMHISTOUTPUT
 
     def updateData(self,infile):
         self.data["data"]=infile.data["data"][:]

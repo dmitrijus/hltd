@@ -313,16 +313,6 @@ class LumiSectionRanger:
         localdir,name,ext,filepath = infile.dir,infile.name,infile.ext,infile.filepath
         run,ls,stream = infile.run,infile.ls,infile.stream
 
-        #start DQM merger thread
-        if STREAMDQMHISTNAME.upper() in stream.upper():
-            if self.dqmHandler is None:
-                self.logger.info('DQM histogram ini file: starting DQM merger...')
-                self.dqmHandler = DQMMerger(self.dqmQueue,self.tempdir)
-                if not self.dqmHandler.active:
-                    self.dqmHandler = None
-                    self.logger.error('Failed to start DQM merging thread. Histogram stream will be ignored in this run.')
-                    return
-
         #calc generic local ini path
         filename = "_".join([run,ls,stream,host])+ext
         localfilepath = os.path.join(localdir,filename)
@@ -517,6 +507,16 @@ class LumiSectionRanger:
         with open(bols_path,"w") as fi:
             self.logger.info("Created missing BoLS file "+bols_path)
 
+    def startDQMHandlerMaybe(self):
+        if self.dqmHandler is None:
+            self.logger.info('DQM histogram ini file: starting DQM merger...')
+            self.dqmHandler = DQMMerger(self.dqmQueue,self.tempdir,self.source)
+            if not self.dqmHandler.active:
+                self.dqmHandler = None
+                self.logger.error('Failed to start DQM merging thread. Histogram stream will be ignored in this run.')
+                return False
+        return True
+
 
 
 
@@ -604,17 +604,6 @@ class LumiSectionHandler():
         infile = self.infile
         ls,stream,pid = infile.ls,infile.stream,infile.pid
         outdir = self.outdir
-
-        #fastHadd was not detected, delete files from histogram stream
-        if stream=="streamDQMHistograms" and self.parent.dqmHandler is None:
-            self.logger.info(self.infile.basename)
-            self.logger.warning("streamDQMHistograms merging not available")
-            try:
-                (filestem,ext)=os.path.splitext(infile.filepath)
-                os.remove(filestem + '.pb')
-                infile.deleteFile(silent=True)
-            except:pass
-            return True
 
         if pid not in self.pidList:
             processed = infile.getFieldByName("Processed")
@@ -705,11 +694,8 @@ class LumiSectionHandler():
             try:
                 if stream not in self.pidList[pid]["streamList"]: self.pidList[pid]["streamList"].append(stream)
             except KeyError as ex:
-                #this case can be ignored for DQM stream (missing fastHadd)
-                if STREAMDQMHISTNAME.upper() not in stream.upper():
-                    self.logger.exception(ex)
-                    raise ex
-                return True
+                self.logger.exception(ex)
+                raise ex
 
             #update output files
             outfile = next((outfile for outfile in self.outfileList if outfile.stream == stream),False)
@@ -842,7 +828,9 @@ class LumiSectionHandler():
                     if outfile.mergeStage==0:
                         #give to the merging thread
                         outfile.mergeStage+=1
-                        self.parent.dqmQueue.put(outfile)
+                        outfile.lsHandler = self
+                        if self.parent.startDQMHandlerMaybe():
+                          self.parent.dqmQueue.put(outfile)
                         continue
                     elif outfile.mergeStage==1:
                         #still merging
@@ -1015,9 +1003,14 @@ class LumiSectionHandler():
         except: logging.exception("unable to write to " %self.EOLS.filepath)
 
 
+class FileEvent:
+    def __init__(self,fullpath):
+        self.eventtype = None
+        self.fullpath = fullpath
+
 class DQMMerger(threading.Thread):
 
-    def __init__(self,queue,outDir):
+    def __init__(self,queue,outDir,source):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.dqmQueue = queue
@@ -1025,6 +1018,7 @@ class DQMMerger(threading.Thread):
         self.abort = False
         self.active=False
         self.finish=False
+        self.source=source
         try:
             mergeEnabled = True
             p = subprocess.Popen('fastHadd',shell=True,stdout=subprocess.PIPE)
@@ -1042,12 +1036,14 @@ class DQMMerger(threading.Thread):
             self.logger.info('fastHadd binary tested successfully')
         self.start()
         self.active=True
-
+ 
     def run(self):
         while self.abort == False:
             try:
                 dqmJson = self.dqmQueue.get(True,0.5)
                 dqmJson.mergeDQM(self.outDir)
+                #inject into main queue so that it gets closed (todo: think of special type that will
+                self.source.put(FileEvent(dqmJson.fullpath))
             except Queue.Empty as e:
                 if self.finish:break
                 continue

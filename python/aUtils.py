@@ -416,11 +416,19 @@ class fileHandler(object):
         newpath_tmp = newpath+'_'+THISHOST+TEMPEXT
         while True:
             try:
-                if not os.path.isdir(newdir):
+                #few attempts at creating destination directory 
+                dir_missing_attempts=5
+                while not os.path.isdir(newdir):
+                    dir_missing_attempts-=1
+                    if dir_missing_attempts>=0 and createDestinationDir==False:
+                        continue
                     if createDestinationDir==False:
                         if silent==False and missingDirAlert==True:
                             self.logger.error("Unable to transport file "+str(oldpath)+". Destination directory does not exist: " + str(newdir))
                         return False,checksum
+                    elif dir_missing_attempts<0:
+                            self.logger.error("Unable to make directory "+str(newdir))
+                            return False,checksum
                     try:
                         os.makedirs(newdir)
                     except:
@@ -731,7 +739,8 @@ class fileHandler(object):
                     self.setFieldByName("FileAdler32","-1")
                     self.writeout()
                     jsndatFile = fileHandler(outfile)
-                    jsndatFile.moveFile(os.path.join(outDir, os.path.basename(outfile)),adler32=False,createDestinationDir=False)
+                    result,cs = jsndatFile.moveFile(os.path.join(outDir, os.path.basename(outfile)),adler32=False,createDestinationDir=False)
+                    if not result: return False
                 except Exception as ex:
                     self.logger.error("Unable to copy jsonStream data file "+str(outfile)+" to output.")
                     self.logger.exception(ex)

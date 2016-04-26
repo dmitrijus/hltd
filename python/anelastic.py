@@ -294,7 +294,7 @@ class LumiSectionRanger:
             self.errIniFile.set()
 
         #'touch' empty Error INI file stream for monitoring
-        localmonfilepath = os.path.join(self.infile.dir,'mon',filename)
+        localmonfilepath = os.path.join(self.tempdir,'mon',filename)
         if not os.path.exists(localmonfilepath):
             try:
                 with open(localmonfilepath,'w') as fp:
@@ -844,11 +844,8 @@ class LumiSectionHandler():
 
                 #move all dat files in rundir
                 datfilelist = self.datfileList[:]
-                #no dat files in case of json data stream'
-                if outfile.isJsonDataStream()==False:
-                    foundDat=False
 
-                    def writeoutError(fobj,targetpath):
+                def writeoutError(fobj,targetpath,removeOutput=True):
                         procevts = int(fobj.getFieldByName("Processed"))
                         errevts = int(fobj.getFieldByName("ErrorEvents"))
                         fobj.setFieldByName("Processed","0")
@@ -860,6 +857,10 @@ class LumiSectionHandler():
                         fobj.writeout()
                         try:os.remove(targetpath)
                         except:pass
+
+                #no dat files in case of json data stream'
+                if outfile.isJsonDataStream()==False:
+                    foundDat=False
 
                     for datfile in datfilelist:
                         if datfile.stream == stream:
@@ -928,12 +929,15 @@ class LumiSectionHandler():
                 #move output json file in rundir
                 newfilepath = os.path.join(self.outdir,outfile.run,outfile.stream,'jsns',outfile.basename)
 
-                #do not copy data if this is jsn data stream and json merging fails
-                if outfile.mergeAndMoveJsnDataMaybe(os.path.join(self.outdir,outfile.run,outfile.stream,'data'))==False:return
+                #fill JSON with error event info if merging is failing for special streams
+                if not outfile.mergeAndMoveJsnDataMaybe(os.path.join(self.outdir,outfile.run,outfile.stream,'data')):
+                    self.logger.error('jsndata stream merging failed. Assigning as error events')
+                    writeoutError(outfile,'',False)
 
                 result,checksum=outfile.moveFile(newfilepath,copy=True,createDestinationDir=False,updateFileInfo=False)
-                if result:
-                    self.outfileList.remove(outfile)
+                if not result:
+                    writeoutError(outfile,'',False)
+                self.outfileList.remove(outfile) #is completed
                 outfile.esCopy(keepmtime=False)
                 outfile.deleteFile(silent=True)
 
@@ -987,7 +991,8 @@ class LumiSectionHandler():
             time.sleep(0.1)
             try:open(bols_path,'a').close()
             except:
-                self.logger.warning('unable to create BoLS file for '+ self.ls)
+                self.logger.warning('unable to create BoLS file for '+ self.ls + ' and stream '+ stream + ' in the output')
+                return
         logger.info("bols file "+ str(bols_path) + " is created in the output")
 
 

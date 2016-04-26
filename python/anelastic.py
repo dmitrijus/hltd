@@ -635,6 +635,7 @@ class LumiSectionHandler():
             files = infile.getFieldByName("Filelist").split(',')
             localPidDataPath=None
             if len(files) and len(files[0]):
+                #this is not used, streams with no processed events don't have data file
                 pidDataName = os.path.basename(files[0])
                 localPidDataPath = os.path.join(self.tempdir,pidDataName)
 
@@ -651,6 +652,7 @@ class LumiSectionHandler():
                 if self.EOLS:
                     self.outputBoLSFile(stream)
                 if localPidDataPath:
+                    #this is not used, streams with no processed events don't have data file
                     datastem,dataext = os.path.splitext(pidDataName)
                     datafilename = "_".join([self.run,self.ls,stream,host])+dataext
                     outfile.setFieldByName("Filelist",datafilename)
@@ -670,6 +672,7 @@ class LumiSectionHandler():
                 #only copy data and json file in case EOLS file has been produced for this LS
                 #(otherwise this EoR of LS that doesn't exist on BU)
                 if self.EOLS:
+                    #move empty stream JSON to BU
                     outfile.moveFile(remotePath, createDestinationDir=False,updateFileInfo=False,copy=True)
                     outfile.esCopy(keepmtime=False)
                     outfile.deleteFile(silent=True)
@@ -976,7 +979,11 @@ class LumiSectionHandler():
         errfile.writeout()
         newfilepath = os.path.join(self.outdir,errfile.run,errfile.stream,'jsns',errfile.basename)
         #store in ES if there were any errors
-        errfile.moveFile(newfilepath,createDestinationDir=False,copy=True,updateFileInfo=False)
+        result,ch=errfile.moveFile(newfilepath,createDestinationDir=False,copy=True,updateFileInfo=False)
+        if not result:
+            errfile.setFieldByName("Processed", str(0))
+            errfile.setFieldByName("ErrorEvents", str(total))
+            errfile.writeout()
         errfile.esCopy(keepmtime=False)
         errfile.deleteFile(silent=True)
 

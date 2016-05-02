@@ -401,7 +401,9 @@ central_boxinfo_mapping = {
               'activeRuns'    :{'type':'string','index':'not_analyzed'},
               'activeRunList'    :{'type':'integer'},
               'activeRunNumQueuedLS':{'type':'integer'},
-              'activeRunCMSSWMaxLS': {'type':'integer'},
+              'activeRunCMSSWMaxLS':{'type':'integer'},
+              "activeRunMaxLSOut":{'type':'integer'},
+              "outputBandwidthMB":{'type':'float'},
               'activeRunStats'    :{
                   'type':'nested',
                   #"include_in_parent": True,
@@ -434,6 +436,8 @@ central_boxinfo_mapping = {
               "activeFURun" : {"type" : "integer"},
               "activeRunCMSSWMaxLS" : {"type" : "integer"},
               "activeRunNumQueuedLS" :       { "type" : "integer" },
+              "activeRunLSWithOutput":       { "type" : "integer" },
+              "outputBandwidthMB":           { "type" : "float"   },
               "active_resources" :           { "type" : "integer" },
               "active_resources_activeRun" : { "type" : "integer" },
               "broken" :                     { "type" : "integer" },
@@ -445,7 +449,7 @@ central_boxinfo_mapping = {
               "ramdisk_occupancy" :          { "type" : "float" },
               "stale_resources" :            { "type" : "integer" },
               "used" :                       { "type" : "integer" },
-              "bu_stop_requests_flag":       { "type" : "boolean" }
+              "bu_stop_requests_flag":       { "type" : "boolean" },
               },
             '_timestamp' : {
               'enabled'   : "true"

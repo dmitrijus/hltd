@@ -674,6 +674,7 @@ class LumiSectionHandler():
                 if self.EOLS:
                     #move empty stream JSON to BU
                     outfile.moveFile(remotePath, createDestinationDir=False,updateFileInfo=False,copy=True)
+                    self.parent.mr.notifyMaxLsWithOutput(self.ls_num) #feedback for backpressure control
                     outfile.esCopy(keepmtime=False)
                     outfile.deleteFile(silent=True)
 
@@ -928,7 +929,6 @@ class LumiSectionHandler():
                         if not success:
                             writeoutError(outfile,destinationpath)
 
-
                 #move output json file in rundir
                 newfilepath = os.path.join(self.outdir,outfile.run,outfile.stream,'jsns',outfile.basename)
 
@@ -941,6 +941,7 @@ class LumiSectionHandler():
                 if not result:
                     writeoutError(outfile,'',False)
                 self.outfileList.remove(outfile) #is completed
+                self.parent.mr.notifyMaxLsWithOutput(self.ls_num) #feedback for backpressure control
                 outfile.esCopy(keepmtime=False)
                 outfile.deleteFile(silent=True)
 

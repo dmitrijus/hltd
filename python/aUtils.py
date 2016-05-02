@@ -23,6 +23,9 @@ THISHOST = os.uname()[1]
 
 jsdCache = {}
 
+bw_cnt = 0
+bw_cnt_time = None
+
 ##Output redirection class
 #class stdOutLog:
 #    def __init__(self):
@@ -53,6 +56,7 @@ class MonitorRanger:
         self.maxClosedLumi=-1
         self.numOpenLumis=-1
         self.maxCMSSWLumi=-1
+        self.maxLSWithOutput=-1
         self.lock = threading.Lock()
 
     def register_inotify_path(self,path,mask):
@@ -140,10 +144,29 @@ class MonitorRanger:
         self.lock.release()
         self.updateQueueStatusFile()
 
+    def notifyMaxLsWithOutput(self,ls):
+        self.maxLSWithOutput=max(ls,self.maxLSWithOutput)
+
     def setQueueStatusPath(self,path,monpath):
         self.queueStatusPath = path
         self.queueStatusPathMon = monpath
         self.queueStatusPathDir = path[:path.rfind('/')]
+
+    def getOutputBandwidth(self):
+        global bw_cnt
+        global bw_cnt_time
+        if bw_cnt_time==None:
+            out_bw=0
+            bw_cnt_time=time.time()
+        else:
+            old_time=bw_cnt_time
+            bw_cnt_time = time.time()
+            delta_ts=bw_cnt_time-old_time
+            if old_time>0:out_bw=bw_cnt/delta_ts
+            else:out_bw=0
+        bw_cnt=0
+        return out_bw
+
 
     def updateQueueStatusFile(self):
         if self.queueStatusPath==None:return
@@ -160,7 +183,9 @@ class MonitorRanger:
                "numReadFromQueueLS:":self.maxReceivedEoLS,
                "maxClosedLS":self.maxClosedLumi,
                "numReadOpenLS":self.numOpenLumis,
-               "CMSSWMaxLS":self.maxCMSSWLumi
+               "CMSSWMaxLS":self.maxCMSSWLumi,
+               "maxLSWithOutput":self.maxLSWithOutput,
+               "outputBW": self.getOutputBandwidth()
                }
         try:
             if self.queueStatusPath!=None:
@@ -499,7 +524,7 @@ class fileHandler(object):
 
     #move file (works only on src as file, not directory)
     def moveFileAdler32(self,src,dst,copy):
-
+        global bw_cnt
         if os.path.isdir(src):
             raise shutil.Error("source `%s` is a directory")
 
@@ -524,7 +549,7 @@ class fileHandler(object):
                     if not buf:
                         break
                     adler32c=zlib.adler32(buf,adler32c)
-                    fdst.write(buf)
+                    bw_cnt+=fdst.write(buf)
 
         #copy mode bits on the destionation file
         st = os.stat(src)

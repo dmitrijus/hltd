@@ -252,6 +252,8 @@ class system_monitor(threading.Thread):
                     lastFUrun=-1
                     activeRunQueuedLumisNum = -1
                     activeRunCMSSWMaxLumi = -1
+                    activeRunLSWithOutput = -1
+                    output_bw_mb = 0
                     active_res = 0
 
                     fu_data_alarm=False
@@ -282,6 +284,19 @@ class system_monitor(threading.Thread):
                             except:
                                 self.logger.warning('box file version for '+str(key)+' not found')
                                 continue
+
+                            #pick value from FU which is max. behind (and initialized)
+                            maxlsout = edata['activeRunMaxLSOut']
+                            if maxlsout!=-1:
+                              if activeRunLSWithOutput == -1:
+                                activeRunLSWithOutput=maxlsout
+                              else:
+                                activeRunLSWithOutput=min(activeRunLSWithOutput,maxlsout)
+
+                            #sum bandwidth over FUs (last 10 sec). This is approximate because measured intervals are different.
+                            #it should give good approximation at high output rate when FU output traffic is continuous rather than bursty
+                            output_bw_mb+=edata['outputBandwidthMB']
+
                             if edata['detectedStaleHandle']:
                                 stale_machines.append(str(key))
                                 resource_count_stale+=edata['idles']+edata['used']+edata['broken']
@@ -355,6 +370,8 @@ class system_monitor(threading.Thread):
                                 "activeFURun":lastFUrun,
                                 "activeRunNumQueuedLS":activeRunQueuedLumisNum,
                                 "activeRunCMSSWMaxLS":activeRunCMSSWMaxLumi,
+                                "activeRunLSWithOutput":activeRunLSWithOutput,
+                                "outputBandwidthMB":output_bw_mb,
                                 "ramdisk_occupancy":ramdisk_occ,
                                 "fuDiskspaceAlarm":fu_data_alarm,
                                 "bu_stop_requests_flag":bu_stop_requests_flag
@@ -419,7 +436,8 @@ class system_monitor(threading.Thread):
                             n_cloud = len(os.listdir(self.resInfo.cloud))
                             n_quarantined = len(os.listdir(self.resInfo.quarantined))-self.resInfo.num_excluded
                             if n_quarantined<0: n_quarantined=0
-                            numQueuedLumis,maxCMSSWLumi=self.getLumiQueueStat()
+                            numQueuedLumis,maxCMSSWLumi,maxLSWithOutput,outBW=self.getLumiQueueStat()
+                            outBW+=self.getQueueStatusPreviousRunsBW()
 
                             cloud_state = self.getCloudState()
 
@@ -442,7 +460,9 @@ class system_monitor(threading.Thread):
                                 'cloudState':cloud_state,
                                 'detectedStaleHandle':self.stale_flag,
                                 'version':self.boxInfo.boxdoc_version,
-                                'ip':self.hostip
+                                'ip':self.hostip,
+                                'activeRunMaxLSOut':maxLSWithOutput,
+                                'outputBandwidthMB':outBW*0.000001
                             }
                             with open(mfile,'w+') as fp:
                                 json.dump(boxdoc,fp,indent=True)
@@ -496,9 +516,26 @@ class system_monitor(threading.Thread):
 
                 #fcntl.flock(fp, fcntl.LOCK_EX)
                 statusDoc = json.load(fp)
-                return str(statusDoc["numQueuedLS"]),str(statusDoc["CMSSWMaxLS"])
+                return statusDoc["numQueuedLS"],statusDoc["CMSSWMaxLS"],statusDoc["maxLSWithOutput"],statusDoc["outputBW"]
         except:
-            return "-1","-1"
+            return -1,-1,-1,0
+
+    def getQueueStatusPreviousRunsBW(self):
+        #get output from all previous active runs, in case there are any
+        outBW=0
+        lastRun = self.runList.getLastRun()
+        for runObj in self.runList.getActiveRuns():
+            if runObj!=lastRun:
+                try:
+                    with open(os.path.join(conf.watch_directory,
+                              'run'+str(runObj.getLastRun().runnumber).zfill(conf.run_number_padding),
+                              'open','queue_status.jsn'),'r') as fp:
+                        outBW += int(json.load(fp)["outputBW"])
+                except:
+                    continue
+        if outBW!=0: self.logger.info('detected output badwidth from previous runs: '+str(outBW*0.000001)+ ' MB/s')
+        return outBW
+
 
     def getCPUInfo(self):
         try:

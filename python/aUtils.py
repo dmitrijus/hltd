@@ -24,7 +24,6 @@ THISHOST = os.uname()[1]
 jsdCache = {}
 
 bw_cnt = 0
-bw_cnt_time = None
 
 ##Output redirection class
 #class stdOutLog:
@@ -58,6 +57,28 @@ class MonitorRanger:
         self.maxCMSSWLumi=-1
         self.maxLSWithOutput=-1
         self.lock = threading.Lock()
+        self.statsCollectorThread = None
+
+        self.startStatsCollector()
+        self.output_bw=None
+
+    def startStatsCollector(self):
+        self.statsCollectorThread = threading.Thread(target=self.statsCollector)
+        self.statsCollectorThread.daemon=True #set as daemon thread (not blocking process termination)
+        self.statsCollectorThread.start()
+
+    def statsCollector(self):
+        global bw_cnt
+        bw_cnt_time=None
+        while True:
+            new_time = time.time()
+            if bw_cnt_time is not None:
+                d_t = new_time-bw_cnt_time
+                if d_t!=0:
+                    self.output_bw=bw_cnt/d_t
+                    bw_cnt=0
+            bw_cnt_time=new_time
+            time.sleep(5)
 
     def register_inotify_path(self,path,mask):
         self.inotifyWrapper.registerPath(path,mask)
@@ -152,22 +173,6 @@ class MonitorRanger:
         self.queueStatusPathMon = monpath
         self.queueStatusPathDir = path[:path.rfind('/')]
 
-    def getOutputBandwidth(self):
-        global bw_cnt
-        global bw_cnt_time
-        if bw_cnt_time==None:
-            out_bw=0
-            bw_cnt_time=time.time()
-        else:
-            old_time=bw_cnt_time
-            bw_cnt_time = time.time()
-            delta_ts=bw_cnt_time-old_time
-            if old_time>0:out_bw=bw_cnt/delta_ts
-            else:out_bw=0
-        bw_cnt=0
-        return out_bw
-
-
     def updateQueueStatusFile(self):
         if self.queueStatusPath==None:return
         num_queued_lumis = len(self.queuedLumiList)
@@ -185,7 +190,7 @@ class MonitorRanger:
                "numReadOpenLS":self.numOpenLumis,
                "CMSSWMaxLS":self.maxCMSSWLumi,
                "maxLSWithOutput":self.maxLSWithOutput,
-               "outputBW": self.getOutputBandwidth()
+               "outputBW": self.output_bw
                }
         try:
             if self.queueStatusPath!=None:
@@ -549,7 +554,8 @@ class fileHandler(object):
                     if not buf:
                         break
                     adler32c=zlib.adler32(buf,adler32c)
-                    bw_cnt+=fdst.write(buf)
+                    fdst.write(buf)
+                    bw_cnt+=len(buf)
 
         #copy mode bits on the destionation file
         st = os.stat(src)
@@ -604,6 +610,7 @@ class fileHandler(object):
                     if doChecksum:
                         adler32c=zlib.adler32(buf,adler32c)
                     dst.write(buf)
+                    bw_cnt+=read_len
             copy_size += file_size
             #adler32c = adler32 & 0xffffffff
             if doChecksum and ifilecksum != (adler32c & 0xffffffff):
@@ -906,7 +913,6 @@ class Aggregator(object):
             if data1: self.logger.warning("found different files: %r,%r" %(file1.filepath,file2.filepath))
             return file2.basename
         return file1.basename
-
 
     def action_sum(self,data1,data2):
         try:

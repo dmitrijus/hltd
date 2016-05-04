@@ -405,6 +405,7 @@ class LumiSectionRanger:
         if "abortcomplete" in self.infile.filepath:
             self.stop(timeout=60)
         else:
+            self.checkOpenLumis()
             self.stop(timeout=5)
 
     def checkClosure(self,checkEmpty=True):
@@ -518,6 +519,29 @@ class LumiSectionRanger:
         return True
 
 
+    def checkOpenLumis(self):
+       
+        #check all non-closed lumisections and see if EoLS file needs to be generated
+        #all CMSSW processes are terminated at this point because complete file was received previously
+        runname = 'run'+self.run_number.zfill(conf.run_number_padding)
+        lsList = self.LSHandlerList
+        eolsCreated=False
+        inputpath=None
+        for item in lsList.values():
+            if not item.EOLS:
+                #construct ramdisk path for this
+                self.logger.info("checking if EoLS file exists in input for LS "+str(item.ls_num))
+                try:
+                    eols_file = runname + "_ls" + str(item.ls_num).zfill(4)+"_EoLS.jsn"
+                    if os.path.exists(os.path.join(rawinputdir,eols_file)) and not os.path.exists(os.path.join(self.tempdir,eols_file)):
+                        self.logger.info("creating EoLS file for LS " + str(item.ls_num) + " to close it on this host if event counts match")
+                        with open(os.path.join(self.tempdir,eols_file),'w'):
+                            eolsCreated=True
+                except Exception as ex:
+                    self.logger.warning("Exception checking EoLS file in ramdisk: " + str(ex))
+        if eolsCreated:
+            #sleep before stopping so that EoLS file is picked up by inotify
+            time.sleep(5)
 
 
 

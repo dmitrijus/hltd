@@ -57,10 +57,10 @@ class MonitorRanger:
         self.maxCMSSWLumi=-1
         self.maxLSWithOutput=-1
         self.lock = threading.Lock()
-        self.statsCollectorThread = None
 
+        self.output_bw=0
+        self.statsCollectorThread = None
         self.startStatsCollector()
-        self.output_bw=None
 
     def startStatsCollector(self):
         self.statsCollectorThread = threading.Thread(target=self.statsCollector)

@@ -231,9 +231,13 @@
               "type": "string",
               "index": "not_analyzed"
             },
+            "MergeType": {
+              "type": "string",
+              "index": "not_analyzed"
+            },
             "InputFiles": {
-                  "type": "string",
-                  "index": "not_analyzed"
+              "type": "string",
+              "index": "not_analyzed"
             }
           }
         },

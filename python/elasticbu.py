@@ -353,9 +353,12 @@ class elasticBandBU:
                 doc_id=basename
 
             document['id']=doc_id
-            document['activeRuns'] = str(document['activeRuns']).strip('[]')
             try:
-              document['activeRunList'] = map(int,document['activeRuns'].split())
+              document['activeRunList'] = map(int,document['activeRuns'])
+            except:
+              pass
+            try:
+              document['activeRuns'] = map(str,document['activeRuns'])
             except:
               pass
             document['appliance']=self.host

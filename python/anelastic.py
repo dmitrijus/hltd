@@ -977,6 +977,8 @@ class LumiSectionHandler():
         errfile.setFieldByName("Processed", str(total - numErr))
         errfile.setFieldByName("FileAdler32", "-1", warning=False)
         errfile.setFieldByName("TransferDestination","ErrorArea",warning=False)
+        try:errfile.setFieldByName("MergeType","RAW",warning=False)
+        except:pass
         errfile.writeout()
         newfilepath = os.path.join(self.outdir,errfile.run,errfile.stream,'jsns',errfile.basename)
         #store in ES if there were any errors

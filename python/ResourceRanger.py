@@ -199,7 +199,7 @@ class ResourceRanger:
             lrun = self.runList.getLastRun()
             newRes = None
             if lrun!=None:
-                is_stale,f_ip = lrun.checkStaleResourceFile(event.fullpath)
+                is_stale,f_ip = lrun.checkStaleResourceFileAndIP(event.fullpath)
                 if is_stale:
                     self.logger.error("RUN:"+str(lrun.runnumber)+" - notification: skipping resource "+basename+" which is stale")
                     self.resource_lock.release()

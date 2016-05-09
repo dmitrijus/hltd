@@ -209,7 +209,7 @@ class RunRanger:
                               +' which is NOT a run number - this should '
                               +'*never* happen')
 
-        elif dirname.startswith('herod') or dirname.startswith('tsunami'):
+        elif dirname.startswith('herod') or dirname.startswith('tsunami') or dirname.startswith('brutus'):
             try:
                 os.remove(fullpath)
             except:
@@ -218,7 +218,10 @@ class RunRanger:
             if conf.role == 'fu':
                 self.logger.info("killing all CMSSW child processes")
                 for run in self.runList.getActiveRuns():
-                    run.Shutdown(True,False)
+                    if dirname.startswith('tsunami') or dirname.startswith('brutus'):
+                        run.Shutdown(True,True)
+                    else:
+                        run.Shutdown(True,False)
                 time.sleep(.2)
                 #clear all quarantined cores
                 for cpu in self.resInfo.q_list:
@@ -244,22 +247,23 @@ class RunRanger:
                 try:
                     dirlist = os.listdir(boxdir)
                     current_time = time.time()
-                    self.logger.info("sending herod to child FUs")
+                    self.logger.info("sending "+dirname+" to child FUs")
                     for name in dirlist:
                         if name == os.uname()[1]:continue
                         age = current_time - os.path.getmtime(boxdir+name)
                         self.logger.info('found box '+name+' with keepalive age '+str(age))
-                        if age < 20:
+                        if (age < 20 and dirname.startswith('herod')) or age < 300:
                             try:
+                                self.logger.info('contacting '+name)
                                 connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
                                 time.sleep(0.05)
-                                connection.request("GET",'cgi-bin/herod_cgi.py')
+                                connection.request("GET",'cgi-bin/herod_cgi.py?command='+str(dirname))
                                 time.sleep(0.1)
                                 response = connection.getresponse()
                             except Exception as ex:
                                 self.logger.error("exception encountered in contacting resource "+str(name))
                                 self.logger.exception(ex)
-                    self.logger.info("sent herod to all child FUs")
+                    self.logger.info("sent "+ dirname +" to child FUs")
                 except Exception as ex:
                     self.logger.error("exception encountered in contacting resources")
                     self.logger.info(ex)

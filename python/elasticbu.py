@@ -573,6 +573,12 @@ class elasticCollectorBU():
             elif filetype == EOR:
                 self.es.elasticize_eor(self.infile)
 
+class InjectedEvent:
+    def __init__(self,fullpath,eventtype):
+        self.fullpath = fullpath
+        self.mask = eventtype
+
+
 class JsonEvent:
     def __init__(self,json,eventtype):
         self.eventtype = eventtype
@@ -829,6 +835,22 @@ if __name__ == "__main__":
 
         es = elasticBandBU(conf,runnumber,startTime)
 
+        def checkEoR():
+            try:
+                eor_path = os.path.join(mainDir,'run'+runnumber.zfill(conf.run_number_padding)+'_ls0000_EoR.jsn')
+                os.stat(eor_path)
+                time.sleep(5)
+                #inject EoR file in case it was not caught by inotify
+                eventQueue.put(InjectedEvent(eor_path,0))
+            except OSError as ex:
+                pass
+            except Exception as ex:
+                logger.warning(str(ex))
+                pass
+        checkThread = threading.Thread(target=checkEoR)
+        #checkThread.daemon=True
+        checkThread.start()
+
         #starting elasticCollector thread
         ec = elasticCollectorBU(es,mainDir,mainOutDir)
         ec.setSource(eventQueue)
@@ -838,6 +860,9 @@ if __name__ == "__main__":
         logger.exception(e)
         print traceback.format_exc()
         logger.error("when processing files from directory "+mainDir)
+
+    try:checkThread.join()
+    except:pass
 
     logging.info("Closing notifier")
     if mr is not None:

@@ -84,7 +84,7 @@ class OnlineResource:
                 break
             except Exception as ex:
                 if attemptsLeft>0:
-                    self.logger.error('RUN:'+str(self.runnumber)+' - '+str(ex))
+                    self.logger.error('RUN:'+str(self.runnumber)+' - '+str(ex) + ' contacting '+str(self.cpu[0]))
                     self.logger.info('retrying connection to '+str(self.cpu[0]))
                 else:
                     self.logger.error('RUN:'+str(self.runnumber)+' - exhausted attempts to contact '+str(self.cpu[0]))

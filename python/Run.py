@@ -705,6 +705,8 @@ class Run:
                 except OSError,ex:
                     if "No child processes" not in str(ex):
                         self.logger.info("Exception encountered in waiting for termination of anelastic:" +str(ex))
+                except AttributeError,ex:
+                    self.logger.info("Exception encountered in waiting for termination of anelastic:" +str(ex))
                 self.anelastic_monitor = None
 
             if conf.use_elasticsearch == True:
@@ -712,7 +714,9 @@ class Run:
                     self.elastic_monitor.wait()
                 except OSError,ex:
                     if "No child processes" not in str(ex):
-                        self.logger.info("Exception encountered in waiting for termination of anelastic:" +str(ex))
+                        self.logger.info("Exception encountered in waiting for termination of elastic:" +str(ex))
+                except AttributeError,ex:
+                    self.logger.info("Exception encountered in waiting for termination of elastic:" +str(ex))
                 self.elastic_monitor = None
             if conf.delete_run_dir is not None and conf.delete_run_dir == True:
                 try:

@@ -466,7 +466,7 @@ class system_monitor(threading.Thread):
                                 'version':self.boxInfo.boxdoc_version,
                                 'ip':self.hostip,
                                 'activeRunMaxLSOut':maxLSWithOutput,
-                                'outputBandwidthMB':outBW*0.000001
+                                'outputBandwidthMB':outBW*0.000001,
                                 'activeRunOutputMB':outBWrun*0.000001
                             }
                             with open(mfile,'w+') as fp:

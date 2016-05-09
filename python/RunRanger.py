@@ -125,7 +125,7 @@ class RunRanger:
                         self.runList.add(run)
                         try:
                             if conf.role=='fu' and not self.state.entering_cloud_mode and not self.resInfo.has_active_resources():
-                                self.logger.error("RUN:"+str(run.runnumber)+' - trying to start a run without any available resources - this requires manual intervention !')
+                                self.logger.error("RUN:"+str(run.runnumber)+' - trying to start a run without any available resources (all are QUARANTINED) - this requires manual intervention !')
                         except Exception,ex:
                             self.logger.exception(ex)
 
@@ -215,13 +215,25 @@ class RunRanger:
             except:
                 #safety net if cgi script removes herod
                 pass
+            if dirname.startswith('herod'): nlen=len('herod')
+            if dirname.startswith('tsunami'): nlen=len('tsunami')
+            if dirname.startswith('brutus'): nlen=len('brutus')
+            try:
+              rn=0
+              if nlen!=len(dirname):
+                if dirname[nlen:].isdigit():
+                  rn = int(dirname[nlen:])
+                else: self.logger.error("can not read run number suffix from "+dirname+ ". Aborting command")
+            except:
+                pass
             if conf.role == 'fu':
                 self.logger.info("killing all CMSSW child processes")
                 for run in self.runList.getActiveRuns():
-                    if dirname.startswith('tsunami') or dirname.startswith('brutus'):
-                        run.Shutdown(True,True)
-                    else:
+                  if nlen==len(dirname) or rn==0 or run.runnumber==rn or run.checkQuarantinedLimit():
+                    if dirname.startswith('brutus'):
                         run.Shutdown(True,False)
+                    else:
+                        run.Shutdown(True,True)
                 time.sleep(.2)
                 #clear all quarantined cores
                 for cpu in self.resInfo.q_list:
@@ -234,13 +246,17 @@ class RunRanger:
 
             elif conf.role == 'bu':
                 for run in self.runList.getActiveRuns():
-                    run.createEmptyEoRMaybe()
-                    run.ShutdownBU()
+                    if rn==0 or run.runnumber==rn:
+                      run.createEmptyEoRMaybe()
+                      run.ShutdownBU()
 
                 #delete input and output BU directories
                 if dirname.startswith('tsunami'):
                     self.logger.info('tsunami approaching: cleaning all ramdisk and output run data')
-                    self.mm.cleanup_bu_disks(None,True,True)
+                    if rn:
+                        self.mm.cleanup_bu_disks(rn,True,True)
+                    else:
+                        self.mm.cleanup_bu_disks(None,True,True)
 
                 #contact any FU that appears alive
                 boxdir = conf.resource_base +'/boxes/'
@@ -252,13 +268,13 @@ class RunRanger:
                         if name == os.uname()[1]:continue
                         age = current_time - os.path.getmtime(boxdir+name)
                         self.logger.info('found box '+name+' with keepalive age '+str(age))
-                        if (age < 20 and dirname.startswith('herod')) or age < 300:
+                        if age < 300:
                             try:
                                 self.logger.info('contacting '+name)
                                 connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
                                 time.sleep(0.05)
                                 connection.request("GET",'cgi-bin/herod_cgi.py?command='+str(dirname))
-                                time.sleep(0.1)
+                                time.sleep(0.15)
                                 response = connection.getresponse()
                             except Exception as ex:
                                 self.logger.error("exception encountered in contacting resource "+str(name))

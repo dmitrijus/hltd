@@ -16,7 +16,7 @@ print "<TITLE>CGI script output</TITLE>"
 print "Hey I'm still here !"
 
 try:
-    command=form['command']
+    command=form['command'].value
 except:
     command='herod'
 

@@ -254,6 +254,7 @@ class system_monitor(threading.Thread):
                     activeRunCMSSWMaxLumi = -1
                     activeRunLSWithOutput = -1
                     output_bw_mb = 0
+                    active_run_output_bw_mb = 0
                     active_res = 0
 
                     fu_data_alarm=False
@@ -296,6 +297,7 @@ class system_monitor(threading.Thread):
                             #sum bandwidth over FUs (last 10 sec). This is approximate because measured intervals are different.
                             #it should give good approximation at high output rate when FU output traffic is continuous rather than bursty
                             output_bw_mb+=edata['outputBandwidthMB']
+                            active_run_output_bw_mb+=edata['activeRunOutputMB']
 
                             if edata['detectedStaleHandle']:
                                 stale_machines.append(str(key))
@@ -372,6 +374,7 @@ class system_monitor(threading.Thread):
                                 "activeRunCMSSWMaxLS":activeRunCMSSWMaxLumi,
                                 "activeRunLSWithOutput":activeRunLSWithOutput,
                                 "outputBandwidthMB":output_bw_mb,
+                                "activeRunOutputMB":active_run_output_bw_mb,
                                 "ramdisk_occupancy":ramdisk_occ,
                                 "fuDiskspaceAlarm":fu_data_alarm,
                                 "bu_stop_requests_flag":bu_stop_requests_flag
@@ -437,6 +440,7 @@ class system_monitor(threading.Thread):
                             n_quarantined = len(os.listdir(self.resInfo.quarantined))-self.resInfo.num_excluded
                             if n_quarantined<0: n_quarantined=0
                             numQueuedLumis,maxCMSSWLumi,maxLSWithOutput,outBW=self.getLumiQueueStat()
+                            outBWrun=outBW
                             outBW+=self.getQueueStatusPreviousRunsBW()
 
                             cloud_state = self.getCloudState()
@@ -463,6 +467,7 @@ class system_monitor(threading.Thread):
                                 'ip':self.hostip,
                                 'activeRunMaxLSOut':maxLSWithOutput,
                                 'outputBandwidthMB':outBW*0.000001
+                                'activeRunOutputMB':outBWrun*0.000001
                             }
                             with open(mfile,'w+') as fp:
                                 json.dump(boxdoc,fp,indent=True)

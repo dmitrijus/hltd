@@ -404,6 +404,7 @@ central_boxinfo_mapping = {
               'activeRunCMSSWMaxLS':{'type':'integer'},
               "activeRunMaxLSOut":{'type':'integer'},
               "outputBandwidthMB":{'type':'float'},
+              "activeRunOutputMB":{'type':'float'},
               'activeRunStats'    :{
                   'type':'nested',
                   #"include_in_parent": True,
@@ -438,6 +439,7 @@ central_boxinfo_mapping = {
               "activeRunNumQueuedLS" :       { "type" : "integer" },
               "activeRunLSWithOutput":       { "type" : "integer" },
               "outputBandwidthMB":           { "type" : "float"   },
+              "activeRunOutputMB":           { "type" : "float"   },
               "active_resources" :           { "type" : "integer" },
               "active_resources_activeRun" : { "type" : "integer" },
               "broken" :                     { "type" : "integer" },

@@ -1,5 +1,6 @@
 import os
 import time
+import threading
 import httplib
 import shutil
 import demote
@@ -264,22 +265,51 @@ class RunRanger:
                     dirlist = os.listdir(boxdir)
                     current_time = time.time()
                     self.logger.info("sending "+dirname+" to child FUs")
+                    herod_threads = []
                     for name in dirlist:
                         if name == os.uname()[1]:continue
                         age = current_time - os.path.getmtime(boxdir+name)
                         self.logger.info('found box '+name+' with keepalive age '+str(age))
                         if age < 300:
+                            self.logger.info('contacting '+str(name))
+                            def notifyHerod(hname):
+                                attemptsLeft=2
+                                while attemptsLeft>0:
+                                    attemptsLeft-=1
+                                    try:
+                                        connection = httplib.HTTPConnection(hname, conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)
+                                        time.sleep(0.2)
+                                        connection.request("GET",'cgi-bin/herod_cgi.py?command='+str(dirname))
+                                        time.sleep(0.3)
+                                        response = connection.getresponse()
+                                        self.logger.info("sent "+ dirname +" to child FUs")
+                                        break
+                                    except Exception as ex:
+                                        self.logger.error("exception encountered in contacting resource "+str(hname))
+                                        self.logger.exception(ex)
+ 
+                            #try:
+                            #    connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)
+                            #    time.sleep(0.1)
+                            #    connection.request("GET",'cgi-bin/herod_cgi.py?command='+str(dirname))
+                            #    time.sleep(0.15)
+                            #    response = connection.getresponse()
+                            #except Exception as ex:
+                            #    self.logger.error("exception encountered in contacting resource "+str(name))
+                            #    self.logger.exception(ex)
+                            #self.logger.info("sent "+ dirname +" to child FUs")
+
                             try:
-                                self.logger.info('contacting '+name)
-                                connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset,timeout=5)
-                                time.sleep(0.05)
-                                connection.request("GET",'cgi-bin/herod_cgi.py?command='+str(dirname))
-                                time.sleep(0.15)
-                                response = connection.getresponse()
+                                herodThread = threading.Thread(target=notifyHerod,args=[name])
+                                herodThread.start()
+                                herod_threads.append(herodThread)
                             except Exception as ex:
-                                self.logger.error("exception encountered in contacting resource "+str(name))
                                 self.logger.exception(ex)
-                    self.logger.info("sent "+ dirname +" to child FUs")
+
+                    #join herod before returning
+                    for herodThread in herod_threads:
+                      herodThread.join()
+
                 except Exception as ex:
                     self.logger.error("exception encountered in contacting resources")
                     self.logger.info(ex)

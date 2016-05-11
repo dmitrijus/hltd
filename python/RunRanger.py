@@ -93,6 +93,7 @@ class RunRanger:
                             cached_pending_run = fullpath
                             os.rmdir(fullpath)
                             return
+                        self.state.masked_resources=False #clear this flag for run that was stopped manually
                         if conf.role == 'fu':
                             bu_dir = self.mm.bu_disk_list_ramdisk_instance[0]+'/'+dirname
                             try:

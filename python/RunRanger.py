@@ -243,7 +243,7 @@ class RunRanger:
                         self.resInfo.resmove(self.resInfo.quarantined,self.resInfo.idles,cpu)
                     except:
                         self.logger.info('Quarantined resource was already cleared: '+cpu)
-                self.resInfo.self.resInfo.q_list=[]
+                self.resInfo.q_list=[]
 
             elif conf.role == 'bu':
                 for run in self.runList.getActiveRuns():

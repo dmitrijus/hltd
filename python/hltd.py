@@ -332,12 +332,15 @@ class hltd(Daemon2,object):
                       cnt-=1
                       cl_status = state.cloud_status()
                     if cl_status >0:
-                        if cl_status > 1:
-                            logger.error('cloud status script returns error exit code (status:'+str(cl_status)+') after 5 attempts. HLT mode disabled')
+                        if cl_status==66:
+                          logger.warning('cloud status code 66 (no NOVA stack). Will run in HLT mode')
                         else:
+                          if cl_status > 1:
+                            logger.error('cloud status script returns error exit code (status:'+str(cl_status)+') after 5 attempts. HLT mode disabled')
+                          else:
                             logger.warning("cloud is on on this host at hltd startup, switching to cloud mode")
-                        resInfo.move_resources_to_cloud()
-                        state.cloud_mode=True
+                          resInfo.move_resources_to_cloud()
+                          state.cloud_mode=True
 
             if conf.watch_directory.startswith('/fff/'):
                 p = subprocess.Popen("rm -rf " + conf.watch_directory+'/*',shell=True)

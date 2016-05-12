@@ -969,18 +969,22 @@ class HLTDLogParser(threading.Thread):
                 if line.startswith('INFO:'):
                     if self.loglevel<2:
                         currentEvent = self.parseEntry(1,line)
+                    else: self.parseEntry(None,None,False)
                     continue
                 if line.startswith('DEBUG:'):
                     if self.loglevel<1:
                         currentEvent = self.parseEntry(0,line)
+                    else: self.parseEntry(None,None,False)
                     continue
                 if line.startswith('WARNING:'):
                     if self.loglevel<3:
                         currentEvent = self.parseEntry(2,line)
+                    else: self.parseEntry(None,None,False)
                     continue
                 if line.startswith('ERROR:'):
                     if self.loglevel<4:
                         currentEvent = self.parseEntry(3,line)
+                    else: self.parseEntry(None,None,False)
                     continue
                 if line.startswith('CRITICAL:'):
                     currentEvent = self.parseEntry(4,line)
@@ -991,7 +995,10 @@ class HLTDLogParser(threading.Thread):
                     else: currentEvent = self.parseEntry(3,line)
                     continue
                 else:
-                    if self.logOpen:self.msg.append(line)
+                    if self.logOpen:
+                        if len(self.msg)<40:
+                            self.msg.append(line)
+                        else: self.parseEntry(None,None,False)
 
         f.close()
 

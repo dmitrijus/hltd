@@ -80,7 +80,10 @@ class LumiSectionRanger:
                 try:
                     event = self.source.get(True,0.5) #blocking with timeout
                     self.eventtype = event.mask
-                    self.infile = fileHandler(event.fullpath)
+                    if isinstance(event,FileEvent):
+                        self.infile = fileHandler(event.fullpath,self.eventtype)
+                    else:
+                        self.infile = fileHandler(event.fullpath)
                     self.emptyQueue.clear()
                     self.process()
                 except (KeyboardInterrupt,Queue.Empty) as e:
@@ -1043,8 +1046,8 @@ class LumiSectionHandler():
 
 
 class FileEvent:
-    def __init__(self,fullpath):
-        self.eventtype = None
+    def __init__(self,fullpath,eventtype):
+        self.mask = eventtype
         self.fullpath = fullpath
 
 class DQMMerger(threading.Thread):
@@ -1082,7 +1085,7 @@ class DQMMerger(threading.Thread):
                 dqmJson = self.dqmQueue.get(True,0.5)
                 dqmJson.mergeDQM(self.outDir)
                 #inject into main queue so that it gets closed (todo: think of special type that will
-                self.source.put(FileEvent(dqmJson.fullpath))
+                self.source.put(FileEvent(dqmJson.filepath,STREAMDQMHISTOUTPUT))
             except Queue.Empty as e:
                 if self.finish:break
                 continue

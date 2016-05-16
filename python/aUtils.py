@@ -868,7 +868,7 @@ class fileHandler(object):
         self.setFieldByName('ErrorEvents',str(errorEvents))
         self.setFieldByName('Filelist',outputName)
         self.setFieldByName('Filesize',str(filesize))
-        self.esCopy()
+        #self.esCopy() #happens after move to output
         self.writeout()
 
 

@@ -29,9 +29,6 @@ except:pass
 
 hltdconf = '/etc/hltd.conf'
 busconfig = '/etc/appliance/bus.config'
-elasticsysconf = '/etc/sysconfig/elasticsearch'
-elasticconf = '/etc/elasticsearch/elasticsearch.yml'
-elasticlogconf = '/etc/elasticsearch/logging.yml'
 
 dbhost = 'empty'
 dbsid = 'empty'
@@ -72,35 +69,6 @@ def getmachinetype():
     elif myhost.startswith('fu-') : return 'daq2','fu'
     elif myhost.startswith('hilton-') : return 'hilton','fu'
     elif myhost.startswith('bu-') : return 'daq2','bu'
-    elif myhost.startswith('ncsrv-'):
-        try:
-            es_cdaq_list_ip = socket.gethostbyname_ex('es-cdaq')[2]
-            es_local_list_ip = socket.gethostbyname_ex('es-local')[2]
-            for es in es_cdaq_list:
-                try:
-                    es_cdaq_list_ip.append(socket.gethostbyname_ex(es)[2][0])
-                except Exception as ex:
-                    print ex
-            for es in es_local_list:
-                try:
-                    es_local_list_ip.append(socket.gethostbyname_ex(es)[2][0])
-                except Exception as ex:
-                    print ex
-
-            myaddr = socket.gethostbyname(myhost)
-            if myaddr in es_cdaq_list_ip:
-                return 'es','escdaq'
-            elif myaddr in es_local_list_ip:
-                return 'es','eslocal'
-            else:
-                return 'unknown','unknown'
-        except socket.gaierror, ex:
-            print 'dns lookup error ',str(ex)
-            raise ex
-    elif myhost.startswith('es-vm-cdaq'):
-        return 'es','escdaq'
-    elif myhost.startswith('es-vm-local'):
-        return 'es','eslocal'
     else:
         print "unknown machine type"
         return 'unknown','unknown'
@@ -223,8 +191,10 @@ def getBUAddr(parentTag,hostname,env_,eqset_,dbhost_,dblogin_,dbpwd_,dbsid_,retr
                 ha.attr_name like 'myBU!_%' escape '!' AND \
                 hn.nic_id = d.nic_id AND \
                 d.dnsname = '" + hostname + "' \
-                AND d.eqset_id = (select child.eqset_id from DAQ_EQCFG_EQSET child, DAQ_EQCFG_EQSET \
-                parent WHERE child.parent_id = parent.eqset_id AND parent.cfgkey = '"+parentTag+"' and child.cfgkey = '"+ eqset_ + "')"
+                AND d.eqset_id = (select eqset_id from DAQ_EQCFG_EQSET WHERE tag='"+parentTag.upper()+"' and cfgkey = '"+ eqset_ + "')"
+                #AND d.eqset_id = (select child.eqset_id from DAQ_EQCFG_EQSET child, DAQ_EQCFG_EQSET \
+                #parent WHERE child.parent_id = parent.eqset_id AND parent.cfgkey = '"+parentTag+"' and child.cfgkey = '"+ eqset_ + "')"
+
 
     #NOTE: to query squid master for the FU, replace 'myBU%' with 'mySquidMaster%'
 
@@ -459,10 +429,6 @@ if __name__ == "__main__":
     if 'restore' in selection:
         if 'hltd' in selection:
             restoreFileMaybe(hltdconf)
-        if 'elasticsearch' in selection:
-            restoreFileMaybe(elasticsysconf)
-            restoreFileMaybe(elasticconf)
-            #restoreFileMaybe(elasticlogconf)
 
         sys.exit(0)
 
@@ -638,8 +604,6 @@ if __name__ == "__main__":
             buName = os.uname()[1].split(".")[0]
         else:
             buName = os.uname()[1]
-    elif type == 'eslocal':
-        buName='es-local'
 
     print "running configuration for machine",cnhostname,"of type",type,"in cluster",cluster,"; appliance bu is:",buName
     if buName==None: buName=""
@@ -648,110 +612,6 @@ if __name__ == "__main__":
 
     if cluster=='hilton':
         clusterName='appliance_hilton'
-
-    if 'elasticsearch' in selection:
-
-        if env=="vm":
-            es_publish_host=os.uname()[1]
-        else:
-            es_publish_host=os.uname()[1]+'.cms'
-
-        #determine elasticsearch version
-        elasticsearch_new_bind=True
-
-        #print "will modify sysconfig elasticsearch configuration"
-        #maybe backup vanilla versions
-        essysEdited =  checkModifiedConfigInFile(elasticsysconf)
-        if essysEdited == False:
-            #print "elasticsearch sysconfig configuration was not yet modified"
-            shutil.copy(elasticsysconf,os.path.join(backup_dir,os.path.basename(elasticsysconf)))
-
-        esEdited =  checkModifiedConfigInFile(elasticconf)
-        if esEdited == False:
-            shutil.copy(elasticconf,os.path.join(backup_dir,os.path.basename(elasticconf)))
-
-        if type == 'eslocal' or type == 'escdaq':
-
-            essyscfg = FileManager(elasticsysconf,'=',essysEdited)
-            if env=='vm':
-                essyscfg.reg('ES_HEAP_SIZE','2G')
-                essyscfg.reg('DATA_DIR','/var/lib/elasticsearch')
-            else:
-                essyscfg.reg('ES_HEAP_SIZE','30G')
-                essyscfg.reg('DATA_DIR','/elasticsearch/lib/elasticsearch')
-            essyscfg.removeEntry('CONF_FILE')
-            essyscfg.commit()
-
-        if type == 'eslocal':
-            escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
-            escfg.reg('network.publish_host',es_publish_host)
-            if elasticsearch_new_bind:
-              escfg.reg('network.bind_host','_local_,'+es_publish_host)
-            escfg.reg('cluster.name','es-local')
-            if env=='vm':
-              escfg.reg('discovery.zen.minimum_master_nodes','1')
-            else:
-              escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_local_list))
-              escfg.reg('discovery.zen.minimum_master_nodes','3')
-            escfg.reg('discovery.zen.ping.multicast.enabled','false')
-            escfg.reg('transport.tcp.compress','true')
-            escfg.reg('script.groovy.sandbox.enabled','true')
-            escfg.reg("script.engine.groovy.inline.update", 'true')
-            escfg.reg("script.engine.groovy.inline.aggs", 'true')
-            escfg.reg("script.engine.groovy.inline.search", 'true')
-            #escfg.reg('script.inline.enabled','true')
-            escfg.reg('node.master','true')
-            escfg.reg('node.data','true')
-            #other optimizations:
-            if env!='vm':
-                escfg.reg('index.store.throttle.type','none')
-                escfg.reg('indices.store.throttle.type','none')
-                escfg.reg('threadpool.index.queue_size','1000')
-                escfg.reg('threadpool.bulk.queue_size','3000')
-                escfg.reg('index.translog.flush_threshold_ops','500000')
-                escfg.reg('index.translog.flush_threshold_size','4g')
-            escfg.reg('index.translog.durability', 'async') #in 2.2 this allows index requests to return quickly, before disk fsync in server
-            escfg.commit()
- 
-            #modify logging.yml
-            eslogcfg = FileManager(elasticlogconf,':',esEdited,'',' ')
-            eslogcfg.reg('es.logger.level','INFO')
-            eslogcfg.commit()
-
-        if type == 'escdaq':
-            escfg = FileManager(elasticconf,':',esEdited,'',' ',recreate=True)
-            escfg.reg('network.publish_host',es_publish_host)
-            if elasticsearch_new_bind:
-              escfg.reg('network.bind_host','_local_,'+es_publish_host)
-            if env=='vm':
-                escfg.reg('cluster.name','es-vm-cdaq')
-            else:
-                escfg.reg('cluster.name','es-cdaq')
-            #TODO:switch to multicast when complete with new node migration
-            if env=='vm':
-              escfg.reg('discovery.zen.minimum_master_nodes','1')
-            else:
-              escfg.reg('discovery.zen.ping.unicast.hosts',json.dumps(es_cdaq_list))
-              escfg.reg('discovery.zen.minimum_master_nodes','3')
-            escfg.reg('discovery.zen.ping.multicast.enabled','false')
-            escfg.reg('action.auto_create_index','false')
-            escfg.reg('index.mapper.dynamic','false')
-            escfg.reg('transport.tcp.compress','true')
-            escfg.reg('script.groovy.sandbox.enabled','true')
-            escfg.reg("script.engine.groovy.inline.update", 'true')
-            escfg.reg("script.engine.groovy.inline.aggs", 'true')
-            escfg.reg("script.engine.groovy.inline.search", 'true')
-            #escfg.reg('script.inline.enabled','true')
-            escfg.reg('node.master','true')
-            escfg.reg('node.data','true')
-            if env!='vm':
-                escfg.reg('index.store.throttle.type','none')
-                escfg.reg('indices.store.throttle.type','none')
-                escfg.reg('threadpool.index.queue_size','1000')
-                escfg.reg('threadpool.bulk.queue_size','3000')
-            escfg.reg('index.translog.durability', 'async')
-            escfg.commit()
-
 
     if "hltd" in selection:
 
@@ -926,12 +786,3 @@ if __name__ == "__main__":
             else:
                 hltdcfg.reg('resource_use_fraction',str(resourcefract),'[Resources]')
             hltdcfg.commit()
-    if "web" in selection:
-        try:os.rmdir('/var/www/html')
-        except:
-            try:os.unlink('/var/www/html')
-            except:pass
-        try:
-            os.symlink('/es-web','/var/www/html')
-        except Exception as ex:
-            print ex

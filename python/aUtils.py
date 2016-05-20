@@ -233,9 +233,10 @@ class fileHandler(object):
         if name in ["mtime"]: self.mtime = self.getTime('m')
         return self.__dict__[name]
 
-    def __init__(self,filepath):
+    def __init__(self,filepath,filetype=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.filepath = filepath
+        if filetype: self.filetype = filetype
         self.outDir = self.dir
         self.mergeStage = 0
         self.inputs = []
@@ -729,7 +730,7 @@ class fileHandler(object):
                         else:
                             self.inputData.append(l)
                     elif l.endswith('.pb'):
-                      pbOuutput=True
+                      pbOutput=True
             except Exception as ex:
                 self.logger.exception(ex)
                 pass
@@ -867,7 +868,7 @@ class fileHandler(object):
         self.setFieldByName('ErrorEvents',str(errorEvents))
         self.setFieldByName('Filelist',outputName)
         self.setFieldByName('Filesize',str(filesize))
-        self.esCopy()
+        #self.esCopy() #happens after move to output
         self.writeout()
 
 

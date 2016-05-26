@@ -1083,7 +1083,14 @@ class DQMMerger(threading.Thread):
         while self.abort == False:
             try:
                 dqmJson = self.dqmQueue.get(True,0.5)
-                dqmJson.mergeDQM(self.outDir)
+                outpbname = dqmJson.mergeDQM(self.outDir)
+                try:
+                  if len(outpbname):
+                    outpbpath = os.path.join(self.outDir,outpbname)
+                    os.stat(outpbpath)
+                    self.source.put(FileEvent(outpbpath,PB))
+                except OSError as ex:
+                  self.logger.warning('pb file check: '+str(ex))
                 #inject into main queue so that it gets closed (todo: think of special type that will
                 self.source.put(FileEvent(dqmJson.filepath,STREAMDQMHISTOUTPUT))
             except Queue.Empty as e:

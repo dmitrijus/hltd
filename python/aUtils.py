@@ -283,7 +283,8 @@ class fileHandler(object):
             if name.startswith("QUEUE_STATUS"): return QSTATUS
             if name.startswith("SLOWMONI"): return SLOW
         if ext==".pb":
-            if "_PID" not in name: return PB
+            #if "_PID" not in name: return PB
+            if "_PID" not in name: return UNKNOWN
             else: return PIDPB
         if ext == ".ini" and "/mon" in filepath: return INI
         if name.endswith("COMPLETE"): return COMPLETE
@@ -870,6 +871,7 @@ class fileHandler(object):
         self.setFieldByName('Filesize',str(filesize))
         #self.esCopy() #happens after move to output
         self.writeout()
+        return outputName
 
 
 class Aggregator(object):

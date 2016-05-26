@@ -18,7 +18,8 @@
     },
     "index": {
       "number_of_shards": 2,
-      "number_of_replicas": 1
+      "number_of_replicas": 1,
+      "codec": "best_compression"
     }
   },
   "mappings": {
@@ -67,94 +68,152 @@
       }
     },
     "prc-s-state": {
+      "_timestamp": {
+        "enabled": false
+      },
       "_all": {"enabled": "false" },
+      "_source": {"enabled": false },
       "properties": {
-        "macro": {
-          "type": "integer"
+        "macro_s": {
+          "type": "integer",
+          "index": "no",
+          "store": true,
+          "doc_values":true
         },
         "miniv": {
           "properties":{
-            "key":{"type":"integer","index":"no"},
-            "value":{"type":"integer","index":"no"}
+            "key":{
+              "type":"integer",
+              "index":"no",
+              "doc_values":false,
+              "store":true
+            },
+            "value":{
+              "type":"integer",
+              "index":"no",
+              "doc_values":false,
+              "store":true
+            }
           }
         },
         "microv": {
           "properties":{
-            "key":{"type":"integer","index":"no"},
-            "value":{"type":"integer","index":"no"}
+            "key":{
+              "type":"integer",
+              "index":"no",
+              "doc_values":false,
+              "store":true
+            },
+            "value":{
+              "type":"integer",
+              "index":"no",
+              "doc_values":false,
+              "store":true
+            }
           }
         },
         "inputStats" : {
           "properties" : {
             "tp": {
-              "type": "double"
+              "type": "double",
+              "index":"no",
+              "doc_values":true,
+              "store": true
             },
             "lead": {
-              "type": "double"
+              "type": "double",
+              "index":"no",
+              "doc_values":true,
+              "store": true
             },
             "nfiles": {
-              "type": "integer"
+              "type": "integer",
+              "index":"no",
+              "doc_values":true,
+              "store": true
             },
             "lockwaitUs": {
-              "type": "double"
+              "type": "double",
+              "index":"no",
+              "doc_values":true,
+              "store": true
             },
             "lockcount": {
-              "type": "integer"
+              "type": "integer",
+              "index":"no",
+              "doc_values":true,
+              "store": true
             }
           }
         },
         "ls": {
           "type": "integer",
+          "doc_values":true,
           "store": true
         },
-        "fm_date": {
-          "type": "date"
+        "fm_date_s": {
+          "type": "date",
+          "doc_values":false,
+          "store": true
         },
-        "source" : {
+        "source_s" : {
           "type":"string",
-          "index":"not_analyzed"
+          "index":"not_analyzed",
+          "store": true,
+          "doc_values":true
+ 
         },
-        "mclass" : {
+        "mclass_s" : {
           "type": "string",
-          "index":"not_analyzed"
+          "index":"not_analyzed",
+          "store": true,
+          "doc_values":true
         }
       }
     },
     "prc-out": {
       "_all": {"enabled": "false" },
+      "_source": {"enabled": false },
       "properties": {
-        "data": {
-          "properties": {
-            "in": {
-              "type": "integer"
-            },
-            "out": {
-              "type": "integer"
-            },
-            "file": {
-              "type": "string",
-              "index": "not_analyzed"
-            }
-          }
-        },
-        "ls": {
+        "din": {
           "type": "integer",
-          "store": true
+          "index":"no",
+          "store":true,
+          "doc_values":true
         },
-        "stream": {
+        "dout": {
+          "type": "integer",
+          "index":"no",
+          "store":true,
+          "doc_values":true
+        },
+        "lsn": {
+          "type": "integer",
+          "store": false,
+          "doc_values":false
+        },
+        "streamn": {
           "type": "string",
-          "index": "not_analyzed"
+          "index": "not_analyzed",
+          "store": false,
+          "doc_values":false
         },
-        "pid": {
-          "type": "integer"
+        "pidn": {
+          "type": "integer",
+          "store": false,
+          "doc_values":false
         },
-        "host": {
+        "hostn": {
           "type": "string",
-          "index": "not_analyzed"
+          "index": "not_analyzed",
+          "store": false,
+          "doc_values":false
         },
-        "appliance": {
+        "appn": {
           "type": "string",
-          "index": "not_analyzed"
+          "index": "not_analyzed",
+          "store": false,
+          "doc_values":false
         }
       },
       "_timestamp": {

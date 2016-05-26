@@ -200,9 +200,9 @@ class elasticBand():
         datadict['ls'] = int(infile.ls[2:])
         document['process']=int(infile.pid[3:])
         if document['data'][0] != "N/A":
-            datadict['macro']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
+            datadict['macro_s']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
         else:
-            datadict['macro'] = -1
+            datadict['macro_s'] = -1
         if document['data'][1] != "N/A":
             miniVector = []
             for idx,f in enumerate(document['data'][1].strip('[]').split(',')):
@@ -229,9 +229,9 @@ class elasticBand():
             }
         except:
             pass
-        datadict['fm_date'] = str(infile.mtime)
-        datadict['source'] = self.hostname + '_' + infile.pid
-        datadict['mclass'] = self.nprocid
+        datadict['fm_date_s'] = str(infile.mtime)
+        datadict['source_s'] = self.hostname + '_' + infile.pid
+        datadict['mclass_s'] = self.nprocid
         #self.tryIndex('prc-s-state',datadict)
         self.prcsstateBuffer.setdefault(infile.ls,[]).append(datadict)
 
@@ -243,18 +243,18 @@ class elasticBand():
         stream=infile.stream
         #removing 'stream' prefix
         if stream.startswith("stream"): stream = stream[6:]
-        values = [int(f) if ((type(f) is str and f.isdigit()) or type(f) is int) else str(f) for f in document['data']]
-        #values = [int(f) if f.isdigit() else str(f) for f in document['data']]
-        keys = ["in","out"]
-        #keys = ["in","out","errorEvents","returnCodeMask","Filelist","fileSize","InputFiles","fileAdler32"]
-        datadict = dict(zip(keys, values))
-        document['data']=datadict
-        document['ls']=int(ls[2:])
-        document['stream']=stream
-        #document['source']=self.hostname+'_'+infile.pid
-        document['pid']=int(infile.pid[3:])
-        document['host']=self.hostname
-        document['appliance']=self.bu_name
+        try:
+          document['din']=int(document["data"][0])
+          document['dout']=int(document["data"][1])
+        except Exception as ex:
+          self.logger.warning(str(ex))
+        try:document.pop('data')
+        except:pass
+        document['lsn']=int(ls[2:])
+        document['streamn']=stream
+        document['pidn']=int(infile.pid[3:])
+        document['hostn']=self.hostname
+        document['appn']=self.bu_name
         try:document.pop('definition')
         except:pass
         try:document.pop('source')

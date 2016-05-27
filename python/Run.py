@@ -244,8 +244,11 @@ class Run:
                                                         close_fds=True
                                                         )
             except OSError as ex:
-                self.logger.error('RUN:'+str(self.runnumber)+" - failed to start elasticsearch client")
+                self.logger.error('RUN:'+str(self.runnumber)+" - failed to start elasticsearch client (OSError)")
                 self.logger.error(ex)
+            except Exception as ex:
+                self.logger.error('RUN:'+str(self.runnumber)+" - failed to start elasticsearch client (Exception)")
+                self.logger.exception(ex)
             try:self.nsslock.release()
             except:pass
         if conf.role == "fu" and conf.dqm_machine==False:
@@ -257,9 +260,17 @@ class Run:
                                                     close_fds=True
                                                     )
             except OSError as ex:
-                self.logger.fatal('RUN:'+str(self.runnumber)+" - failed to start anelastic.py client:")
+                self.logger.fatal('RUN:'+str(self.runnumber)+" - will terminate service after failing to start anelastic.py client (OSError):")
                 self.logger.exception(ex)
-                sys.exit(1)
+                self.logger.info('exiting...')
+                time.sleep(1)
+                os._exit(2)
+            except Exception as ex:
+                self.logger.fatal('RUN:'+str(self.runnumber)+" - will terminate service after failing to start anelastic.py client (Exception):")
+                self.logger.exception(ex)
+                self.logger.info('exiting...')
+                time.sleep(1)
+                os._exit(2)
 
     def __del__(self):
         self.stopThreads=True

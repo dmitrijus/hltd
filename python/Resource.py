@@ -169,7 +169,10 @@ class OnlineResource:
                                             close_fds=True
                                             )
             self.logger.info("arg array "+str(new_run_args).translate(None, "'")+' started with pid '+str(self.process.pid))
-
+        except Exception as ex:
+            self.logger.warning("OnlineResource: exception encountered in forking hlt slave")
+            self.logger.warning(ex)
+        try:
             if self.watchdog:
                 #release lock while joining thread to let it complete
                 self.resource_lock.release()
@@ -182,8 +185,8 @@ class OnlineResource:
             self.logger.debug("watchdog thread restarted for "+str(self.process.pid)+" is alive " + str(self.watchdog.is_alive()))
 
         except Exception as ex:
-            self.logger.info("OnlineResource: exception encountered in forking hlt slave")
-            self.logger.info(ex)
+            self.logger.warning("OnlineResource: exception encountered in watching hlt slave")
+            self.logger.warning(ex)
 
     def join(self):
         self.logger.debug('calling join on thread ' +self.watchdog.name)

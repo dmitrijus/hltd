@@ -359,7 +359,11 @@ class hltd(Daemon2,object):
         logCollector = None
         if conf.use_elasticsearch == True:
             time.sleep(.2)
-            restartLogCollector(conf,logger,logCollector,self.instance)
+            try:
+              restartLogCollector(conf,logger,logCollector,self.instance)
+            except:
+              logger.error("can not spawn log collector. terminating..")
+              os._exit(1)
 
         #BU mode threads
         indexCreator = None

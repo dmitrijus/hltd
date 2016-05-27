@@ -78,6 +78,7 @@ class MonitorRanger:
                     self.output_bw=bw_cnt/d_t
                     bw_cnt=0
             bw_cnt_time=new_time
+            self.updateQueueStatusFile()
             time.sleep(23.4)
 
     def register_inotify_path(self,path,mask):

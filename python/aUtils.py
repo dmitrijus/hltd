@@ -60,7 +60,6 @@ class MonitorRanger:
 
         self.output_bw=0
         self.statsCollectorThread = None
-        self.startStatsCollector()
 
     def startStatsCollector(self):
         self.statsCollectorThread = threading.Thread(target=self.statsCollector)
@@ -78,7 +77,10 @@ class MonitorRanger:
                     self.output_bw=bw_cnt/d_t
                     bw_cnt=0
             bw_cnt_time=new_time
-            self.updateQueueStatusFile()
+            if self.queueStatusPathDir and not os.path.exists(self.queueStatusPathDir):
+              self.logger.info('no queue status dir yet.')
+            else:
+              self.updateQueueStatusFile()
             time.sleep(23.4)
 
     def register_inotify_path(self,path,mask):

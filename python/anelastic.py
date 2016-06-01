@@ -1162,6 +1162,7 @@ if __name__ == "__main__":
         mr = MonitorRanger()
         mr.setEventQueue(eventQueue)
         mr.setQueueStatusPath(os.path.join(watchDir,"open","queue_status.jsn"),os.path.join(watchDir,"mon","queue_status.jsn"))
+        mr.startStatsCollector()
         mr.register_inotify_path(watchDir,mask)
         mr.start_inotify()
 

@@ -186,6 +186,7 @@ class elasticBand():
             except:pass
             document['fm_date'] = str(mtime)
             document['mclass'] = self.nprocid
+            document['source'] = self.hostname + '_' + infile.pid
             self.istateBuffer.append(document)
         except Exception:
             pass

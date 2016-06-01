@@ -208,6 +208,7 @@ cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > hltd.spec <<EOF
 Name: hltd
+<<<<<<< HEAD
 Version: 1.9.6
 Release: 0
 Summary: hlt daemon

@@ -188,7 +188,7 @@ class system_monitor(threading.Thread):
            elif self.mm.buBootId:
                id_check =  self.buBootIdFetch(self.directory[0])
                if id_check != self.mm.buBootId: #check if there is new boot timestamp
-                   self.logger.warning('new BU boot id detected. old:' + self.mm.buBootId + ' new:' + id_check)
+                   self.logger.warning('new BU boot id detected. old:' + str(self.mm.buBootId) + ' new:' + str(id_check))
                    self.mm.stale_handle_remount_required = True
                    return False
        return True

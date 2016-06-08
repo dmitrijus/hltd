@@ -18,8 +18,7 @@
     },
     "index": {
       "number_of_shards": 2,
-      "number_of_replicas": 1,
-      "codec": "best_compression"
+      "number_of_replicas": 1
     }
   },
   "mappings": {
@@ -68,48 +67,21 @@
       }
     },
     "prc-s-state": {
-      "_timestamp": {
-        "enabled": false
-      },
       "_all": {"enabled": "false" },
-      "_source": {"enabled": false },
       "properties": {
-        "macro_s": {
-          "type": "integer",
-          "index": "no",
-          "store": true,
-          "doc_values":true
+        "macro": {
+          "type": "integer"
         },
         "miniv": {
           "properties":{
-            "key":{
-              "type":"integer",
-              "index":"no",
-              "doc_values":false,
-              "store":true
-            },
-            "value":{
-              "type":"integer",
-              "index":"no",
-              "doc_values":false,
-              "store":true
-            }
+            "key":{"type":"integer","index":"no"},
+            "value":{"type":"integer","index":"no"}
           }
         },
         "microv": {
           "properties":{
-            "key":{
-              "type":"integer",
-              "index":"no",
-              "doc_values":false,
-              "store":true
-            },
-            "value":{
-              "type":"integer",
-              "index":"no",
-              "doc_values":false,
-              "store":true
-            }
+            "key":{"type":"integer","index":"no"},
+            "value":{"type":"integer","index":"no"}
           }
         },
         "inputStats" : {
@@ -117,57 +89,44 @@
             "tp": {
               "type": "double",
               "index":"no",
-              "doc_values":true,
-              "store": true
+              "doc_values":true
             },
             "lead": {
               "type": "double",
               "index":"no",
-              "doc_values":true,
-              "store": true
+              "doc_values":true
             },
             "nfiles": {
               "type": "integer",
               "index":"no",
-              "doc_values":true,
-              "store": true
+              "doc_values":true
             },
             "lockwaitUs": {
               "type": "double",
               "index":"no",
-              "doc_values":true,
-              "store": true
+              "doc_values":true
             },
             "lockcount": {
               "type": "integer",
               "index":"no",
-              "doc_values":true,
-              "store": true
+              "doc_values":true
             }
           }
         },
         "ls": {
           "type": "integer",
-          "doc_values":true,
           "store": true
         },
-        "fm_date_s": {
-          "type": "date",
-          "doc_values":false,
-          "store": true
+        "fm_date": {
+          "type": "date"
         },
-        "source_s" : {
+        "source" : {
           "type":"string",
-          "index":"not_analyzed",
-          "store": true,
-          "doc_values":true
- 
+          "index":"not_analyzed"
         },
-        "mclass_s" : {
+        "mclass" : {
           "type": "string",
-          "index":"not_analyzed",
-          "store": true,
-          "doc_values":true
+          "index":"not_analyzed"
         }
       }
     },

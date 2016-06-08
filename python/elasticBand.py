@@ -201,9 +201,11 @@ class elasticBand():
         datadict['ls'] = int(infile.ls[2:])
         document['process']=int(infile.pid[3:])
         if document['data'][0] != "N/A":
-            datadict['macro_s']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
+            datadict['macro']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
+            #datadict['macro_s']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
         else:
-            datadict['macro_s'] = -1
+            datadict['macro'] = -1
+            #datadict['macro_s'] = -1
         if document['data'][1] != "N/A":
             miniVector = []
             for idx,f in enumerate(document['data'][1].strip('[]').split(',')):
@@ -230,9 +232,12 @@ class elasticBand():
             }
         except:
             pass
-        datadict['fm_date_s'] = str(infile.mtime)
-        datadict['source_s'] = self.hostname + '_' + infile.pid
-        datadict['mclass_s'] = self.nprocid
+        datadict['fm_date'] = str(infile.mtime)
+        datadict['source'] = self.hostname + '_' + infile.pid
+        datadict['mclass'] = self.nprocid
+        #datadict['fm_date_s'] = str(infile.mtime)
+        #datadict['source_s'] = self.hostname + '_' + infile.pid
+        #datadict['mclass_s'] = self.nprocid
         #self.tryIndex('prc-s-state',datadict)
         self.prcsstateBuffer.setdefault(infile.ls,[]).append(datadict)
 

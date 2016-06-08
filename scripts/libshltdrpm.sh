@@ -1,13 +1,5 @@
 #!/bin/bash -e
-# numArgs=$#
-# if [ $numArgs -lt 4 ]; then
-#     echo "Usage: patch-cmssw-build.sh CMSSW_X_Y_Z patchId {dev|pro|...} patchdir"
-#     exit -1
-# fi
-# CMSSW_VERSION=$1            # the CMSSW version, as known to scram
-# PATCH_ID=$2                 # an arbitrary tag which identifies the extra code (usually, "p1", "p2", ...)
-# AREA=$3                     # "pro", "dev", etc...
-# LOCAL_CODE_PATCHES_TOP=$4   # absolute path to the area where extra code to be compiled in can be found, equivalent to $CMSSW_BASE/src
+
 alias python=python2.6
 # set the RPM build architecture
 #BUILD_ARCH=$(uname -i)      # "i386" for SLC4, "x86_64" for SLC5

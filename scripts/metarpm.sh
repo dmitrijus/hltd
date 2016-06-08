@@ -277,7 +277,7 @@ chkconfig --add fffmeta
 %triggerin -- hltd
 #echo "triggered on hltd update or install"
 
-/sbin/service hltd stop || true
+#/sbin/service hltd stop || true
 /sbin/service soap2file stop || true
 rm -rf /etc/hltd.instances
 
@@ -294,10 +294,11 @@ if [ -f /var/log/hltd/anelastic.log ]; then
 chown ${lines[8]} /var/log/hltd/anelastic.log
 fi
 
-#set up resources for hltd
-/opt/hltd/python/fillresources.py
+#set up resources for hltd (triggered at next service restart)
+touch /opt/hltd/python/scratchpy/new-version || true
+#/opt/hltd/python/fillresources.py
 
-/sbin/service hltd restart || true
+#/sbin/service hltd restart || true
 /sbin/service soap2file restart || true
 
 chkconfig --del hltd

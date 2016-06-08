@@ -15,6 +15,12 @@ import time
 import syslog
 
 def startService(daemon,srvInstance):
+    #if new version, resource accounting needs to run
+    if os.path.exists('/opt/hltd/scratchpy/new-version')
+      os.remove('/opt/hltd/scratchpy/new-version')
+      proc = Popen(['/opt/hltd/python/fillresources.py'])
+      output = proc.wait()
+    #start the service
     daemon.touchLockFile()
     proc = Popen(["/opt/hltd/python/hltd.py",srvInstance], stdout=PIPE)
     output = proc.communicate()[0]

@@ -22,11 +22,11 @@ echo "removing old build area"
 rm -rf /tmp/hltd-libs-build-tmp-area
 echo "creating new build area"
 mkdir  /tmp/hltd-libs-build-tmp-area
-ls
 cd     /tmp/hltd-libs-build-tmp-area
 TOPDIR=$PWD
-ls
 
+mkdir -p $TOPDIR/opt/hltd
+cp -r $BASEDIR/opt/hltd/lib $TOPDIR/opt/hltd
 
 echo "Moving files to their destination"
 mkdir -p usr/lib64/python2.6/site-packages
@@ -165,8 +165,9 @@ cd opt/hltd/lib/python-procname/
 ./setup.py -q build
 cp build/lib.linux-x86_64-2.6/procname.so $TOPDIR/usr/lib64/python2.6/site-packages
 
-
 cd $TOPDIR
+rm -rf opt
+
 # we are done here, write the specs and make the fu***** rpm
 cat > hltd-libs.spec <<EOF
 Name: hltd-libs
@@ -195,8 +196,6 @@ fff hlt daemon libraries
 rm -rf \$RPM_BUILD_ROOT
 mkdir -p \$RPM_BUILD_ROOT
 tar -C $TOPDIR -c usr | tar -xC \$RPM_BUILD_ROOT
-rm -rf \$RPM_BUILD_ROOT/opt/hltd/python
-rm \$RPM_BUILD_ROOT/opt/hltd/TODO
 %post
 %files
 %defattr(-, root, root, -)

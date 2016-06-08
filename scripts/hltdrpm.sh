@@ -30,6 +30,7 @@ ls
 cp -r $BASEDIR/python/hltd $TOPDIR/etc/init.d/hltd
 cp -r $BASEDIR/python/soap2file $TOPDIR/etc/init.d/soap2file
 cp -r $BASEDIR/* $TOPDIR/opt/hltd
+touch $TOPDIR/opt/hltd/scratchpy/new-version
 rm -rf $TOPDIR/opt/hltd/python/hltd
 rm -rf $TOPDIR/opt/hltd/python/soap2file
 rm -rf $TOPDIR/opt/hltd/python/riverd
@@ -46,12 +47,14 @@ mkdir -p etc/appliance/dqm_resources/except
 mkdir -p etc/appliance/dqm_resources/quarantined
 mkdir -p etc/appliance/dqm_resources/cloud
 
-cd $TOPDIR/opt/hltd/bin
-
+rm -rf $TOPDIR/opt/hltd/bin
 rm -rf $TOPDIR/opt/hltd/rpm
 rm -rf $TOPDIR/opt/hltd/lib
 rm -rf $TOPDIR/opt/hltd/esplugins
 rm -rf $TOPDIR/opt/hltd/scripts/paramcache*
+rm -rf $TOPDIR/opt/hltd/scripts/*rpm.sh
+rm -rf $TOPDIR/opt/hltd/scripts/*,php
+rm -rf $TOPDIR/opt/hltd/scripts/fff-es
 
 cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm

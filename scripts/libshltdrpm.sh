@@ -26,7 +26,7 @@ cd     /tmp/hltd-libs-build-tmp-area
 TOPDIR=$PWD
 
 mkdir -p $TOPDIR/opt/hltd
-cp -r $BASEDIR/opt/hltd/lib $TOPDIR/opt/hltd
+cp -r $BASEDIR/lib $TOPDIR/opt/hltd
 
 echo "Moving files to their destination"
 mkdir -p usr/lib64/python2.6/site-packages
@@ -171,7 +171,6 @@ rm -rf opt
 # we are done here, write the specs and make the fu***** rpm
 cat > hltd-libs.spec <<EOF
 Name: hltd-libs
-<<<<<<< HEAD
 Version: 1.9.6
 Release: 0
 Summary: hlt daemon

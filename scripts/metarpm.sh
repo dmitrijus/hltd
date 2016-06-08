@@ -295,7 +295,7 @@ chown ${lines[8]} /var/log/hltd/anelastic.log
 fi
 
 #set up resources for hltd (triggered at next service restart)
-touch /opt/hltd/python/scratchpy/new-version || true
+touch /opt/hltd/python/scratch/new-version || true
 #/opt/hltd/python/fillresources.py
 
 #/sbin/service hltd restart || true

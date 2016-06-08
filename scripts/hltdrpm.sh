@@ -30,7 +30,7 @@ ls
 cp -r $BASEDIR/python/hltd $TOPDIR/etc/init.d/hltd
 cp -r $BASEDIR/python/soap2file $TOPDIR/etc/init.d/soap2file
 cp -r $BASEDIR/* $TOPDIR/opt/hltd
-touch $TOPDIR/opt/hltd/scratchpy/new-version
+touch $TOPDIR/opt/hltd/scratch/new-version
 rm -rf $TOPDIR/opt/hltd/python/hltd
 rm -rf $TOPDIR/opt/hltd/python/soap2file
 rm -rf $TOPDIR/opt/hltd/python/riverd

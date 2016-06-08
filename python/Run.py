@@ -234,10 +234,10 @@ class Run:
                 if conf.role == "bu":
                     self.nsslock.acquire()
                     self.logger.info("starting elasticbu.py with arguments:"+self.dirname)
-                    elastic_args = ['/opt/hltd/python/elasticbu.py',str(self.runnumber),self.instance]
+                    elastic_args = ['/opt/hltd/scratch/python/elasticbu.py',str(self.runnumber),self.instance]
                 else:
                     self.logger.info("starting elastic.py with arguments:"+self.dirname)
-                    elastic_args = ['/opt/hltd/python/elastic.py',str(self.runnumber),self.dirname,self.rawinputdir+'/mon',str(self.resInfo.expected_processes)]
+                    elastic_args = ['/opt/hltd/scratch/python/elastic.py',str(self.runnumber),self.dirname,self.rawinputdir+'/mon',str(self.resInfo.expected_processes)]
 
                 self.elastic_monitor = subprocess.Popen(elastic_args,
                                                         preexec_fn=preexec_function,
@@ -254,7 +254,7 @@ class Run:
         if conf.role == "fu" and conf.dqm_machine==False:
             try:
                 self.logger.info("starting anelastic.py with arguments:"+self.dirname)
-                elastic_args = ['/opt/hltd/python/anelastic.py',str(self.runnumber),self.dirname,self.rawinputdir,self.mm.bu_disk_list_output_instance[0]]
+                elastic_args = ['/opt/hltd/scratch/python/anelastic.py',str(self.runnumber),self.dirname,self.rawinputdir,self.mm.bu_disk_list_output_instance[0]]
                 self.anelastic_monitor = subprocess.Popen(elastic_args,
                                                     preexec_fn=preexec_function,
                                                     close_fds=True

@@ -1,6 +1,7 @@
 #!/bin/env python
 import os,sys
-sys.path.append('/opt/hltd/python')
+#sys.path.append('/opt/hltd/python')
+sys.path.append('/opt/hltd/scratch/python')
 sys.path.append('/opt/hltd/lib')
 
 import time

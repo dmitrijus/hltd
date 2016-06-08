@@ -7,7 +7,7 @@ sys.path.append('/opt/hltd/python')
 sys.path.append('/opt/hltd/lib')
 from daemon2 import Daemon2
 from hltdconf import initConf
-from subprocess import Popen
+from subprocess import Popen,check_call
 from subprocess import PIPE
 from applianceumount import stopFUs
 from applianceumount import checkMode
@@ -16,13 +16,16 @@ import syslog
 
 def startService(daemon,srvInstance):
     #if new version, resource accounting needs to run
-    if os.path.exists('/opt/hltd/scratchpy/new-version')
-      os.remove('/opt/hltd/scratchpy/new-version')
-      proc = Popen(['/opt/hltd/python/fillresources.py'])
-      output = proc.wait()
+    if os.path.exists('/opt/hltd/scratch/new-version')
+      os.remove('/opt/hltd/scratch/new-version')
+      proc = check_call(['/opt/hltd/python/fillresources.py'])
+    check_call(['rm -rf /opt/hltd/scratch/*'])
+    check_call(['cp -R /opt/hltd/python /opt/hltd/scratch/'])
+    check_call(['cp -R /opt/hltd/cgi /opt/hltd/scratch/'])
+    check_call(['cp -R /opt/hltd/scripts /opt/hltd/scratch/'])
     #start the service
     daemon.touchLockFile()
-    proc = Popen(["/opt/hltd/python/hltd.py",srvInstance], stdout=PIPE)
+    proc = Popen(["/opt/hltd/scratch/python/hltd.py",srvInstance], stdout=PIPE)
     output = proc.communicate()[0]
     tries=3
     while True:

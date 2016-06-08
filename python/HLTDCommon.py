@@ -16,7 +16,7 @@ def restartLogCollector(conf,logger,logCollector,instanceParam):
         logCollector.terminate()
         logCollector = None
     logger.info("starting logcollector.py")
-    logcollector_args = ['/opt/hltd/python/logcollector.py']
+    logcollector_args = ['/opt/hltd/scratch/python/logcollector.py']
     logcollector_args.append(instanceParam)
     global user
     user = conf.user

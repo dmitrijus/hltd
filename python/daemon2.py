@@ -269,11 +269,11 @@ class Daemon2:
         sys.stdout.write('\t\t\t [  \033[1;32mOK\033[0;39m  ]\n')
         sys.stdout.flush()
 
-    def restart(self):
+    def restart(self,do_umount_=True):
         """
         Restart the daemon
         """
-        self.stop()
+        self.stop(do_umount_)
         return self.start()
 
     def run(self):

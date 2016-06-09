@@ -49,11 +49,11 @@ if __name__ == "__main__":
 
         elif 'stop' == sys.argv[1]:
             sys.stdout.write('Stopping soap2file:')
-            soap2file.stop()
+            soap2file.stop(do_umount=False)
 
         elif 'restart' == sys.argv[1]:
             sys.stdout.write('Stopping soap2file:')
-            soap2file.stop()
+            soap2file.stop(do_umount=False)
             startService(soap2file)
 
         elif 'status' == sys.argv[1]:

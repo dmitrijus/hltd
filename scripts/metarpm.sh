@@ -161,7 +161,7 @@ cd $TOPDIR
 # we are done here, write the specs and make the fu***** rpm
 cat > fffmeta.spec <<EOF
 Name: $PACKAGENAME
-Version: 1.9.5
+Version: 1.9.6
 Release: 0
 Summary: hlt daemon
 License: gpl
@@ -295,7 +295,7 @@ chown ${lines[8]} /var/log/hltd/anelastic.log
 fi
 
 #set up resources for hltd (triggered at next service restart)
-touch /opt/hltd/python/scratch/new-version || true
+touch /opt/hltd/scratch/new-version || true
 #/opt/hltd/python/fillresources.py
 
 #/sbin/service hltd restart || true

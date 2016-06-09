@@ -16,13 +16,13 @@ import syslog
 
 def startService(daemon,srvInstance):
     #if new version, resource accounting needs to run
-    if os.path.exists('/opt/hltd/scratch/new-version')
+    if os.path.exists('/opt/hltd/scratch/new-version'):
       os.remove('/opt/hltd/scratch/new-version')
       proc = check_call(['/opt/hltd/python/fillresources.py'])
-    check_call(['rm -rf /opt/hltd/scratch/*'])
-    check_call(['cp -R /opt/hltd/python /opt/hltd/scratch/'])
-    check_call(['cp -R /opt/hltd/cgi /opt/hltd/scratch/'])
-    check_call(['cp -R /opt/hltd/scripts /opt/hltd/scratch/'])
+    check_call(['rm','-rf','/opt/hltd/scratch/*'])
+    check_call(['cp','-R','/opt/hltd/python','/opt/hltd/scratch/'])
+    check_call(['cp','-R', '/opt/hltd/cgi','/opt/hltd/scratch/'])
+    check_call(['cp','-R','/opt/hltd/scripts','/opt/hltd/scratch/'])
     #start the service
     daemon.touchLockFile()
     proc = Popen(["/opt/hltd/scratch/python/hltd.py",srvInstance], stdout=PIPE)

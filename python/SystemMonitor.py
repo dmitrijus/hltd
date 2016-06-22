@@ -615,7 +615,7 @@ class system_monitor(threading.Thread):
           cnt+=1
           os.close(fd)
         except OSError as ex:
-          self.logger.exception(ex)
+          self.logger.warning(str(ex))
           try:os.close(fd)
           except:pass
           return 0,0,0

@@ -43,7 +43,6 @@ class system_monitor(threading.Thread):
         self.boxInfo = boxInfo
         global conf
         conf = confClass
-        self.indexCreator = None #placeholder
 
         #start direct injection into central index (fu role)
         if conf.use_elasticsearch == True:
@@ -392,10 +391,6 @@ class system_monitor(threading.Thread):
                         if lastFUrun>0:
                             if not self.highest_run_number or self.highest_run_number<lastFUrun:
                                 self.highest_run_number=lastFUrun
-                                if self.indexCreator:
-                                    self.indexCreator.setMasked(lastFUrun>0,self.highest_run_number)
-                        elif self.indexCreator:
-                                self.indexCreator.setMasked(False,self.highest_run_number)
 
                     except:pass
 

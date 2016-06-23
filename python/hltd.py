@@ -31,7 +31,6 @@ from MountManager import MountManager
 import SystemMonitor
 
 from elasticbu import BoxInfoUpdater
-from elasticBand import IndexCreator
 from WebCtrl import WebCtrl
 
 #shared info classes
@@ -367,7 +366,6 @@ class hltd(Daemon2,object):
               os._exit(1)
 
         #BU mode threads
-        indexCreator = None
         if conf.role == 'bu':
             #update_success,machine_blacklist=updateBlacklist()
             boxInfo.machine_blacklist=[]
@@ -385,12 +383,6 @@ class hltd(Daemon2,object):
                 boxInfo.updater = BoxInfoUpdater(conf,nsslock,boxInfo.boxdoc_version)
                 boxInfo.updater.start()
 
-            if conf.use_elasticsearch:
-                indexCreator = IndexCreator('http://'+conf.es_local+':9200',conf.elastic_cluster,conf.force_replicas,conf.force_shards)
-                #disabled until tested
-                #indexCreator.start()
-
-        sm.indexCreator=indexCreator
         rr = ResourceRanger(conf,state,resInfo,runList,mm,boxInfo,sm,resource_lock)
 
         #init resource ranger

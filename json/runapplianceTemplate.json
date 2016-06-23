@@ -290,6 +290,9 @@
         },
         "fm_date": {
           "type": "date"
+        },
+        "MergingTime":{
+          "type": "float"
         }
       },
       "_timestamp": {

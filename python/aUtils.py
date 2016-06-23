@@ -912,6 +912,8 @@ class fileHandler(object):
         self.setFieldByName('Filelist',outputName)
         self.setFieldByName('Filesize',str(filesize))
         #self.esCopy() #happens after move to output
+        try:self.data['MergingTime']=time_delta
+        except:pass
         self.writeout()
         return outputName
 

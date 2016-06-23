@@ -350,7 +350,7 @@ class LumiSectionRanger:
         #create stream subdirectory in output if not there
         create_attempts=5
         while not self.createOutputDirs(remotefiledir) and create_attempts>0:
-            time.sleep(.1+(5-create_attempts)/20.)
+            time.sleep(.1+(5-create_attempts)/50.)
             #terminate script if there is no condition
             create_attempts-=1
             if create_attempts==0: self.logger.fatal('Unable to create destination directories for INI file ' + self.infile.basename)
@@ -405,7 +405,7 @@ class LumiSectionRanger:
                 #create stream subdirectory in output if not there
                 create_attempts=5
                 while not self.createOutputDirs(remotefiledir) and create_attempts>0:
-                    time.sleep(.1+(5-create_attempts)/20)
+                    time.sleep(.1+(5-create_attempts)/50.)
                     #terminate script if there is no condition
                     create_attempts-=1
                     if create_attempts==0: self.logger.fatal('Unable to create destination directories for DEF file ' + self.infile.basename)

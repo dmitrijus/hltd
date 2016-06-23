@@ -171,7 +171,7 @@ Source: none
 %define _topdir $TOPDIR
 BuildArch: $BUILD_ARCH
 AutoReqProv: no
-Requires: hltd >= 1.9.4, cx_Oracle >= 5.1.2
+Requires: hltd >= 1.9.6, cx_Oracle >= 5.1.2
 
 Provides:/opt/fff/configurefff.sh
 Provides:/opt/fff/dbcheck.sh

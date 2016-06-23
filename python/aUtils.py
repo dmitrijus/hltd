@@ -809,7 +809,7 @@ class fileHandler(object):
         return True
 
 
-    def mergeDQM(self,outDir):
+    def mergeDQM(self,outDir,setAsError=False):
         outputName,outputExt = os.path.splitext(self.basename)
         outputName+='.pb'
         fullOutputPath = os.path.join(outDir,outputName)
@@ -855,7 +855,10 @@ class fileHandler(object):
         filesize=0
         hasError=False
         if numFiles>0:
-            time_start = time.time()
+          time_start = time.time()
+          if setAsError:
+              hasError=True
+          else:
             p = subprocess.Popen(command_args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
             p.wait()
             time_delta = time.time()-time_start
@@ -872,11 +875,11 @@ class fileHandler(object):
             else:
                 self.logger.info('fastHadd merging of ' + str(len(inFileSizes)) + ' files took ' + str(time_delta) + ' seconds')
 
-            for f in command_args[4:]:
-                try:
-                    if hasError==False:os.remove(f)
-                except OSError as ex:
-                    self.logger.warning('exception removing file '+f+' : '+str(ex))
+          for f in command_args[4:]:
+              try:
+                  if hasError==False or setAsError==True: os.remove(f)
+              except OSError as ex:
+                  self.logger.warning('exception removing file '+f+' : '+str(ex))
         else:
             hasError=True
 

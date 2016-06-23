@@ -94,9 +94,13 @@ class LumiSectionRanger:
                     os._exit(1)
             else:
                 time.sleep(0.5)
+
             #allow timeout in case 'complete' file is received and lumi is not closed
             if self.stoprequest.isSet() and self.emptyQueue.isSet() and self.checkClosure()==False:
                 if endTimeout<=-1: endTimeout=self.useTimeout*2
+                elif endTimeout<=self.useTimeout:
+                  #at half of the period tell DQM thread to quit merging and assign error events to unmerged LS-es in histo stream
+                  self.dqmHandler.setSkipAll()
                 if endTimeout==0: break
                 endTimeout-=1
 
@@ -118,13 +122,13 @@ class LumiSectionRanger:
 
         self.logger.info("joining DQM merger thread")
         try:
-            #allow 10 min timeout in case of failure
-            self.dqmHandler.waitFinish(120.)
+            #allow 10 min timeout in case of failure (however
+            self.dqmHandler.waitFinish(10)
         except:
             pass
         try:
             if self.dqmHandler.isAlive():
-                self.logger.warning("DQM thread has not terminated after waiting for 120 seconds")
+                self.logger.warning("DQM thread has not terminated after waiting for 10 seconds")
         except:
             pass
 
@@ -1092,6 +1096,7 @@ class DQMMerger(threading.Thread):
         self.abort = False
         self.active=False
         self.finish=False
+        self.skipAll=False
         self.source=source
         try:
             mergeEnabled = True
@@ -1115,7 +1120,7 @@ class DQMMerger(threading.Thread):
         while self.abort == False:
             try:
                 dqmJson = self.dqmQueue.get(True,0.5)
-                outpbname = dqmJson.mergeDQM(self.outDir)
+                outpbname = dqmJson.mergeDQM(self.outDir,setAsError=self.skipAll)
                 try:
                   if len(outpbname):
                     outpbpath = os.path.join(self.outDir,outpbname)
@@ -1131,6 +1136,10 @@ class DQMMerger(threading.Thread):
             except KeyboardInterrupt as e:
                 break
 
+    def setSkipAll(self):
+        if self.skipAll:return
+        self.skipAll=True
+        self.logger.info('Parent thread has request to skip merging remaining Histograms')
     def waitFinish(self,time=None):
         self.finish=True
         if time:

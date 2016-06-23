@@ -617,7 +617,14 @@ class fileHandler(object):
 
             #if going to merge, open input file
             if dst == None:
-                dst = open(destinationpath,'wb')
+                try:
+                    dst = open(destinationpath,'wb')
+                except IOError as ex:
+                    if ex.errno==2:
+                      self.logger.fatal('IOError opening destination file path '+ destinationpath + ' errno:'+str(ex.errno))
+                      #assert (terminate script) if data destination dir is not available
+                      os._exit(6)
+                    raise ex
 
             length=16*1024
             adler32c=1

@@ -269,44 +269,6 @@ class LumiSectionRanger:
         for item in lsList.values():
             item.processFile(self.infile)
 
-    def createErrIniFile(self):
-
-        if self.errIniFile.isSet(): return
-
-        runname = 'run'+self.run_number.zfill(conf.run_number_padding)
-        ls ="ls0000"
-        stream = STREAMERRORNAME
-        ext = ".ini"
-
-        filename = "_".join([runname,ls,stream,host])+ext
-        filepath = os.path.join(self.outdir,runname,stream,filename)
-        filedir = os.path.join(self.outdir,runname,stream)
-        filedir = os.path.join(self.outdir,runname,stream)
-
-        #create stream subdirectory in output if not there
-        create_attempts=5
-        while not self.createOutputDirs(filedir) and create_attempts>0:
-            time.sleep(2)
-            #terminate script if there is no condition
-            create_attempts-=1
-            if create_attempts==0: self.logger.fatal('Unable to create destinatino directories for INI file ' + self.infile.basename)
-
-        infile = fileHandler(filepath)
-        infile.data = ""
-        if infile.writeout(empty=True,verbose=False):
-            self.errIniFile.set()
-
-        #'touch' empty Error INI file stream for monitoring
-        localmonfilepath = os.path.join(self.tempdir,'mon',filename)
-        if not os.path.exists(localmonfilepath):
-            try:
-                with open(localmonfilepath,'w') as fp:
-                    pass
-            except:
-                self.logger.warning('could not create '+localmonfilepath)
-
-        self.logger.info("created error ini file")
-
     def createOutputDirs(self,remotefiledir):
         try:
             os.mkdir(remotefiledir)
@@ -327,6 +289,44 @@ class LumiSectionRanger:
             self.logger.error('Caught exception creating directory: ' + str(ex))
         return False
  
+    def createErrIniFile(self):
+
+        if self.errIniFile.isSet(): return
+
+        runname = 'run'+self.run_number.zfill(conf.run_number_padding)
+        ls ="ls0000"
+        stream = STREAMERRORNAME
+        ext = ".ini"
+
+        filename = "_".join([runname,ls,stream,host])+ext
+        filepath = os.path.join(self.outdir,runname,stream,filename)
+        filedir = os.path.join(self.outdir,runname,stream)
+        filedir = os.path.join(self.outdir,runname,stream)
+
+        #create stream subdirectory in output if not there
+        create_attempts=5
+        while not self.createOutputDirs(filedir) and create_attempts>0:
+            time.sleep(.1)
+            #terminate script if there is no condition
+            create_attempts-=1
+            if create_attempts==0: self.logger.fatal('Unable to create destination directories for INI file ' + self.infile.basename)
+
+        infile = fileHandler(filepath)
+        infile.data = ""
+        if infile.writeout(empty=True,verbose=False):
+            self.errIniFile.set()
+
+        #'touch' empty Error INI file stream for monitoring
+        localmonfilepath = os.path.join(self.tempdir,'mon',filename)
+        if not os.path.exists(localmonfilepath):
+            try:
+                with open(localmonfilepath,'w') as fp:
+                    pass
+            except:
+                self.logger.warning('could not create '+localmonfilepath)
+
+        self.logger.info("created error ini file")
+
 
     def processINIfile(self):
 
@@ -346,10 +346,10 @@ class LumiSectionRanger:
         #create stream subdirectory in output if not there
         create_attempts=5
         while not self.createOutputDirs(remotefiledir) and create_attempts>0:
-            time.sleep(2)
+            time.sleep(.1+(5-create_attempts)/20.)
             #terminate script if there is no condition
             create_attempts-=1
-            if create_attempts==0: self.logger.fatal('Unable to create destinatino directories for INI file ' + self.infile.basename)
+            if create_attempts==0: self.logger.fatal('Unable to create destination directories for INI file ' + self.infile.basename)
 
         if not os.path.exists(localmonfilepath):
             try:
@@ -399,12 +399,12 @@ class LumiSectionRanger:
             else:
                 remotefiledir = os.path.join(outputDir,run,stream)
                 #create stream subdirectory in output if not there
-                try:
-                    os.mkdir(remotefiledir)
-                    os.mkdir(os.path.join(remotefiledir,'data'))
-                    os.mkdir(os.path.join(remotefiledir,'jsns'))
-                except:
-                    pass
+                create_attempts=5
+                while not self.createOutputDirs(remotefiledir) and create_attempts>0:
+                    time.sleep(.1+(5-create_attempts)/20)
+                    #terminate script if there is no condition
+                    create_attempts-=1
+                    if create_attempts==0: self.logger.fatal('Unable to create destination directories for DEF file ' + self.infile.basename)
 
                 fn = os.path.join(remotefiledir,'data',os.path.basename(newpath))
                 self.infile.moveFile(fn, copy=True, adler32=False, silent=True, createDestinationDir=False, missingDirAlert=False)

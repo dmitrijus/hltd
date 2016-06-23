@@ -276,8 +276,8 @@ class LumiSectionRanger:
     def createOutputDirs(self,remotefiledir):
         try:
             os.mkdir(remotefiledir)
-            os.mkdir(os.path.join(remotefiledir,'data'))
             os.mkdir(os.path.join(remotefiledir,'jsns'))
+            os.mkdir(os.path.join(remotefiledir,'data'))
             return True
         except OSError as ex:
             if ex.errno==17:

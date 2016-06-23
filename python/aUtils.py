@@ -59,6 +59,12 @@ class MonitorRanger:
         self.lock = threading.Lock()
 
         self.output_bw=0
+        self.lumi_bw=0
+
+        self.data_size_ls_num = 0
+        self.data_size_val = 0
+        self.data_size_last_update = 0
+
         self.statsCollectorThread = None
 
     def startStatsCollector(self):
@@ -77,6 +83,13 @@ class MonitorRanger:
                     self.output_bw=bw_cnt/d_t
                     bw_cnt=0
             bw_cnt_time=new_time
+
+            #refresh last completed lumi BW
+            if self.data_ls_num>0:
+              if new_time - self.data_size_last_update < 60:
+                self.lumi_bw=self.data_size_val/23.31
+              else:
+                self.lumi_bw=0.
             if self.queueStatusPathDir and not os.path.exists(self.queueStatusPathDir):
               self.logger.info('no queue status dir yet.')
             else:
@@ -146,6 +159,7 @@ class MonitorRanger:
             except:
                 pass
         elif event.fullpath.endswith("_BoLS.jsn"):
+            if now self.stopwatch_start:
             try:
                 queuedLumi = int(os.path.basename(event.fullpath).split('_')[1][2:])
                 if queuedLumi>self.maxCMSSWLumi:
@@ -194,6 +208,7 @@ class MonitorRanger:
                "CMSSWMaxLS":self.maxCMSSWLumi,
                "maxLSWithOutput":self.maxLSWithOutput,
                "outputBW": self.output_bw
+               "lumiBW": self.lumi_bw
                }
         try:
             if self.queueStatusPath!=None:
@@ -460,6 +475,8 @@ class fileHandler(object):
                     if createDestinationDir==False:
                         if silent==False and missingDirAlert==True:
                             self.logger.error("Unable to transport file "+str(oldpath)+". Destination directory does not exist: " + str(newdir))
+                        else:
+                            self.logger.warning("Unable to transport file "+str(oldpath)+". Destination directory does not exist: " + str(newdir))
                         return False,checksum
                     elif dir_missing_attempts<0:
                             self.logger.error("Unable to make directory "+str(newdir))

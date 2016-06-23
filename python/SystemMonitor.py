@@ -255,6 +255,7 @@ class system_monitor(threading.Thread):
                     activeRunLSWithOutput = -1
                     output_bw_mb = 0
                     active_run_output_bw_mb = 0
+                    active_run_lumi_bw_mb = 0
                     active_res = 0
 
                     fu_data_alarm=False
@@ -298,6 +299,7 @@ class system_monitor(threading.Thread):
                             #it should give good approximation at high output rate when FU output traffic is continuous rather than bursty
                             output_bw_mb+=edata['outputBandwidthMB']
                             active_run_output_bw_mb+=edata['activeRunOutputMB']
+                            active_run_lumi_bw_mb+=edata['activeRunLSBWMB']
 
                             if edata['detectedStaleHandle']:
                                 stale_machines.append(str(key))
@@ -375,6 +377,7 @@ class system_monitor(threading.Thread):
                                 "activeRunLSWithOutput":activeRunLSWithOutput,
                                 "outputBandwidthMB":output_bw_mb,
                                 "activeRunOutputMB":active_run_output_bw_mb,
+                                "activeRunLSBWMB":active_run_lumi_bw_mb,
                                 "ramdisk_occupancy":ramdisk_occ,
                                 "fuDiskspaceAlarm":fu_data_alarm,
                                 "bu_stop_requests_flag":bu_stop_requests_flag
@@ -439,7 +442,7 @@ class system_monitor(threading.Thread):
                             n_cloud = len(os.listdir(self.resInfo.cloud))
                             n_quarantined = len(os.listdir(self.resInfo.quarantined))-self.resInfo.num_excluded
                             if n_quarantined<0: n_quarantined=0
-                            numQueuedLumis,maxCMSSWLumi,maxLSWithOutput,outBW=self.getLumiQueueStat()
+                            numQueuedLumis,maxCMSSWLumi,maxLSWithOutput,outBW,lumiBW=self.getLumiQueueStat()
                             outBWrun=outBW
                             outBW+=self.getQueueStatusPreviousRunsBW()
 
@@ -467,7 +470,8 @@ class system_monitor(threading.Thread):
                                 'ip':self.hostip,
                                 'activeRunMaxLSOut':maxLSWithOutput,
                                 'outputBandwidthMB':outBW*0.000001,
-                                'activeRunOutputMB':outBWrun*0.000001
+                                'activeRunOutputMB':outBWrun*0.000001,
+                                'activeRunLSBWMB':lumiBW*0.000001
                             }
                             with open(mfile,'w+') as fp:
                                 json.dump(boxdoc,fp,indent=True)
@@ -521,7 +525,7 @@ class system_monitor(threading.Thread):
 
                 #fcntl.flock(fp, fcntl.LOCK_EX)
                 statusDoc = json.load(fp)
-                return statusDoc["numQueuedLS"],statusDoc["CMSSWMaxLS"],statusDoc["maxLSWithOutput"],statusDoc["outputBW"]
+                return statusDoc["numQueuedLS"],statusDoc["CMSSWMaxLS"],statusDoc["maxLSWithOutput"],statusDoc["outputBW"],statusDoc["lumiBW"]
         except:
             return -1,-1,-1,0
 

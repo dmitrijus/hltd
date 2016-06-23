@@ -573,6 +573,7 @@ class LumiSectionHandler():
         self.totalFiles = 0
         self.emptyLumiStreams = None
         self.emptyLS = isEmptyLS
+        self.data_size = 0
 
         if not self.emptyLS:
             self.initOutFiles()
@@ -826,6 +827,10 @@ class LumiSectionHandler():
         stream = self.infile.stream
         if self.infile not in self.datfileList:
             self.datfileList.append(self.infile)
+        try:
+          self.data_size+=os.stat(self.infile.filepath).st_size
+        except:
+          pass
 
     def processEOLSFile(self):
         self.logger.info(self.infile.basename)
@@ -974,6 +979,13 @@ class LumiSectionHandler():
 
 
         if not self.outfileList and not self.closed.isSet():
+
+            #update queue status statistics
+            if self.parent.mr.data_size_ls_num<self.ls_num:
+                self.parent.mr.data_size_ls_num = self.ls_num
+                self.parent.mr.data_size_val = self.data_size
+                self.parent.mr.data_size_last_update = time.time()
+
             #self.EOLS.deleteFile()
 
             #delete all index files

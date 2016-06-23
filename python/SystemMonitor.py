@@ -429,6 +429,7 @@ class system_monitor(threading.Thread):
                             #  n_broken = 0
                             #  n_cloud = len(os.listdir(cloud))+len(os.listdir(idles))+len(os.listdir(used))+len(os.listdir(broken))
                             #else:
+                            active_runs = self.runList.getActiveRunNumbers()
                             usedlist = os.listdir(self.resInfo.used)
                             brokenlist = os.listdir(self.resInfo.broken)
                             if lastrun:
@@ -443,6 +444,8 @@ class system_monitor(threading.Thread):
                             n_quarantined = len(os.listdir(self.resInfo.quarantined))-self.resInfo.num_excluded
                             if n_quarantined<0: n_quarantined=0
                             numQueuedLumis,maxCMSSWLumi,maxLSWithOutput,outBW,lumiBW=self.getLumiQueueStat()
+                            #reset per-run BW values if no active run
+                            if len(active_runs)==0:lumiBW=outBWrun=0.
                             outBWrun=outBW
                             outBW+=self.getQueueStatusPreviousRunsBW()
 
@@ -460,7 +463,7 @@ class system_monitor(threading.Thread):
                                 'usedDataDir' : d_used,
                                 'totalDataDir' : d_total,
                                 'fuDataAlarm' : d_used > 0.9*d_total,
-                                'activeRuns' :   self.runList.getActiveRunNumbers(),
+                                'activeRuns' :   active_runs,
                                 'activeRunNumQueuedLS':numQueuedLumis,
                                 'activeRunCMSSWMaxLS':maxCMSSWLumi,
                                 'activeRunStats':self.runList.getStateDoc(),
@@ -618,7 +621,7 @@ class system_monitor(threading.Thread):
           aperf += struct.unpack("Q",os.read(fd,8))[0]
           cnt+=1
           os.close(fd)
-        except OSError as ex:
+        except (IOError,OSError) as ex:
           self.logger.warning(str(ex))
           try:os.close(fd)
           except:pass

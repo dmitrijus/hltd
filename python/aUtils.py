@@ -678,7 +678,7 @@ class fileHandler(object):
             self.setFieldByName("FileAdler32",-1)
         checks_pass = (ccomb == adler32accum or not doChecksum ) and (copy_size == json_size)
         self.logger.info(str(checks_pass))
-        return checks_pass
+        return checks_pass,copy_size
 
     def exists(self):
         return os.path.exists(self.filepath)

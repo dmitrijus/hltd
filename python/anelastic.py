@@ -973,7 +973,8 @@ class LumiSectionHandler():
                                 self.logger.warning('file exists, but not previously detected? '+os.path.join(self.tempdir,outfile.run,outfile.name+".dat"))
                             except:
                                 pass
-                            success = outfile.mergeDatInputs(destinationpath,conf.output_adler32)
+                            success,copy_size = outfile.mergeDatInputs(destinationpath,conf.output_adler32)
+                            self.data_size +=copy_size
 			    #os.rename(destinationpath_tmp,destinationpath)
                             outfile.writeout()
                             #test

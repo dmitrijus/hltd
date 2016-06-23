@@ -459,7 +459,7 @@ class fileHandler(object):
                 return False
         return True
 
-    def moveFile(self,newpath,copy = False,adler32=False,silent=False, createDestinationDir=True, missingDirAlert=True, updateFileInfo=True):
+    def moveFile(self,newpath,copy = False,adler32=False,silent=False, createDestinationDir=True, missingDirAlert=True, missingDirAssert=False, updateFileInfo=True):
         checksum=1
         if not self.exists(): return True,checksum
         oldpath = self.filepath
@@ -479,6 +479,9 @@ class fileHandler(object):
                 dir_missing_attempts=5
                 while not os.path.isdir(newdir):
                     dir_missing_attempts-=1
+                    if missingDirAssert:
+                        self.logger.fatal('Missing destination dir '+str(newdir) + '. Terminating script')
+                        os._exit(2)
                     if dir_missing_attempts>=0 and createDestinationDir==False:
                         continue
                     if createDestinationDir==False:
@@ -631,7 +634,7 @@ class fileHandler(object):
                     dst = open(destinationpath,'wb')
                 except IOError as ex:
                     if ex.errno==2:
-                      self.logger.fatal('IOError opening destination file path '+ destinationpath + ' errno:'+str(ex.errno))
+                      self.logger.fatal('IOError opening destination file path '+ destinationpath + ' errno:'+str(ex.errno)+' .Terminating script')
                       #assert (terminate script) if data destination dir is not available
                       os._exit(6)
                     raise ex
@@ -810,7 +813,7 @@ class fileHandler(object):
                     self.setFieldByName("FileAdler32","-1")
                     self.writeout()
                     jsndatFile = fileHandler(outfile)
-                    result,cs = jsndatFile.moveFile(os.path.join(outDir, os.path.basename(outfile)),adler32=False,createDestinationDir=False)
+                    result,cs = jsndatFile.moveFile(os.path.join(outDir, os.path.basename(outfile)),adler32=False,createDestinationDir=False,missingDirAssert=True)
                     if not result: return False
                 except Exception as ex:
                     self.logger.error("Unable to copy jsonStream data file "+str(outfile)+" to output.")

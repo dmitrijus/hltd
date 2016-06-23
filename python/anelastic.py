@@ -99,7 +99,7 @@ class LumiSectionRanger:
             if self.stoprequest.isSet() and self.emptyQueue.isSet() and self.checkClosure()==False:
                 if endTimeout<=-1: endTimeout=self.useTimeout*2
                 elif endTimeout<=self.useTimeout:
-                  #at half of the period tell DQM thread to quit merging and assign error events to unmerged LS-es in histo stream
+                  #tell DQM thread to quit merging and assign error events to unmerged LS-es in histo stream
                   self.dqmHandler.setSkipAll()
                 if endTimeout==0: break
                 endTimeout-=1
@@ -122,7 +122,7 @@ class LumiSectionRanger:
 
         self.logger.info("joining DQM merger thread")
         try:
-            #allow 10 min timeout in case of failure (however
+            #allow 10 min timeout in case of failure
             self.dqmHandler.waitFinish(10)
         except:
             pass
@@ -433,7 +433,7 @@ class LumiSectionRanger:
             self.stop(timeout=60)
         else:
             self.checkOpenLumis()
-            self.stop(timeout=5)
+            self.stop(timeout=30)
 
     def checkClosure(self,checkEmpty=True):
         for key in self.LSHandlerList.keys():
@@ -943,7 +943,8 @@ class LumiSectionHandler():
                                 except:pass
                                 doChecksum=False
                             else:
-                                (status,checksum)=datfile.moveFile(newfilepath,adler32=doChecksum,createDestinationDir=False,missingDirAlert=True)
+                                #this code path covers PB files
+                                (status,checksum)=datfile.moveFile(newfilepath,adler32=doChecksum,createDestinationDir=False,missingDirAlert=True,missingDirAssert=True)
                             checksum_success=True
                             if doChecksum and status:
                                 if checksum_cmssw!=checksum&0xffffffff:
@@ -1047,12 +1048,15 @@ class LumiSectionHandler():
         except:pass
         errfile.writeout()
         newfilepath = os.path.join(self.outdir,errfile.run,errfile.stream,'jsns',errfile.basename)
-        #store in ES if there were any errors
-        result,ch=errfile.moveFile(newfilepath,createDestinationDir=False,copy=True,updateFileInfo=False)
+        if total>0:#only assert for non-empty LS
+          result,ch=errfile.moveFile(newfilepath,createDestinationDir=False,copy=True,missingDirAssert=True,updateFileInfo=False)
+        else:
+          result,ch=errfile.moveFile(newfilepath,createDestinationDir=False,copy=True,updateFileInfo=False)
         if not result:
             errfile.setFieldByName("Processed", str(0))
             errfile.setFieldByName("ErrorEvents", str(total))
             errfile.writeout()
+        #store in ES
         errfile.esCopy(keepmtime=False)
         errfile.deleteFile(silent=True)
 

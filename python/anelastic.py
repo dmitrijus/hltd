@@ -283,13 +283,13 @@ class LumiSectionRanger:
         filedir = os.path.join(self.outdir,runname,stream)
         filedir = os.path.join(self.outdir,runname,stream)
 
-        #try to create output stream subdirectory
-        try:
-            os.mkdir(filedir)
-            os.mkdir(os.path.join(filedir,'data'))
-            os.mkdir(os.path.join(filedir,'jsns'))
-        except:
-            pass
+        #create stream subdirectory in output if not there
+        create_attempts=5
+        while not self.createOutputDirs(filedir) and create_attempts>0:
+            time.sleep(2)
+            #terminate script if there is no condition
+            create_attempts-=1
+            if create_attempts==0: self.logger.fatal('Unable to create destinatino directories for INI file ' + self.infile.basename)
 
         infile = fileHandler(filepath)
         infile.data = ""
@@ -307,6 +307,26 @@ class LumiSectionRanger:
 
         self.logger.info("created error ini file")
 
+    def createOutputDirs(self,remotefiledir):
+        try:
+            os.mkdir(remotefiledir)
+            os.mkdir(os.path.join(remotefiledir,'data'))
+            os.mkdir(os.path.join(remotefiledir,'jsns'))
+            return True
+        except OSError as ex:
+            if ex.errno==17:
+              return True
+              pass
+            elif ex.errno==2:
+              self.logger.warning('Caught OSError '+str(ex.errno)+' creating directory: ' + str(ex))
+              return True
+            else:
+              self.logger.warning('Caught OSError '+str(ex.errno)+' creating directory: ' + str(ex))
+              return False
+        except Exception as ex:
+            self.logger.error('Caught exception creating directory: ' + str(ex))
+        return False
+ 
 
     def processINIfile(self):
 
@@ -324,12 +344,12 @@ class LumiSectionRanger:
         remotefilepath = os.path.join(self.outdir,run,stream,'data',filename)
 
         #create stream subdirectory in output if not there
-        try:
-            os.mkdir(remotefiledir)
-            os.mkdir(os.path.join(remotefiledir,'data'))
-            os.mkdir(os.path.join(remotefiledir,'jsns'))
-        except:
-            pass
+        create_attempts=5
+        while not self.createOutputDirs(remotefiledir) and create_attempts>0:
+            time.sleep(2)
+            #terminate script if there is no condition
+            create_attempts-=1
+            if create_attempts==0: self.logger.fatal('Unable to create destinatino directories for INI file ' + self.infile.basename)
 
         if not os.path.exists(localmonfilepath):
             try:

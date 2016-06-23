@@ -85,7 +85,7 @@ class MonitorRanger:
             bw_cnt_time=new_time
 
             #refresh last completed lumi BW
-            if self.data_ls_num>0:
+            if self.data_size_ls_num>0:
               if new_time - self.data_size_last_update < 60:
                 self.lumi_bw=self.data_size_val/23.31
               else:
@@ -159,7 +159,6 @@ class MonitorRanger:
             except:
                 pass
         elif event.fullpath.endswith("_BoLS.jsn"):
-            if now self.stopwatch_start:
             try:
                 queuedLumi = int(os.path.basename(event.fullpath).split('_')[1][2:])
                 if queuedLumi>self.maxCMSSWLumi:
@@ -207,7 +206,7 @@ class MonitorRanger:
                "numReadOpenLS":self.numOpenLumis,
                "CMSSWMaxLS":self.maxCMSSWLumi,
                "maxLSWithOutput":self.maxLSWithOutput,
-               "outputBW": self.output_bw
+               "outputBW": self.output_bw,
                "lumiBW": self.lumi_bw
                }
         try:

@@ -30,7 +30,6 @@ class elasticBandInjector:
         self.hltdlogs_write="hltdlogs_"+subsys+"_write"
         self.hltdlogs_read="hltdlogs_"+subsys+"_read"
         self.hltdlogs_name="hltdlogs_"+subsys
-        self.ip_url=None
         if update_run_mapping:
             self.updateIndexMaybe(self.runindex_name,self.runindex_write,self.runindex_read,mappings.central_es_settings,mappings.central_runindex_mapping)
         if update_box_mapping:
@@ -41,20 +40,20 @@ class elasticBandInjector:
 
     def updateIndexMaybe(self,index_name,alias_write,alias_read,settings,mapping):
         self.es = ElasticSearch(self.es_server_url,timeout=20)
-        if requests.get(self.ip_url+'/_alias/'+alias_write).status_code == 200:
-            print 'writing to elastic index '+alias_write + ' on '+self.es_server_url+' - '+self.ip_url
+        if requests.get(self.es_server_url+'/_alias/'+alias_write).status_code == 200:
+            print 'writing to elastic index '+alias_write + ' on '+self.es_server_url+' - '+self.es_server_url
             self.createDocMappingsMaybe(alias_write,mapping)
 
     def createDocMappingsMaybe(self,index_name,mapping):
         #update in case of new documents added to mapping definition
         for key in mapping:
             doc = {key:mapping[key]}
-            res = requests.get(self.ip_url+'/'+index_name+'/'+key+'/_mapping')
+            res = requests.get(self.es_server_url+'/'+index_name+'/'+key+'/_mapping')
             #only update if mapping is empty
             if res.status_code==200:
                 if res.content.strip()=='{}':
                     print 'inserting new mapping for '+str(key)
-                    requests.post(self.ip_url+'/'+index_name+'/'+key+'/_mapping',json.dumps(doc))
+                    requests.post(self.es_server_url+'/'+index_name+'/'+key+'/_mapping',json.dumps(doc))
                 else:
                     #still check if number of properties is identical in each type
                     inmapping = json.loads(res.content)
@@ -65,7 +64,7 @@ class elasticBandInjector:
                         for pdoc in mapping[key]['properties']:
                             if pdoc not in properties:
                                 print 'inserting mapping for ' + str(key) + ' which is missing mapping property ' + str(pdoc)
-                                requests.post(self.ip_url+'/'+index_name+'/'+key+'/_mapping',json.dumps(doc))
+                                requests.post(self.es_server_url+'/'+index_name+'/'+key+'/_mapping',json.dumps(doc))
                                 break
             else:
                 print 'requests error code '+res.status_code+' in mapping request'

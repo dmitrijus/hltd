@@ -60,7 +60,7 @@ class IndexCreator(threading.Thread):
 
         eslib_logger = logging.getLogger('elasticsearch')
         eslib_logger.setLevel(logging.ERROR)
-        self.es=ElasticSearch(getURLwithIP(self.es_server_url),timeout=20)
+        self.es=ElasticSearch(getURLwithIP(es_server_url),timeout=20)
         self.logger.info('done instantiation of indexCreator')
         self.masked=True
         self.lastActiveRun=None

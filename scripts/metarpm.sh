@@ -307,10 +307,6 @@ chkconfig --del soap2file
 chkconfig --add hltd
 chkconfig --add soap2file
 
-#purge elasticsearch plugin(s)
-/usr/share/elasticsearch/bin/plugin -s --remove head >& /dev/null || true
-/usr/share/elasticsearch/bin/plugin remove head -s >& /dev/null || true
-
 %preun
 
 if [ \$1 == 0 ]; then 

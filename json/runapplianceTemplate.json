@@ -43,6 +43,9 @@
         "nfiles": {
           "type": "integer"
         },
+        "nevents": {
+          "type": "integer"
+        },
         "lockwaitUs": {
           "type": "double"
         },
@@ -123,6 +126,16 @@
         "source" : {
           "type":"string",
           "index":"not_analyzed"
+        },
+        "host": {
+          "type": "string",
+          "index":"not_analyzed"
+        },
+        "pid": {
+          "type": "integer"
+        },
+        "tid": {
+          "type": "integer"
         },
         "mclass" : {
           "type": "string",

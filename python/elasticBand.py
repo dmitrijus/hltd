@@ -180,13 +180,16 @@ class elasticBand():
             document['tp']    = float(stub[4])
             document['lead']  = float(stub[5])
             document['nfiles']= int(stub[6])
-            try:document['lockwaitUs']  = float(stub['data'][7])
-            except:pass
-            try:document['lockcount']  = float(stub['data'][8])
+            document['lockwaitUs']  = float(stub['data'][7])
+            document['lockcount']  = float(stub['data'][8])
+            try:document['nevents']= int(stub[9])
             except:pass
             document['fm_date'] = str(mtime)
             document['mclass'] = self.nprocid
-            document['source'] = self.hostname + '_' + infile.pid
+            if infile.tid:
+              document['source'] = self.hostname + '_' + infile.pid + '_' + infile.tid
+            else:
+              document['source'] = self.hostname + '_' + infile.pid
             self.istateBuffer.append(document)
         except Exception:
             pass
@@ -198,8 +201,11 @@ class elasticBand():
         document,ret = self.imbue_jsn(infile)
         if ret<0:return
         datadict = {}
+        document['host']=self.hostname
+        document['pid']=int(infile.pid[3:])
+        try:document['tid']=int(infile.tid[3:])
+        except:pass
         datadict['ls'] = int(infile.ls[2:])
-        document['process']=int(infile.pid[3:])
         if document['data'][0] != "N/A":
             datadict['macro']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
             #datadict['macro_s']   = [int(f) for f in document['data'][0].strip('[]').split(',')]
@@ -230,10 +236,19 @@ class elasticBand():
               'lockwaitUs' : float(document['data'][7]),
               'lockcount' : float(document['data'][8])
             }
+            #new elements
+            try:
+              datadict['inputStats']['nevents']=document['data'][9]
+            except:
+              pass
         except:
             pass
         datadict['fm_date'] = str(infile.mtime)
-        datadict['source'] = self.hostname + '_' + infile.pid
+        #per-thread source field if CMSSW is configured to provide per-thread json
+        if infile.tid:
+          datadict['source'] = self.hostname + '_' + infile.pid + '_' + infile.tid
+        else:  
+          datadict['source'] = self.hostname + '_' + infile.pid
         datadict['mclass'] = self.nprocid
         #datadict['fm_date_s'] = str(infile.mtime)
         #datadict['source_s'] = self.hostname + '_' + infile.pid

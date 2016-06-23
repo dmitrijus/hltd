@@ -10,6 +10,27 @@ import logging
 
 from aUtils import *
 
+def getURLwithIP(url):
+    try:
+        prefix = ''
+        if url.startswith('http://'):
+            prefix='http://'
+            url = url[7:]
+        suffix=''
+        port_pos=url.rfind(':')
+        if port_pos!=-1:
+            suffix=url[port_pos:]
+            url = url[:port_pos]
+    except Exception as ex:
+        logging.error('could not parse URL ' +url)
+        raise ex
+    if url!='localhost':
+        ip = socket.gethostbyname(url)
+    else: ip='127.0.0.1'
+
+    return prefix+str(ip)+suffix
+
+
 class IndexCreator(threading.Thread):
 
     def __init__(self,es_server_url, indexSuffix, forceReplicas, forceShards, numPreCreate=10):
@@ -39,7 +60,7 @@ class IndexCreator(threading.Thread):
 
         eslib_logger = logging.getLogger('elasticsearch')
         eslib_logger.setLevel(logging.ERROR)
-        self.es = ElasticSearch(es_server_url,timeout=20)
+        self.es=ElasticSearch(getURLwithIP(self.es_server_url),timeout=20)
         self.logger.info('done instantiation of indexCreator')
         self.masked=True
         self.lastActiveRun=None
@@ -108,13 +129,14 @@ class elasticBand():
 
     def __init__(self,es_server_url,runstring,indexSuffix,monBufferSize,fastUpdateModulo,forceReplicas,forceShards,nprocid=None,bu_name="unknown"):
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.es_server_url = es_server_url
         self.istateBuffer = []
         self.prcinBuffer = {}
         self.prcoutBuffer = {}
         self.fuoutBuffer = {}
         self.prcsstateBuffer = {}
 
-        self.es = ElasticSearch(es_server_url,timeout=20)
+        self.es = ElasticSearch(self.es_server_url,timeout=20)
         eslib_logger = logging.getLogger('elasticsearch')
         eslib_logger.setLevel(logging.ERROR)
 
@@ -359,7 +381,7 @@ class elasticBand():
     def flushMonBuffer(self):
         if self.istateBuffer:
             self.logger.info("flushing fast monitor buffer (len: %r) " %len(self.istateBuffer))
-            self.tryBulkIndex('prc-i-state',self.istateBuffer,attempts=1)
+            self.tryBulkIndex('prc-i-state',self.istateBuffer,attempts=2)
             self.istateBuffer = []
 
     def flushLS(self,ls):
@@ -403,6 +425,7 @@ class elasticBand():
             time.sleep(.1)
 
     def tryBulkIndex(self,docname,documents,attempts=1):
+        tried_ip_rotate = False
         while attempts>0:
             attempts-=1
             try:
@@ -419,6 +442,13 @@ class elasticBand():
             except (ConnectionError,Timeout) as ex:
                 self.logger.warning("Elasticsearch connection error:"+str(ex))
                 if attempts==0:
+                    if not tried_ip_rotate:
+                        #try another host before giving up
+                        self.es=ElasticSearch(getURLwithIP(self.es_server_url),timeout=20)
+                        tried_ip_rotate=True
+                        attempts=1
+                        continue
+
                     self.indexFailures+=1
                     if self.indexFailures<2:
                         self.logger.exception(ex)

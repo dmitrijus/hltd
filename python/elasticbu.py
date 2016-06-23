@@ -43,7 +43,7 @@ def getURLwithIP(url,nsslock=None):
             url = url[:port_pos]
     except Exception as ex:
         logging.error('could not parse URL ' +url)
-        raise(ex)
+        raise ex
     if url!='localhost':
         if nsslock is not None:
             try:

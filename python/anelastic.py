@@ -975,6 +975,8 @@ class LumiSectionHandler():
                                 pass
                             success,copy_size = outfile.mergeDatInputs(destinationpath,conf.output_adler32)
                             self.data_size +=copy_size
+                            #reset expiration timestamp as we don't want to set lumi_bw to zero if files are still being copied
+                            self.parent.mr.data_size_last_update = time.time()
 			    #os.rename(destinationpath_tmp,destinationpath)
                             outfile.writeout()
                             #test

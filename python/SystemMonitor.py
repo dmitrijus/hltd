@@ -527,7 +527,7 @@ class system_monitor(threading.Thread):
                 statusDoc = json.load(fp)
                 return statusDoc["numQueuedLS"],statusDoc["CMSSWMaxLS"],statusDoc["maxLSWithOutput"],statusDoc["outputBW"],statusDoc["lumiBW"]
         except:
-            return -1,-1,-1,0
+            return -1,-1,-1,0,0
 
     def getQueueStatusPreviousRunsBW(self):
         #get output from all previous active runs, in case there are any

@@ -406,6 +406,9 @@ central_boxinfo_mapping = {
               "outputBandwidthMB":{'type':'float'},
               "activeRunOutputMB":{'type':'float'},
               "activeRunLSBWMB":{'type':'float'},
+              "sysCPUFrac":{'type':'float'},
+              "cpu_MHz_avg_real":{'type':'float'},
+              "dataNetIn":{"type":"float"},
               'activeRunStats'    :{
                   'type':'nested',
                   #"include_in_parent": True,
@@ -454,6 +457,9 @@ central_boxinfo_mapping = {
               "stale_resources" :            { "type" : "integer" },
               "used" :                       { "type" : "integer" },
               "bu_stop_requests_flag":       { "type" : "boolean" },
+              "fuSysCPUFrac":                {'type':'float'},
+              "fuSysCPUMHz":                {'type':'integer'},
+              "fuDataNetIn":                {"type":"float"}
               },
             '_timestamp' : {
               'enabled'   : "true"

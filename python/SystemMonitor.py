@@ -35,7 +35,9 @@ class system_monitor(threading.Thread):
         self.statThread = None
         self.esBoxThread = None
         self.stale_flag = False
+        self.cpu_freq_avg_real=0
         self.highest_run_number = None
+        self.data_in_MB = 0
         self.state = stateInfo
         self.resInfo = resInfo
         self.runList = runList
@@ -261,6 +263,9 @@ class system_monitor(threading.Thread):
 
                     current_time = time.time()
                     stale_machines = []
+                    cpufrac_vector = []
+                    cpufreq_vector = []
+                    fu_data_net_in = 0
 
                     #counters used to calculate if all FUs are in cloud (or switching to cloud)
                     #stale FUs are not used in calculation
@@ -323,6 +328,9 @@ class system_monitor(threading.Thread):
                                 #active resources reported to BU if cloud state is off
                                 if edata['cloudState'] == "off":
                                     active_res+=active_addition
+                                    cpufrac_vector.append(edata['sysCPUFrac'])
+                                    cpufreq_vector.append(edata['cpu_MHz_avg_real'])
+                                    fu_data_net_in+=edata['dataNetIn']
                                 else:
                                     reporting_fus_cloud+=1
 
@@ -379,7 +387,10 @@ class system_monitor(threading.Thread):
                                 "activeRunLSBWMB":active_run_lumi_bw_mb,
                                 "ramdisk_occupancy":ramdisk_occ,
                                 "fuDiskspaceAlarm":fu_data_alarm,
-                                "bu_stop_requests_flag":bu_stop_requests_flag
+                                "bu_stop_requests_flag":bu_stop_requests_flag,
+                                "fuSysCPUFrac":cpufrac_vector,
+                                "fuSysCPUMHz":cpufreq_vector,
+                                "fuDataNetIn":fu_data_net_in
                               }
                     with open(res_path_temp,'w') as fp:
                         json.dump(res_doc,fp,indent=True)
@@ -469,7 +480,10 @@ class system_monitor(threading.Thread):
                                 'activeRunMaxLSOut':maxLSWithOutput,
                                 'outputBandwidthMB':outBW*0.000001,
                                 'activeRunOutputMB':outBWrun*0.000001,
-                                'activeRunLSBWMB':lumiBW*0.000001
+                                'activeRunLSBWMB':lumiBW*0.000001,
+                                "sysCPUFrac":psutil.cpu_percent()*0.01,
+                                "cpu_MHz_avg_real":self.cpu_freq_avg_real,
+                                "dataNetIn":self.data_in_MB
                             }
                             with open(mfile,'w+') as fp:
                                 json.dump(boxdoc,fp,indent=True)
@@ -744,6 +758,7 @@ class system_monitor(threading.Thread):
                 memtotal = meminfo['MemTotal'] >> 10
                 memused = memtotal - ((meminfo['MemFree']+meminfo['Buffers']+meminfo['Cached']+meminfo['SReclaimable']) >> 10)
                 netrates = self.getRatesMBs()
+                self.data_in_MB = netrates[0]
                 cpu_freq_avg = self.getCPUFreqInfo()
 
                 #check cpu counters to estimate "Turbo" frequency
@@ -751,9 +766,9 @@ class system_monitor(threading.Thread):
                 if has_turbo:
                   tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(num_cpus)
                 if num_cpus>0 and mperf_new-mperf_old>0 and ts_new-ts_old>0:
-                  cpu_freq_avg_real = int((1.* (tsc_new-tsc_old))/num_cpus / 1000000 * (aperf_new-aperf_old) / (mperf_new-mperf_old) /(ts_new-ts_old))
+                  self.cpu_freq_avg_real = int((1.* (tsc_new-tsc_old))/num_cpus / 1000000 * (aperf_new-aperf_old) / (mperf_new-mperf_old) /(ts_new-ts_old))
                 else:
-                  cpu_freq_avg_real = 0
+                  self.cpu_freq_avg_real = 0
                 ts_old=ts_new
                 tsc_old=tsc_new
                 aperf_old=aperf_new
@@ -767,7 +782,7 @@ class system_monitor(threading.Thread):
                     "cpu_MHz_nominal":int(cpu_freq*1000),
                     "cpu_phys_cores":cpu_cores,
                     "cpu_hyperthreads":cpu_siblings,
-                    "cpu_usage_frac":psutil.cpu_percent()/100.,
+                    "cpu_usage_frac":psutil.cpu_percent()*0.01,
                     "cloudState":self.getCloudState(),
                     "activeRunList":self.runList.getActiveRunNumbers(),
                     "usedDisk":d_used,
@@ -782,7 +797,7 @@ class system_monitor(threading.Thread):
                     "dataNetIn":netrates[0],
                     "dataNetOut":netrates[1],
                     "cpu_MHz_avg":cpu_freq_avg,
-                    "cpu_MHz_avg_real":cpu_freq_avg_real
+                    "cpu_MHz_avg_real":self.cpu_freq_avg_real
                 }
                     #TODO: disk traffic(iostat)
                     #see: http://stackoverflow.com/questions/1296703/getting-system-status-in-python

@@ -914,6 +914,8 @@ class fileHandler(object):
         #self.esCopy() #happens after move to output
         try:self.data['MergingTime']=time_delta
         except:pass
+        try:self.data['MergingTimePerFile']=time_delta/numFiles
+        except:self.data['MergingTimePerFile']=0
         self.writeout()
         return outputName
 

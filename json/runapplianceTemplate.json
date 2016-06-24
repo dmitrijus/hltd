@@ -293,6 +293,9 @@
         },
         "MergingTime":{
           "type": "float"
+        },
+        "MergingTimePerFile":{
+          "type": "float"
         }
       },
       "_timestamp": {

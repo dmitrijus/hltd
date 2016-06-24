@@ -65,6 +65,8 @@ class elasticBandInjector:
                             if pdoc not in properties:
                                 print 'inserting mapping for ' + str(key) + ' which is missing mapping property ' + str(pdoc)
                                 requests.post(self.es_server_url+'/'+index_name+'/'+key+'/_mapping',json.dumps(doc))
+                                if rres.status_code!=200:
+                                    print rres.content
                                 break
             else:
                 print 'requests error code '+res.status_code+' in mapping request'

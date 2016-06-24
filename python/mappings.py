@@ -407,7 +407,7 @@ central_boxinfo_mapping = {
               "activeRunOutputMB":{'type':'float'},
               "activeRunLSBWMB":{'type':'float'},
               "sysCPUFrac":{'type':'float'},
-              "cpu_MHz_avg_real":{'type':'float'},
+              "cpu_MHz_avg_real":{'type':'integer'},
               "dataNetIn":{"type":"float"},
               'activeRunStats'    :{
                   'type':'nested',

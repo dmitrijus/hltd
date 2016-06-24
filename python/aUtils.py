@@ -242,7 +242,7 @@ class fileHandler(object):
         if name not in self.__dict__:
             if name in ["dir","ext","basename","name"]: self.getFileInfo()
             elif name in ["filetype"]: self.filetype = self.getFiletype();
-            elif name in ["run","ls","stream","index","pid"]: self.getFileHeaders()
+            elif name in ["run","ls","stream","index","pid","tid"]: self.getFileHeaders()
             elif name in ["data"]: self.data = self.getData();
             elif name in ["definitions"]: self.getDefinitions()
             elif name in ["host"]: self.host = os.uname()[1];

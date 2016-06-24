@@ -90,7 +90,7 @@ class elasticBand():
     def imbue_csv(self,infile):
         with open(infile.filepath,'r') as fp:
             fp.readline()
-            row = fp.readline().split(',')
+            row = fp.readline().strip('\n').split(',')
             return row
 
     def elasticize_prc_istate(self,infile):
@@ -109,8 +109,8 @@ class elasticBand():
             document['tp']    = float(stub[4])
             document['lead']  = float(stub[5])
             document['nfiles']= int(stub[6])
-            document['lockwaitUs']  = float(stub['data'][7])
-            document['lockcount']  = float(stub['data'][8])
+            document['lockwaitUs']  = float(stub[7])
+            document['lockcount']  = float(stub[8])
             try:document['nevents']= int(stub[9])
             except:pass
             document['fm_date'] = str(mtime)
@@ -120,7 +120,8 @@ class elasticBand():
             else:
               document['source'] = self.hostname + '_' + infile.pid
             self.istateBuffer.append(document)
-        except Exception:
+        except Exception as ex:
+            self.logger.warning(str(ex))
             pass
         #if len(self.istateBuffer) == MONBUFFERSIZE:
         if len(self.istateBuffer) == self.monBufferSize and (len(self.istateBuffer)%self.fastUpdateModulo)==0:

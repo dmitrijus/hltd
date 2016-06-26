@@ -111,7 +111,9 @@ class elasticBand():
             document['nfiles']= int(stub[6])
             document['lockwaitUs']  = float(stub[7])
             document['lockcount']  = float(stub[8])
-            try:document['nevents']= int(stub[9])
+            try:document['nevents']= int(stub[3])
+            except:pass
+            try:document['instate']= int(stub[9])
             except:pass
             document['fm_date'] = str(mtime)
             document['mclass'] = self.nprocid
@@ -164,11 +166,18 @@ class elasticBand():
               'lead' : float(document['data'][5]) if not math.isnan(float(document['data'][5])) and not  math.isinf(float(document['data'][5])) else 0.,
               'nfiles' :  int(document['data'][6]),
               'lockwaitUs' : float(document['data'][7]),
-              'lockcount' : float(document['data'][8])
+              'lockcount' : float(document['data'][8]),
+              'nevents' : int(document['data'][3])
             }
-            #new elements
             try:
-              datadict['inputStats']['nevents']=document['data'][9]
+              if document['data'][9] != "N/A":
+                inVector = []
+                for idx,f in enumerate(document['data'][9].strip('[]').split(',')):
+                  val = int(f)
+                  if val>0 and idx>0:microVector.append({'key':idx,'value':val})
+                datadict['inputStats']['instatev']=inVector
+              else:
+                datadict['instatev'] = []
             except:
               pass
         except:

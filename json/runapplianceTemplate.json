@@ -34,6 +34,9 @@
         "micro": {
           "type": "integer"
         },
+        "instate": {
+          "type": "integer"
+        },
         "tp": {
           "type": "double"
         },
@@ -104,6 +107,11 @@
               "index":"no",
               "doc_values":true
             },
+            "nevents": {
+              "type": "integer",
+              "index":"no",
+              "doc_values":true
+            },
             "lockwaitUs": {
               "type": "double",
               "index":"no",
@@ -113,6 +121,12 @@
               "type": "integer",
               "index":"no",
               "doc_values":true
+            },
+            "instatev": {
+              "properties":{
+                "key":{"type":"integer","index":"no"},
+                "value":{"type":"integer","index":"no"}
+              }
             }
           }
         },

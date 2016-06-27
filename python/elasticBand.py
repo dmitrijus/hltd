@@ -174,7 +174,7 @@ class elasticBand():
                 inVector = []
                 for idx,f in enumerate(document['data'][9].strip('[]').split(',')):
                   val = int(f)
-                  if val>0 and idx>0:microVector.append({'key':idx,'value':val})
+                  if val>0 and idx>0:inVector.append({'key':idx,'value':val})
                 datadict['inputStats']['instatev']=inVector
               else:
                 datadict['instatev'] = []

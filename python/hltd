@@ -15,6 +15,9 @@ import time
 import syslog
 
 def startService(daemon,srvInstance):
+    if os.getuid() != 0:
+      print "Must be root user to do that",':\t\t\t\t [  \033[1;31mFAILED\033[0;39m  ]'
+      sys.exit(1)
     #if new version, resource accounting needs to run
     if os.path.exists('/opt/hltd/scratch/new-version'):
       os.remove('/opt/hltd/scratch/new-version')

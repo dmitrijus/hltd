@@ -327,7 +327,7 @@ class hltd(Daemon2,object):
             if not res_in_cloud and state.cloud_script_available():
                     cl_status = state.cloud_status()
                     cnt = 5
-                    while not (cl_status == 1 or cl_status == 0) and cnt>0:
+                    while not (cl_status == 1 or cl_status == 0 or cl_status==66) and cnt>0:
                       time.sleep(1)
                       cnt-=1
                       cl_status = state.cloud_status()

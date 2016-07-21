@@ -445,13 +445,18 @@ class elasticBandBU:
                 if name=='run' and ex[0]==409: #create failed because overwrite was forbidden
                     return (False,ex[0])
 
-                if attempts<=1 and not is_box:continue
-                if is_box:
-                    self.logger.warning('elasticsearch HTTP error'+str(ex)+'. skipping document '+name)
+                if ex[0]==429:
+                  if attempts<10 and not is_box:
+                    self.logger.warning('elasticsearch HTTP error 429'+str(ex)+'. retrying..')
+                    time.sleep(.1)
+                    continue
                 else:
-                    self.logger.error('elasticsearch HTTP error'+str(ex)+'. skipping document '+name)
-                if is_box==True:break
-                #self.logger.exception(ex)
+                  if attempts<=1 and not is_box:continue
+
+                if is_box:
+                    self.logger.warning('elasticsearch HTTP error '+str(ex)+'. skipping document '+name)
+                else:
+                    self.logger.error('elasticsearch HTTP error '+str(ex)+'. skipping document '+name)
                 return False
             except (socket.gaierror,ConnectionError,Timeout) as ex:
                 if attempts>100 and self.runMode:

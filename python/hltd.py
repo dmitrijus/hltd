@@ -460,7 +460,6 @@ class hltd(Daemon2,object):
                 mm.cleanup_mountpoints(nsslock,remount=False)
 
             logger.info("shutdown of service (main thread) completed")
-            time.sleep(.1)
         except Exception as ex:
             logger.info("exception encountered in operating hltd")
             logger.info(ex)

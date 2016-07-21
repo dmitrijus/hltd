@@ -107,12 +107,15 @@ class MountManager:
         self.logger.info(mounts)
         umount_failure=False
         for mpoint in mounts:
+            self.logger.info('running umount loop for '+str(mpoint))
             point = mpoint.rstrip('/')
             umount_failure = self.umount_helper(os.path.join('/'+point,self.conf.ramdisk_subdirectory),nsslock)==False
+            self.logger.info('output umount attempt result:'+str(umount_failure)+' for /'+str(point))
 
             #only attempt this if first umount was successful
             if umount_failure==False and not point.rstrip('/').endswith("-CI"):
                 umount_failure = self.umount_helper(os.path.join('/'+point,self.conf.output_subdirectory),nsslock)==False
+                self.logger.info('output umount attempt result:'+str(umount_failure)+' for /'+str(point))
 
             #this will remove directories only if they are empty (as unmounted mount point should be)
             try:

@@ -349,11 +349,38 @@ class elasticBand():
                 reply = self.es.bulk_index(self.indexName,docname,documents)
                 try:
                     if reply['errors']==True:
-                        self.logger.error("Error reply on bulk-index request:"+ str(reply))
-                        time.sleep(.1)
-                        continue
+                        retry_doc = []
+                        errors = []
+                        unknown_errors=False
+                        sleep_time=0.1
+                        for idx,item in enumerate(reply['items']):
+                          bk_reply = item['create']
+                          bk_status = bk_reply['status']
+                          if bk_status==201 or bk_status==200:
+                            continue
+                          elif bk_status==409: #conflict, skip injection but log warning
+                            pass
+                          elif bk_status==429:#rejected execution,retry
+                            sleep_time=.2 #extend sleep time for this kind of error
+                            retry_doc.append(documents[idx])
+                          else:
+                            unknown_errors=True
+                            retry_doc.append(documents[idx])
+                          errors.append([bk_reply['error']['type'],bk_reply['error']['reason']])
+
+                        if len(errors):
+                          if unknown_errors or attempts==0:
+                            self.logger.error("Error reply on bulk-index request, failed docs:"+str(len(errors))+'/'+str(len(documents))+ ': ' +str(errors) + ', left retries:'+str(attempts))
+                          else:
+                            self.logger.warning("Error reply on bulk-index request, failed docs:"+str(len(errors))+'/'+str(len(documents))+ ': ' +str(errors)+ ', left retries:'+str(attempts))
+                        documents = retry_doc
+                        if attempts==0:sleep_time*=2
+                        time.sleep(sleep_time)
+                        if len(documents):continue
+                        else:break #no docs left to inject
+
                 except Exception as ex:
-                    self.logger.error("unable to find error field in reply from elasticsearch: "+str(reply))
+                    self.logger.error("unable to parse error reply from elasticsearch: "+str(reply)+" documents:"+len(documents))
                     continue
                 break
             except (ConnectionError,Timeout) as ex:

@@ -461,9 +461,9 @@ class elasticBandBU:
             except (socket.gaierror,ConnectionError,Timeout) as ex:
                 if attempts>100 and self.runMode:
                     raise(ex)
-                if is_box:
+                if is_box or attempts<=1:
                     self.logger.warning('elasticsearch connection error' + str(ex)+'. retry.')
-                elif (attempts-1)%10==0:
+                elif (attempts-2)%10==0:
                     self.logger.error('elasticsearch connection error' + str(ex)+'. retry.')
                 if self.stopping:return False
                 ip_url=getURLwithIP(self.es_server_url,self.nsslock)

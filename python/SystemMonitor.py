@@ -270,6 +270,7 @@ class system_monitor(threading.Thread):
                     #counters used to calculate if all FUs are in cloud (or switching to cloud)
                     #stale FUs are not used in calculation
                     reporting_fus = 0
+                    reporting_fus_rescount = 0
                     reporting_fus_cloud = 0
 
                     try:
@@ -305,26 +306,38 @@ class system_monitor(threading.Thread):
                             active_run_output_bw_mb+=edata['activeRunOutputMB']
                             active_run_lumi_bw_mb+=edata['activeRunLSBWMB']
 
+                            r_idle=edata['idles']
+                            r_used=edata['used']
+                            r_quar=edata['quarantined']
+                            r_broken=edata['broken']
+                            r_cloud=edata['cloud']
+
                             if edata['detectedStaleHandle']:
                                 stale_machines.append(str(key))
-                                resource_count_stale+=edata['idles']+edata['used']+edata['broken']
+                                resource_count_stale+=r_idle+r_used+r_broken
                             else:
                                 if current_runnumber in  edata['activeRuns']:
                                     resource_count_activeRun += edata['used_activeRun']+edata['broken_activeRun']
                                 active_addition =0
+                                r_idle=edata['idle']
+                                r_usede=edata['used']
+                                r_quar=edata['quarantines']
+                                r_broken=edata['broken']
+                                r_cloud=edata['cloud']
 
                                 if edata['cloudState'] == "resourcesReleased":
                                     resource_count_pending += edata['idles']
                                 else:
-                                    resource_count_idle+=edata['idles']
-                                    active_addition+=edata['idles']
+                                    resource_count_idle+=r_idle
+                                    active_addition+=r_idle
 
-                                active_addition+=edata['used']
-                                resource_count_used+=edata['used']
-                                resource_count_broken+=edata['broken']
-                                resource_count_quarantined+=edata['quarantined']
+                                active_addition+=r_used
+                                resource_count_used+=r_used
+                                resource_count_broken+=r_broken
+                                resource_count_quarantined+=r_quar
 
                                 reporting_fus+=1
+                                reporting_fus_rescount+=r_idle+r_used+r_broken+r_quar
                                 #active resources reported to BU if cloud state is off
                                 if edata['cloudState'] == "off":
                                     active_res+=active_addition
@@ -334,13 +347,15 @@ class system_monitor(threading.Thread):
                                 else:
                                     reporting_fus_cloud+=1
 
-                            cloud_count+=edata['cloud']
+                            cloud_count+=r_cloud
+
                             fu_data_alarm = edata['fuDataAlarm'] or fu_data_alarm
                         except Exception as ex:
                             self.logger.warning('problem updating boxinfo summary: '+str(ex))
                         try:
                             lastFURuns.append(edata['activeRuns'][-1])
                         except:pass
+                    res_per_fu=0 if not reporting_fus else reporting_fus_rescount/reporting_fus
                     if len(stale_machines) and counter==1:
                         self.logger.warning("detected stale box resources: "+str(stale_machines))
                     fuRuns = sorted(list(set(lastFURuns)))
@@ -390,7 +405,8 @@ class system_monitor(threading.Thread):
                                 "bu_stop_requests_flag":bu_stop_requests_flag,
                                 "fuSysCPUFrac":cpufrac_vector,
                                 "fuSysCPUMHz":cpufreq_vector,
-                                "fuDataNetIn":fu_data_net_in
+                                "fuDataNetIn":fu_data_net_in,
+                                "resPerFU":round(res_per_fu)
                               }
                     with open(res_path_temp,'w') as fp:
                         json.dump(res_doc,fp,indent=True)

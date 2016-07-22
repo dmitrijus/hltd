@@ -459,7 +459,8 @@ central_boxinfo_mapping = {
               "bu_stop_requests_flag":       { "type" : "boolean" },
               "fuSysCPUFrac":                {'type':'float'},
               "fuSysCPUMHz":                {'type':'integer'},
-              "fuDataNetIn":                {"type":"float"}
+              "fuDataNetIn":                {"type":"float"},
+              "resPerFU":                   {"type":"byte"}
               },
             '_timestamp' : {
               'enabled'   : "true"

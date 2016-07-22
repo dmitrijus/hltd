@@ -100,7 +100,10 @@ class LumiSectionRanger:
                 if endTimeout<=-1: endTimeout=self.useTimeout*2
                 elif endTimeout<=self.useTimeout:
                   #tell DQM thread to quit merging and assign error events to unmerged LS-es in histo stream
-                  self.dqmHandler.setSkipAll()
+                  try:
+                    self.dqmHandler.setSkipAll()
+                  except AttributeError as ex:
+                    pass
                 if endTimeout==0: break
                 endTimeout-=1
 

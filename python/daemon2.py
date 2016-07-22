@@ -36,7 +36,7 @@ class Daemon2:
     attn: May change in the near future to use PEP daemon
     """
 
-    def __init__(self, processname, instance, confname=None, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null', kill_timeout=5):
+    def __init__(self, processname, instance, confname=None, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null', kill_timeout=6):
         self.stdin = stdin
         self.stdout = stdout
         self.stderr = stderr

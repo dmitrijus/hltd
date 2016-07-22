@@ -39,11 +39,19 @@ class MountManager:
       if initial:
         try:
             self.logger.info('calling umount of '+point)
-            subprocess.check_call(['umount',point])
-        except subprocess.CalledProcessError, err1:
-            if err1.returncode<2:return True
+            p = subprocess.Popen(["umount",point], shell=False, stdout=subprocess.PIPE)
+	    p.wait()
+            #subprocess.check_call(['umount',point])
+	    code = p.returncode
+        except subprocess.CalledProcessError, err:
+	    code = err.returncode
+	except Exception as ex:
+            code = -1
+	    raise ex
+	finally:
+            if code<2:return True
             if attemptsLeft<=0:
-                self.logger.error('Failed to perform umount of '+point+'. returncode:'+str(err1.returncode))
+                self.logger.error('Failed to perform umount of '+point+'. returncode:'+str(code))
                 return False
             self.logger.warning("umount failed, trying to kill users of mountpoint "+point)
             try:
@@ -62,11 +70,19 @@ class MountManager:
         time.sleep(.5)
         try:
             self.logger.info("trying umount -f of "+point)
-            subprocess.check_call(['umount','-f',point])
-        except subprocess.CalledProcessError, err2:
-            if err2.returncode<2:return True
+            p = subprocess.Popen(["umount","-f",point], shell=False, stdout=subprocess.PIPE)
+	    p.wait()
+            #subprocess.check_call(['umount','-f',point])
+	    code = p.returncode
+        except subprocess.CalledProcessError, err:
+	    code = err.returncode
+	except Exception as ex:
+            code = -1
+	    raise ex
+	finally:
+            if code<2:return True
             if attemptsLeft<=0:
-                self.logger.error('Failed to perform umount -f of '+point+'. returncode:'+str(err2.returncode))
+                self.logger.error('Failed to perform umount -f of '+point+'. returncode:'+str(code))
                 return False
             return self.umount_helper(point,nsslock,attemptsLeft,initial=False)
       return True
@@ -110,12 +126,10 @@ class MountManager:
             self.logger.info('running umount loop for '+str(mpoint))
             point = mpoint.rstrip('/')
             umount_failure = self.umount_helper(os.path.join('/'+point,self.conf.ramdisk_subdirectory),nsslock)==False
-            self.logger.info('output umount attempt result:'+str(umount_failure)+' for /'+str(point))
 
             #only attempt this if first umount was successful
             if umount_failure==False and not point.rstrip('/').endswith("-CI"):
                 umount_failure = self.umount_helper(os.path.join('/'+point,self.conf.output_subdirectory),nsslock)==False
-                self.logger.info('output umount attempt result:'+str(umount_failure)+' for /'+str(point))
 
             #this will remove directories only if they are empty (as unmounted mount point should be)
             try:
@@ -130,6 +144,7 @@ class MountManager:
             except Exception as ex:
                 self.logger.exception(ex)
         if remount==False:
+            self.logger.info('finishing mount cleanup with status'+str(umount_failure))
             if umount_failure:return False
             return True
 

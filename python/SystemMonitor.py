@@ -319,9 +319,9 @@ class system_monitor(threading.Thread):
                                 if current_runnumber in  edata['activeRuns']:
                                     resource_count_activeRun += edata['used_activeRun']+edata['broken_activeRun']
                                 active_addition =0
-                                r_idle=edata['idle']
+                                r_idle=edata['idles']
                                 r_usede=edata['used']
-                                r_quar=edata['quarantines']
+                                r_quar=edata['quarantined']
                                 r_broken=edata['broken']
                                 r_cloud=edata['cloud']
 
@@ -406,7 +406,7 @@ class system_monitor(threading.Thread):
                                 "fuSysCPUFrac":cpufrac_vector,
                                 "fuSysCPUMHz":cpufreq_vector,
                                 "fuDataNetIn":fu_data_net_in,
-                                "resPerFU":round(res_per_fu)
+                                "resPerFU":int(round(res_per_fu))
                               }
                     with open(res_path_temp,'w') as fp:
                         json.dump(res_doc,fp,indent=True)

@@ -194,6 +194,7 @@ class elasticBandBU:
                             if pdoc not in properties:
                                 self.logger.info('inserting mapping for ' + str(key) + ' which is missing mapping property ' + str(pdoc))
                                 requests.post(self.ip_url+'/'+index_name+'/'+key+'/_mapping',json.dumps(doc))
+                                if res.status_code!=200: self.logger.warning('insert mapping reply status code '+str(res.status_code)+': '+res.content)
                                 break
             else:
                 self.logger.warning('requests error code '+res.status_code+' in mapping request')

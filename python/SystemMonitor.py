@@ -319,11 +319,6 @@ class system_monitor(threading.Thread):
                                 if current_runnumber in  edata['activeRuns']:
                                     resource_count_activeRun += edata['used_activeRun']+edata['broken_activeRun']
                                 active_addition =0
-                                r_idle=edata['idles']
-                                r_usede=edata['used']
-                                r_quar=edata['quarantined']
-                                r_broken=edata['broken']
-                                r_cloud=edata['cloud']
 
                                 if edata['cloudState'] == "resourcesReleased":
                                     resource_count_pending += edata['idles']

@@ -812,7 +812,7 @@ class Run:
                 self.anelasticWatchdog=None
                 self.logger.warning("Premature end of anelastic.py for run "+str(self.runnumber))
                 self.logger.warning("Setting resources released flag to blocked until the next run on this machine")
-                self.state.resources_blocked_flag=True #set this flag to prevent events being built until the next run
+                #self.state.resources_blocked_flag=True #set this flag to prevent events being built until the next run
                 self.Shutdown(killJobs=True,killScripts=True)
         except:
             pass

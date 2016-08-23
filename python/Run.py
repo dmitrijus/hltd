@@ -467,7 +467,7 @@ class Run:
             self.startElasticBUWatchdog()
             self.startCompletedChecker()
 
-    def maybeNotifyNewRun(self,resourcename,resourceage,f_ip):
+    def maybeNotifyNewRun(self,resourcename,resourceage,f_ip,override_mask=False):
         if conf.role=='fu':
             self.logger.fatal('RUN:'+str(self.runnumber)+' - this function should *never* have been called when role == fu')
             return
@@ -481,7 +481,7 @@ class Run:
                 return None
 
         for resource in self.online_resource_list:
-            if resourcename in resource.cpu:
+            if resourcename in resource.cpu and not override_mask:
                 self.logger.error('RUN:'+str(self.runnumber)+' - resource '+str(resource.cpu)+' was already processing run. Will not participate in this run.')
                 return None
             if resourcename in self.rr.boxInfo.machine_blacklist:

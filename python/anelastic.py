@@ -72,6 +72,7 @@ class LumiSectionRanger:
 
     def run(self):
         self.logger.info("Start main loop, watching: "+watchDir)
+        self.checkOutputEoR()
         open(os.path.join(watchDir,'flush'),'w').close()
         self.flush = fileHandler(os.path.join(watchDir,'flush'))
         endTimeout=-1
@@ -465,12 +466,40 @@ class LumiSectionRanger:
             self.writeElasticMarker()
             os._exit(1)
 
+    def checkOutputEoR(self):
+        #check if this run was already running at this host, add suffix to avoid name conflict if needed
+        global host
+        eorname = 'run'+self.run_number.zfill(conf.run_number_padding)+"_ls0000_EoR_"+host+".jsn"
+        checkcount = 0
+        hsuff = '-rerun'
+        if hsuff in os.uname()[1]:
+          self.logger.fatal('exiting process on hostname containing ' + hsuff + ' which is reserved.')
+          os._exit(2)
+        while os.path.exists(eorname) and checkcount<100:
+          checkcount+=1
+          counter=1
+          if hsuff in host:
+            hpos = host[host.rfind(hsuff)+len(hsuff)]
+            try:
+              counter = int(host[hpos:])
+              counter+=1
+              host = host[:hpos]+str(counter)
+            except Exception as ex:
+              self.logger.fatal('error parsing host name ' + host)
+              os._exit(2)
+          else:
+            host = host + hsuff + str(counter) 
+          eorname = 'run'+self.run_number.zfill(conf.run_number_padding)+"_ls0000_EoR_"+host+".jsn"
+        if os.path.exists(eorname):
+          self.logger.fatal('more than 100 host files, aborting after finding this file: ' + host)
+          os._exit(2)
+
     def createOutputEoR(self):
 
         #make json and moveFile
         totalCount=-1
         #namePrefix = "/run"+str(self.run_number).zfill(conf.run_number_padding)+"_ls0000_"
-        eorname = 'run'+self.run_number.zfill(conf.run_number_padding)+"_ls0000_EoR_"+os.uname()[1]+".jsn"
+        eorname = 'run'+self.run_number.zfill(conf.run_number_padding)+"_ls0000_EoR_"+host+".jsn"
         runname = 'run'+self.run_number.zfill(conf.run_number_padding)
         srcName = os.path.join(conf.watch_directory,runname,eorname)
         destName = os.path.join(outputDir,runname,eorname)
@@ -1083,7 +1112,7 @@ class LumiSectionHandler():
         #populating EoL information back into empty EoLS file (disabled)
         document = {'data':[str(self.totalEvent),str(self.totalFiles),str(self.totalEvent)],
                     'definition':'',
-                    'source':os.uname()[1]}
+                    'source':host}
         try:
             if os.stat(self.EOLS.filepath).st_size==0:
                 with open(self.EOLS.filepath,"w+") as fi:

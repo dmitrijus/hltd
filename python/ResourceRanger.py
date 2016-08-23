@@ -193,26 +193,7 @@ class ResourceRanger:
         if basename.startswith('test'):return
         if conf.role!='bu' or basename.endswith(self.hostname):
             return
-        try:
-            resourceage = os.path.getmtime(event.fullpath)
-            self.resource_lock.acquire()
-            lrun = self.runList.getLastRun()
-            newRes = None
-            if lrun!=None:
-                is_stale,f_ip = lrun.checkStaleResourceFileAndIP(event.fullpath)
-                if is_stale:
-                    self.logger.error("RUN:"+str(lrun.runnumber)+" - notification: skipping resource "+basename+" which is stale")
-                    self.resource_lock.release()
-                    return
-                self.logger.info('Try attaching FU resource: last run is '+str(lrun.runnumber))
-                newRes = lrun.maybeNotifyNewRun(basename,resourceage,f_ip)
-            self.resource_lock.release()
-            if newRes:
-                newRes.NotifyNewRun(lrun.runnumber)
-        except Exception as ex:
-            self.logger.exception(ex)
-            try:self.resource_lock.release()
-            except:pass
+        self.findRunAndNotify(basename,event.fullpath,False)
 
     def process_default(self, event):
         self.logger.debug('ResourceRanger: event '+event.fullpath +' type '+ str(event.mask))
@@ -241,6 +222,10 @@ class ResourceRanger:
                 current_datetime = datetime.datetime.utcfromtimestamp(current_time)
                 emptyBox=False
                 try:
+                  currentBox = self.boxInfo.FUMap[basename]
+                except:
+                  currentBox = None
+                try:
                     infile = fileHandler(event.fullpath)
                     if infile.data=={}:emptyBox=True
                     #check which time is later (in case of small clock skew and small difference)
@@ -258,6 +243,14 @@ class ResourceRanger:
                         infile.data['detectedStaleHandle']=True
 
                     self.boxInfo.FUMap[basename] = [infile.data,current_time,True]
+
+                    #detect flip from cloud to non-cloud (only notify FU if no active runs are found FU)
+                    try:
+                      if currentBox and currentBox[0]["cloudState"]!="off" and infile.data["cloudState"]=="off" and len(infile.data["activeRuns"])==0:
+                        self.findRunAndNotify(basename,event.fullpath,True)
+                    except (KeyError,IndexError) as ex:
+                      self.logger.warning("cloud flip detection problem: "+str(ex))
+
                 except Exception as ex:
                     if not emptyBox:
                         self.logger.error("Unable to read of parse boxinfo file "+basename)
@@ -269,6 +262,28 @@ class ResourceRanger:
                     except:
                         #boxinfo entry doesn't exist yet
                         self.boxInfo.FUMap[basename]=[None,current_time,False]
+
+    def findRunAndNotify(self,basename,fullpath,override):
+        try:
+            resourceage = os.path.getmtime(fullpath)
+            self.resource_lock.acquire()
+            lrun = self.runList.getLastRun()
+            newRes = None
+            if lrun!=None:
+                is_stale,f_ip = lrun.checkStaleResourceFileAndIP(fullpath)
+                if is_stale:
+                    self.logger.error("RUN:"+str(lrun.runnumber)+" - notification: skipping resource "+basename+" which is stale")
+                    self.resource_lock.release()
+                    return
+                self.logger.info('Try attaching FU resource: last run is '+str(lrun.runnumber))
+                newRes = lrun.maybeNotifyNewRun(basename,resourceage,f_ip,override)
+            self.resource_lock.release()
+            if newRes:
+                newRes.NotifyNewRun(lrun.runnumber)
+        except Exception as ex:
+            self.logger.exception(ex)
+            try:self.resource_lock.release()
+            except:pass
 
     def checkNotifiedBoxes(self,runNumber):
         keys = self.boxInfo.FUMap.keys()

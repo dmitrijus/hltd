@@ -865,7 +865,8 @@ class Run:
                     self.runList.remove(self.runnumber)
                 except Exception as ex:
                     self.logger.exception(ex)
-                self.resource_lock.release()
+                try:self.resource_lock.release()
+                except:pass
                 self.logger.info("Completed checker: end of processing of run "+str(self.runnumber))
                 break
 

@@ -126,7 +126,7 @@ class StateInfo:
         #imperative 
         self.abort_cloud_mode = False
         #flags
-        self.resources_blocked_flag = False
+        #self.resources_blocked_flag = False
         self.disabled_resource_allocation = False
         self.masked_resources = False
 

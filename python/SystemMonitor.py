@@ -830,8 +830,8 @@ class system_monitor(threading.Thread):
           if self.state.entering_cloud_mode: cloud_st="starting"
           elif self.state.exiting_cloud_mode:cloud_st="stopping"
           else: cloud_st="on"
-        elif self.state.resources_blocked_flag:
-            cloud_st = "resourcesReleased"
+        #elif self.state.resources_blocked_flag:
+        #    cloud_st = "resourcesReleased"
         elif self.state.masked_resources:
             cloud_st = "resourcesMasked"
         else:

@@ -754,7 +754,7 @@ class Run:
                     #check if cloud mode switch has been aborted in the meantime
                     if self.state.abort_cloud_mode:
                         self.state.abort_cloud_mode=False
-                        self.state.resources_blocked_flag=True
+                        #self.state.resources_blocked_flag=True
                         self.state.cloud_mode=False
                         self.resource_lock.release()
                         return

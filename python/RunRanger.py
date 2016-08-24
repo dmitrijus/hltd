@@ -86,7 +86,7 @@ class RunRanger:
                             run.startShutdown(True,False)
                             time.sleep(.1)
 
-                        self.state.resources_blocked_flag=False
+                        #self.state.resources_blocked_flag=False
                         if self.state.cloud_mode==True:
                             self.logger.info("received new run notification in CLOUD mode. Ignoring new run.")
                             #remember this run and attempt to continue it once hltd exits the cloud mode
@@ -624,7 +624,7 @@ class RunRanger:
                         self.logger.info('cloud scripts have been deactivated')
                     #switch resources back to normal
                     self.resource_lock.acquire()
-                    self.state.resources_blocked_flag=True
+                    #self.state.resources_blocked_flag=True
                     self.state.cloud_mode=False
                     self.resInfo.cleanup_resources()
                     self.resource_lock.release()

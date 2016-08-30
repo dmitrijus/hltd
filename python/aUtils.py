@@ -21,6 +21,10 @@ TEMPEXT = ".recv"
 STREAMERRORNAME = 'streamError'
 THISHOST = os.uname()[1]
 
+def setHostUtils(host):
+  global THISHOST
+  THISHOST=host
+
 jsdCache = {}
 
 bw_cnt = 0
@@ -245,7 +249,7 @@ class fileHandler(object):
             elif name in ["run","ls","stream","index","pid","tid"]: self.getFileHeaders()
             elif name in ["data"]: self.data = self.getData();
             elif name in ["definitions"]: self.getDefinitions()
-            elif name in ["host"]: self.host = os.uname()[1];
+            elif name in ["host"]: self.host = THISHOST;
         if name in ["ctime"]: self.ctime = self.getTime('c')
         if name in ["mtime"]: self.mtime = self.getTime('m')
         return self.__dict__[name]

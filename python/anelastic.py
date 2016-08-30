@@ -19,6 +19,7 @@ from aUtils import *
 from daemon2 import stdOutLog,stdErrorLog
 
 host = os.uname()[1]
+host_true = host
 
 class LumiSectionRanger:
     def __init__(self,mr,tempdir,outdir,run_number):
@@ -73,6 +74,7 @@ class LumiSectionRanger:
     def run(self):
         self.logger.info("Start main loop, watching: "+watchDir)
         self.checkOutputEoR()
+        setHostUtils(host)
         open(os.path.join(watchDir,'flush'),'w').close()
         self.flush = fileHandler(os.path.join(watchDir,'flush'))
         endTimeout=-1
@@ -469,17 +471,19 @@ class LumiSectionRanger:
     def checkOutputEoR(self):
         #check if this run was already running at this host, add suffix to avoid name conflict if needed
         global host
+        odir = os.path.join(outputDir,'run'+self.run_number.zfill(conf.run_number_padding))
         eorname = 'run'+self.run_number.zfill(conf.run_number_padding)+"_ls0000_EoR_"+host+".jsn"
         checkcount = 0
-        hsuff = '-rerun'
+        hsuff = '-rejoin'
         if hsuff in os.uname()[1]:
           self.logger.fatal('exiting process on hostname containing ' + hsuff + ' which is reserved.')
           os._exit(2)
-        while os.path.exists(eorname) and checkcount<100:
+        #self.logger.info('checking if EoR file already exists: '+os.path.join(odir,eorname))
+        while os.path.exists(os.path.join(odir,eorname)) and checkcount<100:
           checkcount+=1
           counter=1
           if hsuff in host:
-            hpos = host[host.rfind(hsuff)+len(hsuff)]
+            hpos = host.rfind(hsuff)+len(hsuff)
             try:
               counter = int(host[hpos:])
               counter+=1
@@ -490,7 +494,7 @@ class LumiSectionRanger:
           else:
             host = host + hsuff + str(counter) 
           eorname = 'run'+self.run_number.zfill(conf.run_number_padding)+"_ls0000_EoR_"+host+".jsn"
-        if os.path.exists(eorname):
+        if os.path.exists(os.path.join(odir,eorname)):
           self.logger.fatal('more than 100 host files, aborting after finding this file: ' + host)
           os._exit(2)
 
@@ -855,7 +859,7 @@ class LumiSectionHandler():
                     rawname = os.path.join(rawinputdir,rawFile)
                     #test if original file is provided
                     os.stat(rawname)
-                    rawFileNew = os.path.splitext(rawFile)[0]+'_'+host+'_'+str(pid)+'.raw'
+                    rawFileNew = os.path.splitext(rawFile)[0]+'_'+host_true+'_'+str(pid)+'.raw'
                     rawnameNew = os.path.join(rawinputdir,rawFileNew)
                     #rename to a unique name containing FU name and CMSSW PID (usable also for tracking other information)
                     os.rename(rawname,rawnameNew)
@@ -1112,7 +1116,7 @@ class LumiSectionHandler():
         #populating EoL information back into empty EoLS file (disabled)
         document = {'data':[str(self.totalEvent),str(self.totalFiles),str(self.totalEvent)],
                     'definition':'',
-                    'source':host}
+                    'source':host_true}
         try:
             if os.stat(self.EOLS.filepath).st_size==0:
                 with open(self.EOLS.filepath,"w+") as fi:

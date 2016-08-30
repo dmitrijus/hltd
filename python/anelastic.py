@@ -230,9 +230,13 @@ class LumiSectionRanger:
                                 madeBoLS=True
 
                 if ls_num in self.ClosedEmptyLSList:
-                    if filetype in [STREAM]:
-                        self.cleanStreamFiles()
-                    return
+                    if filetype==INDEX:
+                        self.ClosedEmptyLSList.remove(ls_num)
+                        self.logger.warning('Removed LS ' + str(ls_num) + ' from empty list because index file was received')
+                    else:
+                        if filetype in [STREAM]:
+                            self.cleanStreamFiles()
+                        return
                 isEmptyLS = True if filetype not in [INDEX] else False
                 if isEmptyLS and not self.allowEmptyLs:
                     #detected CMSSW version which writes out empty lumisections

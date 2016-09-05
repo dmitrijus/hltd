@@ -653,6 +653,34 @@ class Run:
 
         self.logger.info('Shutdown of run '+str(self.runnumber).zfill(conf.run_number_padding)+' completed')
 
+        #switch off cloud if planned after shutdown or run stop
+        self.resource_lock.acquire()
+        if self.state.cloud_mode==True:
+            if len(self.runList.getActiveRunNumbers())>=1:
+                self.logger.info("Cloud mode: waiting for runs: " + str(self.runList.getActiveRunNumbers()) + " to finish")
+            else:
+                self.logger.info("No active runs. moving all resource files to cloud")
+                #give resources to cloud and bail out
+                self.state.entering_cloud_mode=False
+                #check if cloud mode switch has been aborted in the meantime
+                if self.state.abort_cloud_mode:
+                    self.state.abort_cloud_mode=False
+                    #self.state.resources_blocked_flag=True
+                    self.state.cloud_mode=False
+                else:
+                    self.resInfo.move_resources_to_cloud()
+                    self.resource_lock.release()
+                    result = self.state.ignite_cloud()
+                    c_status = self.state.cloud_status()
+                    if c_status == 0:  self.logger.warning("igniter status : cloud is NOT active (hltd will remain in cloud-on state until it is included back in HLT)")
+                    elif c_status == 1:  self.logger.info("igniter status : cloud has been activated")
+                    else:  self.logger.warning("cloud is in error state:" + str(c_status))
+        try:self.resource_lock.release()
+        except:pass
+
+
+
+
     def ShutdownBU(self):
         self.is_ongoing_run = False
         try:
@@ -746,7 +774,7 @@ class Run:
 
             if self.state.cloud_mode==True:
                 if len(self.runList.getActiveRunNumbers())>=1:
-                    self.logger.info("VM mode: waiting for runs: " + str(self.runList.getActiveRunNumbers()) + " to finish")
+                    self.logger.info("Cloud mode: waiting for runs: " + str(self.runList.getActiveRunNumbers()) + " to finish")
                 else:
                     self.logger.info("No active runs. moving all resource files to cloud")
                     #give resources to cloud and bail out

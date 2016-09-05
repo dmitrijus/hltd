@@ -485,6 +485,7 @@ class RunRanger:
             try:os.remove(fullpath)
             except:pass
             self.state.suspended=False
+
             self.logger.info("Remount is performed")
 
         elif dirname=='stop' and conf.role == 'fu':
@@ -520,9 +521,13 @@ class RunRanger:
         elif dirname.startswith('exclude') and conf.role == 'fu':
             #service on this machine is asked to be excluded for cloud use
             if self.state.cloud_mode:
-                self.logger.info('already in cloud mode...')
-                os.remove(fullpath)
-                return
+                if self.state.abort_cloud_mode:
+                  self.logger.info('received exclude during cloud mode abort. machine exclude will be resumed..')
+                  self.state.abort_cloud_mode=False
+                else:
+                  self.logger.info('already in cloud mode...')
+                  os.remove(fullpath)
+                  return
             else:
                 self.logger.info('machine exclude for cloud initiated. stopping any existing runs...')
 
@@ -585,6 +590,7 @@ class RunRanger:
             self.resource_lock.acquire()
             #schedule cloud mode cancel when HLT shutdown is completed
             if self.state.entering_cloud_mode:
+                self.logger.info('include receiver while entering cloud mode. setting abort flag...')
                 self.state.abort_cloud_mode=True
                 self.resource_lock.release()
                 os.remove(fullpath)

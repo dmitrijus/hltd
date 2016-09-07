@@ -49,7 +49,6 @@ class RunRanger:
         self.logger.info("Inotify wrapper shutdown done")
 
     def process_IN_CREATE(self, event):
-        cached_pending_run = None
         fullpath = event.fullpath
         self.logger.info('event '+fullpath)
         dirname=fullpath[fullpath.rfind("/")+1:]
@@ -89,8 +88,6 @@ class RunRanger:
                         #self.state.resources_blocked_flag=False
                         if self.state.cloud_mode==True:
                             self.logger.info("received new run notification in CLOUD mode. Ignoring new run.")
-                            #remember this run and attempt to continue it once hltd exits the cloud mode
-                            cached_pending_run = fullpath
                             os.rmdir(fullpath)
                             return
                         self.state.masked_resources=False #clear this flag for run that was stopped manually
@@ -638,12 +635,8 @@ class RunRanger:
 
             self.state.exiting_cloud_mode=False
             os.remove(fullpath)
-            if cached_pending_run != None:
-                #create last pending run received during the cloud mode
-                time.sleep(5) #let core file notifications run
-                os.mkdir(cached_pending_run)
-                cached_pending_run = None
-            else: time.sleep(2)
+            #sleep some time to let core file notifications to finish
+            time.sleep(2)
             self.logger.info('cloud mode in hltd has been switched off')
 
         elif dirname.startswith('logrestart'):

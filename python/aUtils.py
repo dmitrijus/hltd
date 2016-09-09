@@ -612,6 +612,7 @@ class fileHandler(object):
         adler32accum=1
         json_size=0
         copy_size=0
+        file_created=False
         for input in self.inputs:
             nproc = int(input.getFieldByName('Processed'))
             nerr = int(input.getFieldByName('ErrorEvents'))
@@ -647,6 +648,7 @@ class fileHandler(object):
             adler32c=1
             file_size=0
             with open(os.path.join(dirname,ifile), 'rb') as fsrc:
+                file_created=True
                 while 1:
                     buf = fsrc.read(length)
                     if not buf:
@@ -684,7 +686,7 @@ class fileHandler(object):
         else:
             self.setFieldByName("FileAdler32",-1)
         checks_pass = (ccomb == adler32accum or not doChecksum ) and (copy_size == json_size)
-        self.logger.info(str(checks_pass))
+        self.logger.info('checks pass:'+str(checks_pass)+' created:'+str(file_created)+' size:'+str(copy_size))
         return checks_pass,copy_size
 
     def exists(self):

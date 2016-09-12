@@ -511,7 +511,7 @@ class Run:
         self.logger.debug("StartOnResource process started")
 
 
-    def Stop(self):
+    def Stop(self,stop_now=False):
         #used to gracefully stop CMSSW and finish scripts
         with open(os.path.join(self.dirname,"temp_CMSSW_STOP"),'w') as f:
             writedoc = {}
@@ -522,10 +522,13 @@ class Run:
             except:
                 self.logger.error('RUN:'+str(self.runnumber)+" - unable to parse BU EoLS files")
             ls_delay=3
-            if len(bu_lumis):
-                self.logger.info('last closed lumisection in ramdisk is '+str(bu_lumis[-1])+', requesting to close at LS '+ str(bu_lumis[-1]+ls_delay))
-                writedoc['lastLS']=bu_lumis[-1]+ls_delay #current+delay
-            else:  writedoc['lastLS']=ls_delay
+            if not stop_now:
+                if len(bu_lumis):
+                    self.logger.info('last closed lumisection in ramdisk is '+str(bu_lumis[-1])+', requesting to close at LS '+ str(bu_lumis[-1]+ls_delay))
+                    writedoc['lastLS']=bu_lumis[-1]+ls_delay #current+delay
+                else:  writedoc['lastLS']=ls_delay
+            else:
+                writedoc['lastLS']=1
             json.dump(writedoc,f)
         try:
             os.rename(os.path.join(self.dirname,"temp_CMSSW_STOP"),os.path.join(self.dirname,"CMSSW_STOP"))

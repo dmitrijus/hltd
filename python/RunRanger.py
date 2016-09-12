@@ -485,7 +485,7 @@ class RunRanger:
 
             self.logger.info("Remount is performed")
 
-        elif dirname=='stop' and conf.role == 'fu':
+        elif dirname.startswith('stop') and conf.role == 'fu':
             self.logger.fatal("Stopping all runs..")
             self.state.masked_resources=True
             #make sure to not run inotify acquire while we are here
@@ -504,7 +504,8 @@ class RunRanger:
                             run.Shutdown(True,False)
                         else:
                             self.resource_lock.acquire()
-                            run.Stop()
+                            if dirname!='stopnow':run.Stop()
+                            else:run.Stop(stop_now=True)
                             self.resource_lock.release()
                 time.sleep(.1)
             except Exception as ex:

@@ -332,7 +332,7 @@ class system_monitor(threading.Thread):
                                 resource_count_quarantined+=r_quar
 
                                 reporting_fus+=1
-                                reporting_fus_rescount+=r_idle+r_used+r_broken+r_quar
+                                reporting_fus_rescount+=r_idle+r_used+r_broken+r_quar+r_cloud
                                 #active resources reported to BU if cloud state is off
                                 if edata['cloudState'] == "off":
                                     active_res+=active_addition

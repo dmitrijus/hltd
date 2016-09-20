@@ -292,13 +292,25 @@ class hltd(Daemon2,object):
                     logger.warning('found cores in cloud. this session will start in the cloud mode')
                     try:
                         resInfo.move_resources_to_cloud()
-                    except:
-                        pass
+                    except Exception as ex:
+                        logger.warning(str(ex))
+
                     state.cloud_mode=True
                     #TODO:what if cloud mode switch fails?
-                    if not state.cloud_status():
+                    cloud_st = state.cloud_status()
+                    if not cloud_st:#cloud off,switch on
                         result = state.ignite_cloud()
-                    break
+                        break
+                    elif cloud_st==1:#cloud is already on
+                        break
+                    elif cloud_st>1:#error,try to switch off cloud and switch HLT mode
+                      logger.warning("cloud status returned error. going to try to stop cloud")
+                      stop_st = state.extinguish_cloud(repeat=True)
+                      #trusting the extinguish function return code
+                      if not stop_st:
+                        logger.error("failed deactivating cloud")
+                        #script error, leaving cores in cloud mode
+                        break
                 if resInfo.cleanup_resources()==True:break
                 time.sleep(0.1)
                 logger.warning("retrying cleanup_resources")
@@ -336,9 +348,14 @@ class hltd(Daemon2,object):
                           logger.warning('cloud status code 66 (no NOVA stack). Will run in HLT mode')
                         else:
                           if cl_status > 1:
-                            logger.error('cloud status script returns error exit code (status:'+str(cl_status)+') after 5 attempts. HLT mode disabled')
+                            logger.error('cloud status script returns error exit code (status:'+str(cl_status)+') after 5 attempts. Trying to deactivate cloud')
+                            stop_st = state.extinguish_cloud(repeat=True)
+                            if stop_st==True:
+                              #cloud was stopped, can continue in HLT mode
+                              break
+                            logger.error('cloud deactivate failed. HLT mode will be disabled')
                           else:
-                            logger.warning("cloud is on on this host at hltd startup, switching to cloud mode")
+                            logger.warning("cloud services are running on this host at hltd startup, switching to cloud mode")
                           resInfo.move_resources_to_cloud()
                           state.cloud_mode=True
 

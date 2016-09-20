@@ -530,6 +530,8 @@ class RunRanger:
                 self.logger.info('machine exclude for cloud initiated. stopping any existing runs...')
 
             if self.state.cloud_status()>1:
+                #execute run cloud stop script in case something is running
+                self.state.extinguish_cloud(repeat=True)
                 self.logger.error("Unable to switch to cloud mode (external script error).")
                 os.remove(fullpath)
                 return
@@ -566,7 +568,8 @@ class RunRanger:
                     self.resInfo.move_resources_to_cloud()
                     self.resource_lock.release()
                     result = self.state.ignite_cloud()
-                    self.logger.info("cloud is on? : "+str(self.state.cloud_status() == 1))
+                    cloud_st = self.state.cloud_status()
+                    self.logger.info("cloud is on? : "+str(cloud_st == 1) + ' (status code '+str(cloud_st)+')')
             except Exception as ex:
                 self.logger.fatal("Unable to clear runs. Will not enter VM mode.")
                 self.logger.exception(ex)
@@ -581,7 +584,7 @@ class RunRanger:
                 self.logger.warning('received notification to exit from cloud but machine is not in cloud mode!')
                 if self.state.cloud_status():
                     self.logger.info('cloud scripts are still running, trying to stop')
-                    returnstatus = self.state.extinguish_cloud(True)
+                    returnstatus = self.state.extinguish_cloud(repeat=True)
                 os.remove(fullpath)
                 return
 
@@ -600,7 +603,7 @@ class RunRanger:
             #unlock before stopping cloud scripts
             self.resource_lock.release()
 
-            #cloud is being switched off so we don't care if its running status is ok or not
+            #cloud is being switched off so we don't care if its running status is false
             if not self.state.cloud_status(reportExitCodeError=False):
                 self.logger.warning('received command to deactivate cloud, but external script reports that cloud is not running!')
 
@@ -609,23 +612,41 @@ class RunRanger:
 
             retried=False
             attempts=0
+            err_attempts=0
 
             while True:
                 last_status = self.state.cloud_status()
-                if last_status==1: #state: running
+                if last_status>=1: #state: running or error
                     self.logger.info('cloud is still active')
                     time.sleep(1)
                     attempts+=1
-                    if attempts%60==0 and not retried:
+                    if last_status>1:
+                      err_attempts+=1
+                      self.logger.warning('external cloud script reports error code' + str(last_status) + '.')
+                      if err_attempts>100:
+                        #if error is persistent, give up eventually and complain with fatal error 
+                        os.remove(fullpath)
+                        self.state.exiting_cloud_mode=False
+                        time.sleep(1)
+                        self.logger.critical('failed to switch off cloud. last status reported: '+str(last_status))
+                        return
+                    if (attempts%60==0 and not retried):
                         self.logger.info('retrying cloud kill after 1 minute')
                         returnstatus = self.state.extinguish_cloud(True)
                         retried=True
+                    elif (err_attempts and err_attempts%10==0):
+                        self.logger.info('retrying cloud kill after 10 status checks returning error')
+                        returnstatus = self.state.extinguish_cloud(True)
+                        retried=True
+                    if attempts>600:
+                        os.remove(fullpath)
+                        self.state.exiting_cloud_mode=False
+                        time.sleep(1)
+                        self.logger.critical('failed to switch off cloud after attempting for 10 minutes! last status reports cloud is running...')
+                        return
                     continue
                 else:
-                    if last_status>1:
-                        self.logger.warning('external cloud script report error code' + str(last_status) + 'assuming that cloud is off')
-                    else:
-                        self.logger.info('cloud scripts have been deactivated')
+                    self.logger.info('cloud scripts have been deactivated')
                     #switch resources back to normal
                     self.resource_lock.acquire()
                     #self.state.resources_blocked_flag=True

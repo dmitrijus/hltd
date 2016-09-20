@@ -55,15 +55,6 @@ class RunRanger:
         self.logger.info('new filename '+dirname)
         nr=0
         if dirname.startswith('run'):
-            if dirname.endswith('.reprocess'):
-                #reprocessing triggered
-                dirname = dirname[:dirname.rfind('.reprocess')]
-                fullpath = fullpath[:fullpath.rfind('.reprocess')]
-                self.logger.info('Triggered reprocessing of '+ dirname)
-                try:os.unlink(event.fullpath)
-                except:
-                    try:os.rmdir(event.fullpath)
-                    except:pass
             if os.path.islink(fullpath):
                 self.logger.info('directory ' + fullpath + ' is link. Ignoring this run')
                 return
@@ -113,6 +104,16 @@ class RunRanger:
                                 if run.is_ongoing_run and not os.path.exists(EoR_file_name):
                                     # create an EoR file that will trigger all the running jobs to exit nicely
                                     open(EoR_file_name, 'w').close()
+
+                        if not len(self.runList.getActiveRuns()) and conf.role == 'fu':
+                          if self.state.os_cpuconfig_change:
+                            self.state.lock.acquire()
+                            tmp_os_cpuconfig_change = self.state.os_cpuconfig_change
+                            self.state.os_cpuconfig_change=0
+                            self.state.lock.release()
+                            self.resource_lock.acquire()
+                            self.resInfo.updateIdles(tmp_os_cpuconfig_change)
+                            self.resource_lock.release()
 
                         run = Run.Run(nr,fullpath,bu_dir,self.instance,conf,self.state,self.resInfo,self.runList,self.rr,self.mm,self.nsslock,self.resource_lock)
                         if not run.inputdir_exists and conf.role=='fu':

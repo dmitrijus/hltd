@@ -54,6 +54,7 @@ class ResInfo:
        self.nthreads = None
        self.nstreams = None
        self.expected_processes = None
+       self.last_idlecount=0
 
     def cleanup_resources(self):
         try:
@@ -100,8 +101,41 @@ class ResInfo:
     def has_active_resources(self):
         return len(os.listdir(self.broken))+len(os.listdir(self.used))+len(os.listdir(self.idles)) > 0
 
+    def updateIdles(self,delta):
+        newcount=delta+self.last_idlecount
+        if newcount<0:newcount=0
+        current = len(os.listdir(self.idles))
+        if newcount==current:
+            #already updated
+            return 0
+        if newcount>current:
+            toAdd = newcount-current
+            totAdd=toAdd
+            index=0
+            while toAdd:
+                if not os.path.exists(self.idles+'/core'+str(index)):
+                    open(self.idles+'/core'+str(index),'a').close()
+                    toAdd-=1
+                index+=1
+            self.calculate_threadnumber()
+            return totAdd
+        if newcount<current:
+            def cmpf(x,y):
+                if int(x[4:])<int(y[4:]): return 1
+                elif int(x[4:])>int(y[4:]): return -1
+                else:return 0
+            invslist = sorted(os.listdir(self.idles),cmp=cmpf)
+            toDelete = current-newcount
+            totDel=toDelete
+            for i in invslist:
+                os.unlink(os.path.join(self.idles,i))
+                toDelete-=1
+                if toDelete==0:break
+            self.calculate_threadnumber()
+            return -totDel
+
     def calculate_threadnumber(self):
-        idlecount = len(os.listdir(self.idles))
+        idlecount = len(os.listdir(self.idles))+len(os.listdir(self.cloud))
         if conf.cmssw_threads_autosplit>0:
             self.nthreads = idlecount/conf.cmssw_threads_autosplit
             self.nstreams = idlecount/conf.cmssw_threads_autosplit
@@ -111,6 +145,7 @@ class ResInfo:
             self.nthreads = conf.cmssw_threads
             self.nstreams = conf.cmssw_streams
         self.expected_processes = idlecount/self.nstreams
+        self.last_idlecount=idlecount
 
     def resmove(self,sourcedir,destdir,res):
         os.rename(os.path.join(sourcedir,res),os.path.join(destdir,res))
@@ -129,6 +164,8 @@ class StateInfo:
         #self.resources_blocked_flag = False
         self.disabled_resource_allocation = False
         self.masked_resources = False
+        self.os_cpuconfig_change = 0
+        self.lock = threading.Lock()
 
     #interfaces to the cloud igniter script
     def ignite_cloud(self):
@@ -352,12 +389,15 @@ class hltd(Daemon2,object):
                             stop_st = state.extinguish_cloud(repeat=True)
                             if stop_st==True:
                               #cloud was stopped, can continue in HLT mode
-                              break
-                            logger.error('cloud deactivate failed. HLT mode will be disabled')
+                              pass
+                            else:
+                              logger.error('cloud deactivate failed. HLT mode will be disabled')
+                              resInfo.move_resources_to_cloud()
+                              state.cloud_mode=True
                           else:
                             logger.warning("cloud services are running on this host at hltd startup, switching to cloud mode")
-                          resInfo.move_resources_to_cloud()
-                          state.cloud_mode=True
+                            resInfo.move_resources_to_cloud()
+                            state.cloud_mode=True
 
             if conf.watch_directory.startswith('/fff/'):
                 p = subprocess.Popen("rm -rf " + conf.watch_directory+'/*',shell=True)

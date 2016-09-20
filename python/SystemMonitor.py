@@ -750,6 +750,7 @@ class system_monitor(threading.Thread):
         self.threadEventESBox.wait(1)
         eb = elasticBandBU(conf,0,'',False,update_run_mapping=False,update_box_mapping=True)
         rc = 0
+        counter=0
         while self.running:
             try:
                 if not self.found_data_interfaces or (rc%10)==0:
@@ -776,6 +777,16 @@ class system_monitor(threading.Thread):
                 ts_new = time.time()
                 if has_turbo:
                   tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(num_cpus)
+                counter+=1
+                #every min. check number of CPUs
+                if counter%12==0:
+                  num_cpus_new = self.testCPURange() 
+                  if num_cpus_new!=num_cpus:
+                    #should be locked
+                    self.state.lock.acquire()
+                    self.state.os_cpuconfig_change += num_cpus_new-num_cpus
+                    self.state.lock.release()
+                    num_cpus=num_cpus_new
                 if num_cpus>0 and mperf_new-mperf_old>0 and ts_new-ts_old>0:
                   self.cpu_freq_avg_real = int((1.* (tsc_new-tsc_old))/num_cpus / 1000000 * (aperf_new-aperf_old) / (mperf_new-mperf_old) /(ts_new-ts_old))
                 else:

@@ -17,6 +17,36 @@ def clearDir(dir):
     except:
         pass
 
+def updateIdles(idledir,newcount):
+    current = len(os.listdir(idledir))
+    if newcount==current:
+      #already updated
+      return 0
+    if newcount>current:
+      totAdd=toAdd
+      toAdd = newcount-current
+      index=0
+      while toAdd:
+        if not os.path.exists(idledir+'/idle/core'+str(index)):
+          open(conf.resource_base+'/idle/core'+str(index),'a').close()
+          toAdd-=1
+        index+=1
+      return totAdd
+    if newcount<current:
+      def cmpf(x,y):
+        if int(x[4:])<int(y[4:]): return 1
+        elif int(x[4:])>int(y[4:]): return -1
+        else:return 0
+      invslist = sorted(os.listdir(idledir),cmp=cmpf)
+      toDelete = newcount-current
+      totDel=toDelete
+      for i in invslist:
+          os.unlink(os.path.join(idledir,i))
+          toDelete-=1
+          if toDelete==0:break
+          return -totDel
+
+
 conf=hltdconf.hltdConf('/etc/hltd.conf')
 
 role=None

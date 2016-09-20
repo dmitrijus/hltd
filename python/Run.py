@@ -656,7 +656,7 @@ class Run:
 
         self.logger.info('Shutdown of run '+str(self.runnumber).zfill(conf.run_number_padding)+' completed')
 
-        #switch off cloud if planned after shutdown or run stop
+        #activate cloud if planned after shutdown or run stop
         self.resource_lock.acquire()
         if self.state.cloud_mode==True:
             if len(self.runList.getActiveRunNumbers())>=1:

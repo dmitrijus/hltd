@@ -487,6 +487,7 @@ class hltd(Daemon2,object):
                 rr.register_inotify_path(os.path.join(conf.resource_base,'idle'), imask)
                 rr.register_inotify_path(os.path.join(conf.resource_base,'cloud'), imask)
                 rr.register_inotify_path(os.path.join(conf.resource_base,'except'), imask)
+                rr.register_inotify_path(os.path.join(conf.resource_base,'quarantined'), imask)
             rr.start_inotify()
             logger.info("started ResourceRanger - watch_directory "+conf.resource_base)
         except Exception as ex:

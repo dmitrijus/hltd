@@ -51,6 +51,41 @@ class ResourceRanger:
     def process_IN_MOVED_TO(self, event):
         self.logger.debug('ResourceRanger-MOVEDTO: event '+event.fullpath)
         basename = os.path.basename(event.fullpath)
+
+        #closures for stopping resources
+        def stopResourceMaybe(resourcename,current_run,quarantining):
+            #detect if this resource belongs to the run and terminate the process if needed
+            #this will only happen if last run is an ongoing run
+            if not conf.role=='fu' or not conf.dynamic_resources: return None
+            activeRuns = self.runList.getActiveRuns()
+            for checkRun in activeRuns:
+                #skip if this is part of normal stopping procedure
+                if current_run:
+                  if not current_run.is_ongoing_run and current_run.runnumber==checkRun.runnumber:continue
+                for checkRes in checkRun.online_resource_list:
+                    if resourcename in checkRes.cpu and checkRes.processstate==100:
+                        self.logger.info('found matching resource for '+resourcename)
+                        time.sleep(.1)
+                        #TODO: check if this is last remaining resource, then EoR action could be taken
+                        checkRes.Stop(move_q=quarantining)#stop and release all resources
+                        return checkRes
+            return None
+
+        def waitResource(resource):
+            if resource:
+              try:
+                resource.watchdog.join(120)
+                if resource.isAlive():
+                  self.logger.info('terminating ' + resource.process.pid)
+                  resource.process.terminate()
+                  resource.watchdog.join(30)
+                  if resource.isAlive():
+                    self.logger.info('killing ' + resource.process.pid)
+                    resource.process.kill()
+                    resource.watchdog.join(10)
+              except:pass
+            return
+
         if basename.startswith('resource_summary'):return
         try:
             resourcepath=event.fullpath[1:event.fullpath.rfind("/")]
@@ -87,6 +122,11 @@ class ResourceRanger:
                     """grab resources that become available
                     #@@EM implement threaded acquisition of resources here
                     """
+                if os.path.exists(event.fullpath):
+                  waitResource(stopResourceMaybe(resourcename,run,False))
+
+                if run is not None:
+
                     #find all ready cores in same dir where inotify was triggered
                     try:
                         reslist = os.listdir('/'+resourcepath)
@@ -177,6 +217,11 @@ class ResourceRanger:
                     with open(os.path.join(conf.watch_directory,'exclude'),'w+') as fobj:
                         pass
                     time.sleep(1)
+            elif resourcestate=="quarantined":
+                #quarantined check
+                if os.path.exists(event.fullpath):
+                  waitResource(stopResourceMaybe(resourcename,self.runList.getLastOngoingRun(),True))
+ 
         except Exception as ex:
             self.logger.error("exception in ResourceRanger")
             self.logger.error(ex)

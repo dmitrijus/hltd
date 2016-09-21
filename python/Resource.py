@@ -51,6 +51,8 @@ class OnlineResource:
         self.retry_attempts = 0
         self.quarantined = []
         self.remove_resources_flag=False
+        self.end_run_mask=False
+        self.move_q=False
         self.loc_res_lk = threading.Lock()
 
     def ping(self):
@@ -110,6 +112,8 @@ class OnlineResource:
         self.logger.debug("OnlineResource: StartNewProcess called")
         self.runnumber = runnumber
         self.remove_resources_flag=False
+        self.end_run_mask=False
+        self.move_q=False
 
         """
         this is just a trick to be able to use two
@@ -216,8 +220,8 @@ class OnlineResource:
         if doLock:self.resource_lock.release()
         return retq
 
-    def moveUsedToIdles(self):
-        self.resource_lock.acquire()
+    def moveUsedToIdles(self,uselock=True):
+        if uselock:self.resource_lock.acquire()
         try:
             for cpu in self.cpu:
                 try:
@@ -226,20 +230,22 @@ class OnlineResource:
                 except Exception as ex:
                     self.logger.warning('problem moving core ' + cpu + ' from used to idle:'+str(ex))
         finally:
-            self.resource_lock.release()
+            if uselock:self.resource_lock.release()
 
-    def moveUsedToQuarantined(self):
-        self.resource_lock.acquire()
+    def moveUsedToQuarantined(self,uselock=True,takenOut=False):
+        if uselock:self.resource_lock.acquire()
         try:
             for cpu in self.cpu:
                 try:
                     self.resInfo.resmove(self.resInfo.used,self.resInfo.quarantined,cpu)
-                    self.quarantined.append(cpu)
-                    self.parent.n_quarantined+=1
+                    if not takenOut:
+                      self.quarantined.append(cpu)
+                      self.parent.n_quarantined+=1
+                    else:self.parent.n_used-=1
                 except Exception as ex:
                     self.logger.warning('problem moving core ' + cpu + ' from used to quarantined:'+str(ex))
         finally:
-            self.resource_lock.release()
+            if uselock:self.resource_lock.release()
 
     def moveUsedToBroken(self):
         self.resource_lock.acquire()
@@ -265,10 +271,11 @@ class OnlineResource:
         finally:
             self.resource_lock.release()
 
-    def Stop(self,delete_resources=False):
+    def Stop(self, delete_resources=False, end_run_allow=False,move_q=False):
         self.loc_res_lk.acquire()
-        if delete_resources:
-          self.remove_resources_flag=True
+        if delete_resources:self.remove_resources_flag=True
+        if not end_run_allow:self.end_run_mask=True
+        if move_q:self.move_q=True
         #signal CMSSW top stop the process
         try:
           if self.processstate == 100:
@@ -283,6 +290,23 @@ class OnlineResource:
           self.logger.warning('not stopping process, '+ str(ex))
         self.loc_res_lk.release()
         return False
+
+    def maybeReleaseResources(self):
+          if self.remove_resources_flag or self.end_run_mask:
+            time.sleep(.1)
+            if self.remove_resources_flag:
+              self.logger.error("This resource has been removed from the system. Resource files will be deleted")
+              self.deleteUsed()
+            elif self.move_q:
+              self.logger.info('move all back to quarantined...')
+              self.moveUsedToQuarantined(False,True)
+            else:
+              self.logger.info('move all back to idle...')
+              self.moveUsedToIdles(False)
+            #remove from online list (object will not be deleted yet)
+            self.parent.ReleaseResource(self)
+            return True
+          else: return False
 
 class ProcessWatchdog(threading.Thread):
     def __init__(self,resource,inputdirpath):
@@ -313,10 +337,8 @@ class ProcessWatchdog(threading.Thread):
             rnsuffix = str(self.resource.runnumber).zfill(conf.run_number_padding)
 
             if os.path.exists(abortedmarker):
-                #if remove_resources_flag
-                if self.resource.remove_resources_flag:
-                  self.logger.error("This resource has been removed from the system. Resource files will be deleted")
-                  self.resource.deleteUsed()
+                #maybe deactivate resource flagged for removal
+                if self.resource.maybeReleaseResources():
                   self.resource.loc_res_lk.release()
                   return
                 #abort issued
@@ -356,12 +378,10 @@ class ProcessWatchdog(threading.Thread):
                 #removed 65 because it is not only configuration error
                 quit_codes = [127,90,73]
 
-                #deactivate resource flagged for removal
-                if self.resource.remove_resources_flag:
-                  self.logger.error("This resource has been removed from the system. Resource files will be deleted")
-                  self.resource.deleteUsed()
+                #maybe deactivate resource flagged for removal
+                if self.resource.maybeReleaseResources():
                   self.resource.loc_res_lk.release()
-                  return
+                  return      
 
                 #dqm mode will treat configuration error as a crash and eventually move to quarantined
                 if conf.dqm_machine==False and returncode in quit_codes:
@@ -432,11 +452,8 @@ class ProcessWatchdog(threading.Thread):
                 else:
                     self.logger.info('pid '+str(pid)+' exit 0 from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
 
-                #deactivate resource flagged for removal
-                if self.resource.remove_resources_flag:
-                  self.resource.deleteUsed()
-                  #remove from online list (object will not be deleted yet)
-                  self.resource.parent.ReleaseResource(self.resource)
+                #maybe deactivate resource flagged for removal
+                if self.resource.maybeReleaseResources():
                   self.resource.loc_res_lk.release()
                   return
 

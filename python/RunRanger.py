@@ -717,11 +717,11 @@ class RunRanger:
 
                     for resource in res_list_join_alive:
                       try:
-                        resource.watchdog.join(60)
+                        resource.watchdog.join(30)
                         if resource.watchdog.isAlive():
                           self.logger.info('killing process ' + str(resource.process.pid))
                           resource.process.kill()
-                          resource.watchdog.join(20)
+                          resource.watchdog.join(10)
                       except:
                         pass
 

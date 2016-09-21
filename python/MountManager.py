@@ -144,7 +144,10 @@ class MountManager:
             except Exception as ex:
                 self.logger.exception(ex)
         if remount==False:
-            self.logger.info('finishing mount cleanup with status'+str(umount_failure))
+            if umount_failure:
+              self.logger.info('finishing mount cleanup with mount failure')
+            else
+              self.logger.info('finishing mount cleanup with mount success')
             if umount_failure:return False
             return True
 

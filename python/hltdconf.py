@@ -64,6 +64,7 @@ class hltdConf:
         self.resource_use_fraction = cfg.getfloat('Resources','resource_use_fraction')
         self.auto_clear_quarantined = cfg.getboolean('Recovery','auto_clear_quarantined')
         self.max_local_disk_usage = cfg.getint('Resources','max_local_disk_usage')
+        self.dynamic_resources = cfg.getboolean('Resources','dynamic_resources')
         self.service_log_level = getattr(logging,self.service_log_level)
         self.autodetect_parameters()
 

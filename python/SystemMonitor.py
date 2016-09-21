@@ -777,18 +777,21 @@ class system_monitor(threading.Thread):
                 ts_new = time.time()
                 if has_turbo:
                   tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(num_cpus)
-                counter+=1
+
                 #every two intervals check number of CPUs
+                counter+=1
                 if counter%2==0:
                   num_cpus_new = self.testCPURange() 
                   if num_cpus_new!=num_cpus:
-                    #should be locked
-                    self.state.lock.acquire()
-                    self.state.os_cpuconfig_change += num_cpus_new-num_cpus
-                    #notify run ranger thread
-                    with open(os.path.join(conf.watch_directory,'resourceupdate'),'w') as fp:pass
-                    self.state.lock.release()
+                    if conf.dynamic_resources and not conf.dqm_machine:
+                      self.state.lock.acquire()
+                      #notify run ranger thread
+                      self.state.os_cpuconfig_change += num_cpus_new-num_cpus
+                      with open(os.path.join(conf.watch_directory,'resourceupdate'),'w') as fp:
+                        pass
+                      self.state.lock.release()
                     num_cpus=num_cpus_new
+
                 if num_cpus>0 and mperf_new-mperf_old>0 and ts_new-ts_old>0:
                   self.cpu_freq_avg_real = int((1.* (tsc_new-tsc_old))/num_cpus / 1000000 * (aperf_new-aperf_old) / (mperf_new-mperf_old) /(ts_new-ts_old))
                 else:

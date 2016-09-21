@@ -46,6 +46,7 @@ class ResInfo:
     def __init__(self):
        self.q_list = []
        self.num_excluded = 0
+       self.num_allowed = 0
        self.idles = None
        self.used = None
        self.broken = None
@@ -73,6 +74,7 @@ class ResInfo:
             dirlist = os.listdir(self.idles)
             #quarantine files beyond use fraction limit (rounded to closest integer)
             self.num_excluded = int(round(len(dirlist)*(1.-conf.resource_use_fraction)))
+            self.num_allowed = len(dirlist)-self.num_excluded
             for i in range(0,int(self.num_excluded)):
                 self.resmove(self.idles,self.quarantined,dirlist[i])
             return True
@@ -120,7 +122,9 @@ class ResInfo:
           else:
             logger.info('adding resource ' + 'core'+str(index))
             with open(os.path.join(self.quarantined,'core'+str(index)),'w') as fi:pass
-            self.resmove(self.quarantined,self.idles,'core'+str(index))
+            #check against allowed resource fraction limits
+            if index<self.num_allowed:
+              self.resmove(self.quarantined,self.idles,'core'+str(index))
             delta-=1
         return delta
 
@@ -141,7 +145,9 @@ class ResInfo:
             while toAdd:
                 if not self.exists('core'+str(index)):
                     with open(os.path.join(self.quarantined,'core'+str(index)),'a') as fi:pass #using quarantined + move
-                    self.resmove(self.quarantined,self.idles,'core'+str(index))
+                    #check against allowed resource fraction limits
+                    if index<self.num_allowed:
+                      self.resmove(self.quarantined,self.idles,'core'+str(index))
                     toAdd-=1
                 index+=1
             self.calculate_threadnumber()

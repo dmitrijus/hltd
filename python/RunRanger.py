@@ -1,4 +1,5 @@
 import os
+import signal
 import time
 import threading
 import httplib
@@ -661,6 +662,93 @@ class RunRanger:
             #sleep some time to let core file notifications to finish
             time.sleep(2)
             self.logger.info('cloud mode in hltd has been switched off')
+        
+        elif dirname.startswith('resourceupdate'):
+            self.logger.info('resource update event received with '+str(self.state.os_cpuconfig_change))
+            #freeze any update during this operation
+            self.state.lock.acquire()
+            self.resource_lock.acquire()
+            try:
+                tmp_change = self.state.os_cpuconfig_change
+                self.state.os_cpuconfig_change=0
+                lastRun = self.runList.getLastOngoingRun()
+                #check if this can be done without touching current run
+                if tmp_change>0:
+                   self.logger.info('adding ' + str(tmp_change))
+                   tmp_change = self.resInfo.addResources(tmp_change)
+                elif tmp_change<0:
+                   self.logger.info('removing ' + str(-tmp_change))
+                   tmp_change = self.resInfo.updateIdles(tmp_change,checkLast=False)
+                self.logger.info('left ' + str(tmp_change))
+                if not tmp_change:pass 
+                elif lastRun:
+                  #1st case (removed resources): quarantine surplus resources
+                  if tmp_change<0:
+                    numQuarantine = -tmp_change
+                    res_list_join = []
+                    for resource in lastRun.online_resource_list:
+                      if numQuarantine>0:
+                        #if len(resource.cpu)<= numQuarantine:
+                        if resource.Stop(delete_resources=True):
+                          numQuarantine -= len(resource.cpu)
+                          res_list_join.append(resource)
+                    self.resource_lock.release()
+
+                    #join threads with timeout
+                    time_left = 120
+                    res_list_join_alive=[]
+                    for resource in res_list_join:
+                      time_start = time.time()
+                      try: resource.watchdog.join(time_left) #synchronous stop
+                      except: self.logger.info('join failed')
+                      self.logger.info('joined resource...')
+                      if resource.watchdog.isAlive():
+                        res_list_join_alive.append(resource)
+                      time_left -= time.time()-time_start
+                      if time_left<=0.1:time_left=0.1
+                      
+                    #invoke terminate if any threads/processes still alive
+                    for resource in res_list_join_alive:
+                      try:
+                        self.logger.info('terminating process ' + str(resource.process.pid))
+                        resource.process.terminate()
+                      except Exception as ex:
+                        self.logger.exception(ex)
+
+                    for resource in res_list_join_alive:
+                      try:
+                        resource.watchdog.join(60)
+                        if resource.watchdog.isAlive():
+                          self.logger.info('killing process ' + str(resource.process.pid))
+                          resource.process.kill()
+                          resource.watchdog.join(20)
+                      except:
+                        pass
+
+                    res_list_join=[]
+                    res_list_join_alive=[]
+                    self.resource_lock.acquire()
+                    if numQuarantine<0:
+                      #if not a matching number of resources was stopped,add back part of resources later (next run start) 
+                      self.state.os_cpuconfig_change=-numQuarantine
+                      #let add back resources
+                      tmp_change = self.state.os_cpuconfig_change
+                  if tmp_change>0:
+                    #add more resources
+                    left = self.resInfo.addResources(tmp_change)
+                    self.state.os_cpuconfig_change=left
+            except Exception as ex:
+              self.logger.error('failed to process resourceupdate event: ' + str(ex))
+              self.logger.exception(ex)
+            finally:
+              #refresh parameter values
+              self.resInfo.calculate_threadnumber()
+              try:self.resource_lock.release()
+              except:pass
+              self.state.lock.release()
+            self.logger.info('end resourceupdate. Left:'+str(self.state.os_cpuconfig_change))
+            os.remove(fullpath)
+ 
 
         elif dirname.startswith('logrestart'):
             #hook to restart logcollector process manually

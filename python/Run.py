@@ -110,6 +110,7 @@ class Run:
         self.conf = conf
 
         self.online_resource_list = []
+        self.online_resource_list_join = []
         self.anelastic_monitor = None
         self.elastic_monitor = None
         self.elastic_test = None
@@ -315,8 +316,10 @@ class Run:
             if not filter(lambda x: sorted(x.cpu)==sorted(resourcenames),self.online_resource_list):
                 self.logger.debug("resource(s) "+str(resourcenames)
                               +" not found in online_resource_list, creating new")
-                self.online_resource_list.append(Resource.OnlineResource(self,resourcenames,self.resource_lock))
-                return self.online_resource_list[-1]
+                newres = Resource.OnlineResource(self,resourcenames,self.resource_lock)
+                self.online_resource_list.append(newres)
+                self.online_resource_list_join.append(newres)
+                return newres
             self.logger.debug("resource(s) "+str(resourcenames)
                           +" found in online_resource_list")
             return filter(lambda x: sorted(x.cpu)==sorted(resourcenames),self.online_resource_list)[0]
@@ -337,7 +340,9 @@ class Run:
         return None
 
     def ContactResource(self,resourcename,f_ip):
-        self.online_resource_list.append(Resource.OnlineResource(self,resourcename,self.resource_lock,f_ip))
+        newres = Resource.OnlineResource(self,resourcename,self.resource_lock,f_ip)
+        self.online_resource_list.append(newres)
+        self.online_resource_list_join.append(newres)
         #self.online_resource_list[-1].ping() #@@MO this is not doing anything useful, afaikt
 
     def ReleaseResource(self,res):
@@ -558,7 +563,7 @@ class Run:
 
         time.sleep(.1)
         try:
-            for resource in self.online_resource_list:
+            for resource in self.online_resource_list: #@SM TODO: combine with join list??
                 if resource.processstate==100:
                     try:
                         self.logger.info('terminating process '+str(resource.process.pid)+
@@ -600,6 +605,7 @@ class Run:
             self.logger.info('completed clearing resource list')
 
             self.online_resource_list = []
+            self.online_resource_list_join = []
             try:
                 self.changeMarkerMaybe(Resource.RunCommon.ABORTCOMPLETE)
             except OSError as ex:
@@ -721,7 +727,7 @@ class Run:
     def WaitForEnd(self):
         self.logger.info("wait for end thread!")
         try:
-            for resource in self.online_resource_list:
+            for resource in self.online_resource_list_join:
                 if resource.processstate is not None:
                     if resource.process is not None and resource.process.pid is not None: ppid = resource.process.pid
                     else: ppid="None"
@@ -734,7 +740,10 @@ class Run:
                     except:pass
                 resource.clearQuarantined()
                 resource.process=None
+
+            self.online_resource_list_join = []
             self.online_resource_list = []
+
             if conf.role == 'fu':
                 self.logger.info('writing complete file')
                 self.changeMarkerMaybe(Resource.RunCommon.COMPLETE)

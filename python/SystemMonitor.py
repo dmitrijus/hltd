@@ -778,13 +778,15 @@ class system_monitor(threading.Thread):
                 if has_turbo:
                   tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(num_cpus)
                 counter+=1
-                #every min. check number of CPUs
-                if counter%12==0:
+                #every two intervals check number of CPUs
+                if counter%2==0:
                   num_cpus_new = self.testCPURange() 
                   if num_cpus_new!=num_cpus:
                     #should be locked
                     self.state.lock.acquire()
                     self.state.os_cpuconfig_change += num_cpus_new-num_cpus
+                    #notify run ranger thread
+                    with open(os.path.join(conf.watch_directory,'resourceupdate'),'w') as fp:pass
                     self.state.lock.release()
                     num_cpus=num_cpus_new
                 if num_cpus>0 and mperf_new-mperf_old>0 and ts_new-ts_old>0:

@@ -50,6 +50,8 @@ class OnlineResource:
         self.resource_lock = resource_lock
         self.retry_attempts = 0
         self.quarantined = []
+        self.remove_resources_flag=False
+        self.loc_res_lk = threading.Lock()
 
     def ping(self):
         if conf.role == 'bu':
@@ -107,6 +109,7 @@ class OnlineResource:
     def StartNewProcess(self, runnumber, input_disk, arch, version, menu, transfermode, num_threads, num_streams):
         self.logger.debug("OnlineResource: StartNewProcess called")
         self.runnumber = runnumber
+        self.remove_resources_flag=False
 
         """
         this is just a trick to be able to use two
@@ -177,9 +180,11 @@ class OnlineResource:
                 #release lock while joining thread to let it complete
                 self.resource_lock.release()
                 self.watchdog.join()
+                self.watchdog = None
                 self.resource_lock.acquire()
 
             self.processstate = 100
+            self.logger.info(self.process.pid)
             self.watchdog = ProcessWatchdog(self,inputdirpath)
             self.watchdog.start()
             self.logger.debug("watchdog thread restarted for "+str(self.process.pid)+" is alive " + str(self.watchdog.is_alive()))
@@ -248,6 +253,37 @@ class OnlineResource:
         finally:
             self.resource_lock.release()
 
+    def deleteUsed(self):
+        self.resource_lock.acquire()
+        try:
+            for cpu in self.cpu:
+                try:
+                    os.unlink(os.path.join(self.resInfo.used,cpu))
+                    self.parent.n_used-=1
+                except Exception as ex:
+                    self.logger.warning('problem deleting core ' + cpu + ' from used:'+str(ex))
+        finally:
+            self.resource_lock.release()
+
+    def Stop(self,delete_resources=False):
+        self.loc_res_lk.acquire()
+        if delete_resources:
+          self.remove_resources_flag=True
+        #signal CMSSW top stop the process
+        try:
+          if self.processstate == 100:
+            #time.sleep(0.01)
+            proc_pid = self.process.pid
+            stop_file = "CMSSW_STOP_pid"+str(proc_pid)
+            open(os.path.join(self.parent.dirname,stop_file),'w').close()
+            self.logger.info('created file '+stop_file)
+            self.loc_res_lk.release()
+            return True
+        except Exception as ex:
+          self.logger.warning('not stopping process, '+ str(ex))
+        self.loc_res_lk.release()
+        return False
+
 class ProcessWatchdog(threading.Thread):
     def __init__(self,resource,inputdirpath):
         threading.Thread.__init__(self)
@@ -262,6 +298,7 @@ class ProcessWatchdog(threading.Thread):
         try:
             self.logger.info('watchdog thread for process '+str(self.resource.process.pid) + ' on resource '+str(self.resource.cpu)+" for run "+str(self.resource.runnumber) + ' started ')
             self.resource.process.wait()
+            self.resource.loc_res_lk.acquire()
             returncode = self.resource.process.returncode
             pid = self.resource.process.pid
 
@@ -276,8 +313,15 @@ class ProcessWatchdog(threading.Thread):
             rnsuffix = str(self.resource.runnumber).zfill(conf.run_number_padding)
 
             if os.path.exists(abortedmarker):
+                #if remove_resources_flag
+                if self.resource.remove_resources_flag:
+                  self.logger.error("This resource has been removed from the system. Resource files will be deleted")
+                  self.resource.deleteUsed()
+                  self.resource.loc_res_lk.release()
+                  return
                 #abort issued
                 self.resource.moveUsedToIdles()
+                self.resource.loc_res_lk.release()
                 return
 
             #input dir check if cmsRun can not find the input
@@ -311,6 +355,13 @@ class ProcessWatchdog(threading.Thread):
                 #quit codes (configuration errors):
                 #removed 65 because it is not only configuration error
                 quit_codes = [127,90,73]
+
+                #deactivate resource flagged for removal
+                if self.resource.remove_resources_flag:
+                  self.logger.error("This resource has been removed from the system. Resource files will be deleted")
+                  self.resource.deleteUsed()
+                  self.resource.loc_res_lk.release()
+                  return
 
                 #dqm mode will treat configuration error as a crash and eventually move to quarantined
                 if conf.dqm_machine==False and returncode in quit_codes:
@@ -381,6 +432,14 @@ class ProcessWatchdog(threading.Thread):
                 else:
                     self.logger.info('pid '+str(pid)+' exit 0 from run ' + str(self.resource.runnumber) + ' - releasing resource ' + str(self.resource.cpu))
 
+                #deactivate resource flagged for removal
+                if self.resource.remove_resources_flag:
+                  self.resource.deleteUsed()
+                  #remove from online list (object will not be deleted yet)
+                  self.resource.parent.ReleaseResource(self.resource)
+                  self.resource.loc_res_lk.release()
+                  return
+
                 # generate an end-of-run marker if it isn't already there - it will be picked up by the RunRanger
                 endmarker = conf.watch_directory+'/end'+rnsuffix
                 if not os.path.exists(endmarker):
@@ -413,6 +472,10 @@ class ProcessWatchdog(threading.Thread):
             self.logger.exception(ex)
             try:self.resource.resource_lock.release()
             except:pass
+
+        try:self.resource.loc_res_lk.release()
+        except:pass
+
         return
 
 

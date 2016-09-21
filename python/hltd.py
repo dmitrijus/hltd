@@ -101,10 +101,36 @@ class ResInfo:
     def has_active_resources(self):
         return len(os.listdir(self.broken))+len(os.listdir(self.used))+len(os.listdir(self.idles)) > 0
 
-    def updateIdles(self,delta):
+    def exists(self,core):
+        if core in os.listdir(self.idles):return True
+        if core in os.listdir(self.used):return True
+        if core in os.listdir(self.broken):return True
+        if core in os.listdir(self.quarantined):return True
+        if core in os.listdir(self.cloud):return True
+        return False
+
+    def addResources(self,delta):
+        full_list = os.listdir(self.broken)+os.listdir(self.used)+os.listdir(self.idles) \
+                    + os.listdir(self.quarantined)+os.listdir(self.cloud)
+        max_cpu = delta
+        for index in range(0,len(full_list)+max_cpu):
+          if delta==0:break
+          if 'core'+str(index) in full_list:
+            continue
+          else:
+            logger.info('adding resource ' + 'core'+str(index))
+            with open(os.path.join(self.quarantined,'core'+str(index)),'w') as fi:pass
+            self.resmove(self.quarantined,self.idles,'core'+str(index))
+            delta-=1
+        return delta
+
+    def updateIdles(self,delta,checkLast=True):
         newcount=delta+self.last_idlecount
         if newcount<0:newcount=0
         current = len(os.listdir(self.idles))
+        #if requested to remove if possible
+        if not checkLast:
+          newcount = current + delta
         if newcount==current:
             #already updated
             return 0
@@ -113,26 +139,28 @@ class ResInfo:
             totAdd=toAdd
             index=0
             while toAdd:
-                if not os.path.exists(self.idles+'/core'+str(index)):
-                    open(self.idles+'/core'+str(index),'a').close()
+                if not self.exists('core'+str(index)):
+                    with open(os.path.join(self.quarantined,'core'+str(index)),'a') as fi:pass #using quarantined + move
+                    self.resmove(self.quarantined,self.idles,'core'+str(index))
                     toAdd-=1
                 index+=1
             self.calculate_threadnumber()
-            return totAdd
+            return toAdd
         if newcount<current:
-            def cmpf(x,y):
+            def cmpfinv(x,y):
                 if int(x[4:])<int(y[4:]): return 1
                 elif int(x[4:])>int(y[4:]): return -1
                 else:return 0
-            invslist = sorted(os.listdir(self.idles),cmp=cmpf)
+            invslist = sorted(os.listdir(self.idles),cmp=cmpfinv)
             toDelete = current-newcount
             totDel=toDelete
             for i in invslist:
+                logger.info('deleting ' + str(i))
                 os.unlink(os.path.join(self.idles,i))
                 toDelete-=1
                 if toDelete==0:break
             self.calculate_threadnumber()
-            return -totDel
+            return -toDelete
 
     def calculate_threadnumber(self):
         idlecount = len(os.listdir(self.idles))+len(os.listdir(self.cloud))

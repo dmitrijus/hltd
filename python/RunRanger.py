@@ -559,7 +559,12 @@ class RunRanger:
                         else:
                             self.resource_lock.acquire()
                             requested_stop=True
-                            run.Stop()
+                            if dirname.startswith('excludenow'):
+                              #let jobs stop without 3 LS drain
+                              run.Stop(stop_now=True)
+                            else:
+                              #regular stop with 3 LS drain
+                              run.Stop()
                             self.resource_lock.release()
 
                 time.sleep(.1)

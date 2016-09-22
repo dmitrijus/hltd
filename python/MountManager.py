@@ -146,7 +146,7 @@ class MountManager:
         if remount==False:
             if umount_failure:
               self.logger.info('finishing mount cleanup with mount failure')
-            else
+            else:
               self.logger.info('finishing mount cleanup with mount success')
             if umount_failure:return False
             return True

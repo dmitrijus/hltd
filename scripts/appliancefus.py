@@ -27,7 +27,7 @@ qstring = "select d.dnsname from \
 	                AND hn.eqset_id=d.eqset_id       \
 	                AND hn.nic_id=d.nic_id       \
 	                AND ha.host_id=hn.host_id       \
-			AND ha.attr_name like 'myBU%' AND ha.attr_value='"+host"' \
+			AND ha.attr_name like 'myBU%' AND ha.attr_value='"+host+"' \
 			AND d.eqset_id = (select eqset_id from DAQ_EQCFG_EQSET \
 			where tag='DAQ2' AND                    \
 			ctime = (SELECT MAX(CTIME) FROM DAQ_EQCFG_EQSET WHERE tag='DAQ2'))"

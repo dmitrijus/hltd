@@ -766,7 +766,7 @@ class RunRanger:
 
             if conf.role=='bu':
                 process = subprocess.Popen(['/opt/hltd/scripts/appliancefus.py'],stdout=subprocess.PIPE)
-                out = process.communicate()[0]
+                out = process.communicate()[0].split('\n')[0]
                 fus=[]
                 if process.returncode==0:fus = out.split(',')
                 else:
@@ -785,6 +785,7 @@ class RunRanger:
 
                 fu_threads = []
                 for fu in fus:
+                    if not len(fu):continue
                     fu_thread = threading.Thread(target=contact_restart,args=[fu])
                     fu_threads.append(fu_thread)
                     fu_thread.start()

@@ -17,6 +17,11 @@ host = os.uname()[1]+".cms"
 
 myDAQ_EQCFG_EQSET = 'DAQ_EQCFG_EQSET'
 
+if host.startswith('dv'):
+  tagdaq = 'DAQ2VAL'
+else:
+  tagdaq = 'DAQ2'
+
 qstring = "select d.dnsname from \
 	                DAQ_EQCFG_DNSNAME d,                  \
 	                DAQ_EQCFG_HOST_ATTRIBUTE ha,       \
@@ -29,8 +34,8 @@ qstring = "select d.dnsname from \
 	                AND ha.host_id=hn.host_id       \
 			AND ha.attr_name like 'myBU%' AND ha.attr_value='"+host+"' \
 			AND d.eqset_id = (select eqset_id from DAQ_EQCFG_EQSET \
-			where tag='DAQ2' AND                    \
-			ctime = (SELECT MAX(CTIME) FROM DAQ_EQCFG_EQSET WHERE tag='DAQ2'))"
+			where tag='"+tagdaq+"' AND                    \
+			ctime = (SELECT MAX(CTIME) FROM DAQ_EQCFG_EQSET WHERE tag='"+tagdaq+"'))"
 
 cur.execute(qstring)
 

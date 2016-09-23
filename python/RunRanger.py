@@ -7,6 +7,7 @@ import shutil
 import demote
 import prctl
 from signal import SIGKILL
+import subprocess
 import logging
 
 import Run
@@ -759,6 +760,41 @@ class RunRanger:
             #hook to restart logcollector process manually
             restartLogCollector(conf,self.logger,self.logCollector,self.instance)
             os.remove(fullpath)
+
+        elif dirname.startswith('restart'):
+            self.logger.info('restart event')
+
+            if conf.role=='bu':
+                process = subprocess.Popen(['/opt/hltd/scripts/appliancefus.py'],stdout=subprocess.PIPE)
+                out = process.communicate()[0]
+                fus=[]
+                if process.returncode==0:fus = out.split(',')
+                else:
+                  dirlist = os.listdir(os.path.join(conf.watch_directory,'appliance','boxes'))
+                  for machine in dirlist:
+                    if machine == os.uname()[1]:continue
+                    fus.append(machine)
+
+                def contact_restart(host):
+                  try:
+                    connection = httplib.HTTPConnection(host,conf.cgi_port,timeout=20)
+                    connection.request("GET",'cgi-bin/restart_cgi.py')
+                    response = connection.getresponse()
+                  except Exception as ex:
+                    self.logger.exception(ex)
+
+                fu_threads = []
+                for fu in fus:
+                    fu_thread = threading.Thread(target=contact_restart,args=[fu])
+                    fu_threads.append(fu_thread)
+                    fu_thread.start()
+                for fu_thread in fu_threads:
+                    fu_thread.join()
+                  
+            #some time to allow cgi return
+            time.sleep(1)
+            pr = subprocess.Popen(["/opt/hltd/scripts/restart.py"],close_fds=True)
+            self.logger.info('restart imminent, waiting to die and raise from the ashes once again')
 
         self.logger.debug("completed handling of event "+fullpath)
 

@@ -396,8 +396,10 @@ class LumiSectionRanger:
             newpath = os.path.join(self.infile.dir,self.infile.name[:self.infile.name.rfind('_pid')])+self.infile.ext
             oldpath = self.infile.filepath
             try:
-                os.stat(newpath)
                 #skip further action if destination exists
+                os.stat(newpath)
+                #remove this copy
+                os.unlink(oldpath)
                 return
             except:
                 pass
@@ -409,7 +411,7 @@ class LumiSectionRanger:
             #copy to output with rename
             if not stream:
                 self.infile.moveFile(os.path.join(outputDir,run,os.path.basename(newpath)),copy=True,adler32=False,
-                                   silent=True,createDestinationDir=False,missingDirAlert=False)
+                                   silent=True,createDestinationDir=False,missingDirAlert=False,updateFileInfo=False)
             else:
                 remotefiledir = os.path.join(outputDir,run,stream)
                 #create stream subdirectory in output if not there
@@ -421,9 +423,9 @@ class LumiSectionRanger:
                     if create_attempts==0: self.logger.fatal('Unable to create destination directories for DEF file ' + self.infile.basename)
 
                 fn = os.path.join(remotefiledir,'data',os.path.basename(newpath))
-                self.infile.moveFile(fn, copy=True, adler32=False, silent=True, createDestinationDir=False, missingDirAlert=False)
-            #local copy
-            self.infile.moveFile(newpath, copy=True, adler32=False, silent=True, createDestinationDir=False, missingDirAlert=False)
+                self.infile.moveFile(fn, copy=True, adler32=False, silent=True, createDestinationDir=False, missingDirAlert=False,updateFileInfo=False)
+            #local move
+            self.infile.moveFile(newpath, copy=False, adler32=False, silent=False, createDestinationDir=False, missingDirAlert=False)
 
             #delete as we will use the one without pid
             try:os.unlink(oldpath)

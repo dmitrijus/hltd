@@ -465,7 +465,7 @@ class fileHandler(object):
 
     def moveFile(self,newpath,copy = False,adler32=False,silent=False, createDestinationDir=True, missingDirAlert=True, missingDirAssert=False, updateFileInfo=True):
         checksum=1
-        if not self.exists(): return True,checksum
+        #if not self.exists(): return True,checksum #should return False (below)
         oldpath = self.filepath
         newdir = os.path.dirname(newpath)
 

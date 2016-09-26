@@ -15,7 +15,7 @@ from elasticbu import elasticBandBU
 
 class system_monitor(threading.Thread):
 
-    def __init__(self,confClass,stateInfo,resInfo,runList,mountMgr,boxInfo):
+    def __init__(self,confClass,stateInfo,resInfo,runList,mountMgr,boxInfo,num_cpus_initial):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(self.__class__.__name__)
         try:
@@ -43,6 +43,7 @@ class system_monitor(threading.Thread):
         self.runList = runList
         self.mm = mountMgr
         self.boxInfo = boxInfo
+        self.num_cpus = num_cpus_initial 
         global conf
         conf = confClass
 
@@ -739,18 +740,22 @@ class system_monitor(threading.Thread):
                     break
         except:pass
         cpu_name,cpu_freq,cpu_cores,cpu_siblings = self.getCPUInfo()
-        num_cpus = self.testCPURange() 
+
+        #set initial number of CPUs (i.e. core files found if supposed to adjust dynamically)
+        counter=1
+        if self.num_cpus==-1:
+          self.num_cpus = self.testCPURange()
+
         ts_old = time.time()
         if cpu_name.startswith('AMD') or 'Nehalem' in cpu_name: #for VM mode where running on cloud hosts
           tsc_old=mperf_old=aperf_old=tsc_new=mperf_new=aperf_new=0
           has_turbo=False
         else:
-          tsc_old,mperf_old,aperf_old=self.getIntelCPUPerfAvgs(num_cpus)
+          tsc_old,mperf_old,aperf_old=self.getIntelCPUPerfAvgs(self.num_cpus)
           has_turbo = True
         self.threadEventESBox.wait(1)
         eb = elasticBandBU(conf,0,'',False,update_run_mapping=False,update_box_mapping=True)
         rc = 0
-        counter=0
         while self.running:
             try:
                 if not self.found_data_interfaces or (rc%10)==0:
@@ -776,24 +781,29 @@ class system_monitor(threading.Thread):
                 #check cpu counters to estimate "Turbo" frequency
                 ts_new = time.time()
                 if has_turbo:
-                  tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(num_cpus)
+                  tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(self.num_cpus)
 
-                #every two intervals check number of CPUs
+                #every two intervals check number of CPUs (refresh if changed)
                 counter+=1
                 if counter%2==0:
                   num_cpus_new = self.testCPURange() 
-                  if num_cpus_new!=num_cpus:
+                  if num_cpus_new!=self.num_cpus:
                     if conf.dynamic_resources and not conf.dqm_machine:
                       self.state.lock.acquire()
                       #notify run ranger thread
-                      self.state.os_cpuconfig_change += num_cpus_new-num_cpus
+                      self.state.os_cpuconfig_change += num_cpus_new-self.num_cpus
                       with open(os.path.join(conf.watch_directory,'resourceupdate'),'w') as fp:
                         pass
                       self.state.lock.release()
-                    num_cpus=num_cpus_new
+                    self.num_cpus=num_cpus_new
 
-                if num_cpus>0 and mperf_new-mperf_old>0 and ts_new-ts_old>0:
-                  self.cpu_freq_avg_real = int((1.* (tsc_new-tsc_old))/num_cpus / 1000000 * (aperf_new-aperf_old) / (mperf_new-mperf_old) /(ts_new-ts_old))
+                #check cpu counters to estimate "Turbo" frequency
+                ts_new = time.time()
+                if has_turbo:
+                  tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(self.num_cpus)
+
+                if self.num_cpus>0 and mperf_new-mperf_old>0 and ts_new-ts_old>0:
+                  self.cpu_freq_avg_real = int((1.* (tsc_new-tsc_old))/self.num_cpus / 1000000 * (aperf_new-aperf_old) / (mperf_new-mperf_old) /(ts_new-ts_old))
                 else:
                   self.cpu_freq_avg_real = 0
                 ts_old=ts_new

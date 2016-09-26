@@ -103,6 +103,10 @@ class ResInfo:
     def has_active_resources(self):
         return len(os.listdir(self.broken))+len(os.listdir(self.used))+len(os.listdir(self.idles)) > 0
 
+    def count_resources(self):
+        return len(os.listdir(self.broken))+len(os.listdir(self.used))+len(os.listdir(self.idles)) \
+              +len(os.listdir(self.quarantined))+len(os.listdir(self.cloud))
+
     def exists(self,core):
         if core in os.listdir(self.idles):return True
         if core in os.listdir(self.used):return True
@@ -397,7 +401,7 @@ class hltd(Daemon2,object):
 
         #start monitor thread to get fu-box-status docs inserted early in case of mount problems
         boxInfo = BoxInfo()
-        sm = SystemMonitor.system_monitor(conf,state,resInfo,runList,mm,boxInfo)
+        num_cpus_initial=-1
 
         if conf.role == 'fu':
             """
@@ -445,6 +449,12 @@ class hltd(Daemon2,object):
             #if conf.watch_directory.strip()!='/':
             #    p = subprocess.Popen("rm -rf " + conf.watch_directory.strip()+'/{run*,end*,quarantined*,exclude,include,suspend*,populationcontrol,herod,logrestart,emu*}',shell=True)
             #    p.wait()
+
+            #count core files
+            if conf.dynamic_resources: num_cpus_initial = resInfo.count_resources()
+
+        #start monitor after all state checks/migration have finished
+        sm = SystemMonitor.system_monitor(conf,state,resInfo,runList,mm,boxInfo,num_cpus_initial)
 
         #startup es log collector
         logCollector = None

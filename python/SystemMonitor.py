@@ -603,6 +603,7 @@ class system_monitor(threading.Thread):
       avg_c = 0
       try:
         #obtain cpu frequencies and get avg (in GHz)
+        #TODO:replace shell script call with info from Intel MSR
         p = subprocess.Popen('/usr/bin/cpufreq-info | grep "current CPU"', shell=True, stdout=subprocess.PIPE)
         p.wait()
         std_out=p.stdout.readlines()
@@ -626,12 +627,12 @@ class system_monitor(threading.Thread):
           return cnt
         cnt+=1
 
-    def getIntelCPUPerfAvgs(self,nthreads):
+    def getIntelCPUPerfAvgs(self):
       tsc=0
       aperf=0
       mperf=0
       cnt=0
-      while cnt<nthreads:
+      while cnt<self.num_cpus:
         try:
           fd = os.open("/dev/cpu/"+str(cnt)+"/msr",os.O_RDONLY)
           os.lseek(fd,0x10,os.SEEK_SET)
@@ -648,20 +649,6 @@ class system_monitor(threading.Thread):
           except:pass
           return 0,0,0
       return tsc,mperf,aperf
-
-
-    #def getTurbostatInfo(self):
-    #    try:
-    #      #turbostat is compiled to take counters for 5ms
-    #      p = subprocess.Popen('/opt/hltd/bin/turbostat', shell=False, stderr=subprocess.PIPE)
-    #      p.wait()
-    #      std_out=p.stderr.readlines()
-    #      cnt=0
-    #      for stdl in std_out:
-    #        if cnt==1:return (int(float(stdl.strip().split()[1])*1000))
-    #        cnt+=1
-    #    except:
-    #      return 0
 
     def getMEMInfo(self):
         return dict((i.split()[0].rstrip(':'),int(i.split()[1])) for i in open('/proc/meminfo').readlines())
@@ -741,21 +728,36 @@ class system_monitor(threading.Thread):
         except:pass
         cpu_name,cpu_freq,cpu_cores,cpu_siblings = self.getCPUInfo()
 
-        #set initial number of CPUs (i.e. core files found if supposed to adjust dynamically)
-        counter=1
+        def refreshCPURange():
+           num_cpus_new = self.testCPURange() 
+           if num_cpus_new!=self.num_cpus:
+             if conf.dynamic_resources and not conf.dqm_machine:
+               self.state.lock.acquire()
+               #notify run ranger thread
+               self.state.os_cpuconfig_change += num_cpus_new-self.num_cpus
+               with open(os.path.join(conf.watch_directory,'resourceupdate'),'w') as fp:
+                 pass
+               self.state.lock.release()
+               self.num_cpus=num_cpus_new
+
+
+        #set/refresh initial number of CPUs
         if self.num_cpus==-1:
           self.num_cpus = self.testCPURange()
+        else:
+          refreshCPURange()
 
         ts_old = time.time()
-        if cpu_name.startswith('AMD') or 'Nehalem' in cpu_name: #for VM mode where running on cloud hosts
+        if cpu_name.startswith('AMD') or 'Nehalem' in cpu_name: #detecting CERN OpenStack VM hardware (used only for testing)
           tsc_old=mperf_old=aperf_old=tsc_new=mperf_new=aperf_new=0
           has_turbo=False
         else:
-          tsc_old,mperf_old,aperf_old=self.getIntelCPUPerfAvgs(self.num_cpus)
+          tsc_old,mperf_old,aperf_old=self.getIntelCPUPerfAvgs()
           has_turbo = True
         self.threadEventESBox.wait(1)
         eb = elasticBandBU(conf,0,'',False,update_run_mapping=False,update_box_mapping=True)
         rc = 0
+        counter=0
         while self.running:
             try:
                 if not self.found_data_interfaces or (rc%10)==0:
@@ -781,26 +783,17 @@ class system_monitor(threading.Thread):
                 #check cpu counters to estimate "Turbo" frequency
                 ts_new = time.time()
                 if has_turbo:
-                  tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(self.num_cpus)
+                  tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs()
 
-                #every two intervals check number of CPUs (refresh if changed)
+                #every two intervals check number of CPUs (and signal refresh if using dynamic resources)
                 counter+=1
                 if counter%2==0:
-                  num_cpus_new = self.testCPURange() 
-                  if num_cpus_new!=self.num_cpus:
-                    if conf.dynamic_resources and not conf.dqm_machine:
-                      self.state.lock.acquire()
-                      #notify run ranger thread
-                      self.state.os_cpuconfig_change += num_cpus_new-self.num_cpus
-                      with open(os.path.join(conf.watch_directory,'resourceupdate'),'w') as fp:
-                        pass
-                      self.state.lock.release()
-                    self.num_cpus=num_cpus_new
+                  refreshCPURange()
 
                 #check cpu counters to estimate "Turbo" frequency
                 ts_new = time.time()
                 if has_turbo:
-                  tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs(self.num_cpus)
+                  tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs()
 
                 if self.num_cpus>0 and mperf_new-mperf_old>0 and ts_new-ts_old>0:
                   self.cpu_freq_avg_real = int((1.* (tsc_new-tsc_old))/self.num_cpus / 1000000 * (aperf_new-aperf_old) / (mperf_new-mperf_old) /(ts_new-ts_old))

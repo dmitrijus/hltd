@@ -105,19 +105,25 @@ if __name__ == "__main__":
                 #determine runlevel
                 std_out=""
                 try:
+                    #@SM note: hack which disables shutdown by calling "init 3" will probably not work with systemd (CC7)
+                    #detection of stop called during shutdown or runlevel change
                     p = Popen("/sbin/runlevel", shell=True, stdout=PIPE)
                     p.wait()
                     std_out=p.stdout.read()
-                    from_level = std_out.split('\t')[0].rstrip('\n').strip().split(' ')[0]
-                    to_level = std_out.split('\t')[0].rstrip('\n').strip().split(' ')[1]
+                    from_level,to_level = std_out.split('\t')[0].rstrip('\n').strip().split(' ')
                     if to_level.isdigit() and int(to_level) in [0,1,6] and str(from_level)!="1":
 
                         if stopFUs(instance)==False:
-                            msg = "Shutdown or reboot is cancelled by hltd - FU umount failed! Switching to runlevel 3..."
-                            syslog.syslog("hltd-"+str(instance)+":"+msg)
-                            time.sleep(2)
-                            p = Popen("init 3", shell=True, stdout=PIPE)
-                            p.wait()
+
+                            #msg = "Shutdown or reboot is cancelled by hltd - FU umount failed! Switching to runlevel 3..."
+                            #syslog.syslog("hltd-"+str(instance)+":"+msg)
+                            #time.sleep(2)
+                            #p = Popen("init 3", shell=True, stdout=PIPE)
+                            #p.wait()
+
+                            #@SM: this will almost certainly not work with systemd (calling init 3 to stop shutdown, therefore disable it)
+                            syslog.syslog("Unable to trigger remount on some FUs during shutdown")
+                            daemon.removeLockFile()
                         else:
                             daemon.removeLockFile()
                     else:

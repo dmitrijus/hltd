@@ -238,6 +238,13 @@ class ResourceRanger:
         if basename.startswith('test'):return
         if conf.role!='bu' or basename.endswith(self.hostname):
             return
+        #catch stop and hltd restart on FU which might leave state inconsistent
+        try:
+          if basename in self.boxInfo.FUMap:
+            if self.boxInfo.FUMap[basename][0]["cloudState"]=="resourcesMasked":
+              self.boxInfo.FUMap[basename][0]["cloudState"]="off"
+        except:
+          pass
         self.findRunAndNotify(basename,event.fullpath,False)
 
     def process_default(self, event):
@@ -292,6 +299,7 @@ class ResourceRanger:
                     #detect flip from cloud to non-cloud (only notify FU if no active runs are found FU)
                     try:
                       if currentBox and currentBox[0]["cloudState"]!="off" and infile.data["cloudState"]=="off" and len(infile.data["activeRuns"])==0:
+                        self.logger.info('cloud state flip detected for ' + str(basename) + ':' + str(currentBox[0]["cloudState"]) + ' to ' + str(infile.data["cloudState"]))
                         self.findRunAndNotify(basename,event.fullpath,True)
                     except (KeyError,IndexError) as ex:
                       self.logger.warning("cloud flip detection problem: "+str(ex))

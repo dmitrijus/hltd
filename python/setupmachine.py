@@ -769,6 +769,7 @@ if __name__ == "__main__":
             if env=='vm':
                 hltdcfg.reg('es_local','es-vm-local','[Monitoring]')
                 hltdcfg.reg('force_replicas','0','[Monitoring]')
+                hltdcfg.reg('dynamic_resources','False','[Resources]')
             else:
                 hltdcfg.reg('es_local','es-local','[Monitoring]')
                 hltdcfg.reg('force_replicas','1','[Monitoring]')

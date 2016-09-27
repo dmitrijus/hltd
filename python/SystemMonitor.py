@@ -44,6 +44,8 @@ class system_monitor(threading.Thread):
         self.mm = mountMgr
         self.boxInfo = boxInfo
         self.num_cpus = num_cpus_initial 
+        self.allow_resource_notifications = False
+        self.buffered_resource_notification = None
         global conf
         conf = confClass
 
@@ -58,7 +60,15 @@ class system_monitor(threading.Thread):
         self.rehash()
         if conf.mount_control_path:
             self.startStatNFS()
- 
+
+    #called after resource inotify is set up
+    def allowResourceNotification(self):
+        self.state.lock.acquire()
+        self.allow_resource_notifications = True
+        if self.buffered_resource_notification:
+          with open(self.buffered_resource_notification,'w') as fp:
+            pass
+        self.state.lock.release()
 
     def rehash(self):
         if conf.role == 'fu':
@@ -735,10 +745,13 @@ class system_monitor(threading.Thread):
                self.state.lock.acquire()
                #notify run ranger thread
                self.state.os_cpuconfig_change += num_cpus_new-self.num_cpus
-               with open(os.path.join(conf.watch_directory,'resourceupdate'),'w') as fp:
-                 pass
-               self.state.lock.release()
+               if self.allow_resource_notifications:
+                 with open(os.path.join(conf.watch_directory,'resourceupdate'),'w') as fp:
+                   pass
+               else:
+                 self.buffered_resource_notification = os.path.join(conf.watch_directory,'resourceupdate')
                self.num_cpus=num_cpus_new
+               self.state.lock.release()
 
 
         #set/refresh initial number of CPUs

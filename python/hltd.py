@@ -505,12 +505,15 @@ class hltd(Daemon2,object):
             logger.error(ex)
             os._exit(1)
 
+
         #start monitoring new runs
         runRanger = RunRanger(self.instance,conf,state,resInfo,runList,rr,mm,logCollector,nsslock,resource_lock)
         runRanger.register_inotify_path(conf.watch_directory,inotify.IN_CREATE)
         runRanger.start_inotify()
         logger.info("started RunRanger  - watch_directory " + conf.watch_directory)
 
+        #resource notification enabled with inotify set up
+        sm.allowResourceNotification()
 
         try:
             cgitb.enable(display=0, logdir="/tmp")

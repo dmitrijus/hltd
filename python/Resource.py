@@ -295,7 +295,7 @@ class OnlineResource:
           if self.remove_resources_flag or self.end_run_mask:
             time.sleep(.1)
             if self.remove_resources_flag:
-              self.logger.error("This resource has been removed from the system. Resource files will be deleted")
+              self.logger.warning("This resource has been removed from the system. Resource files will be deleted")
               self.deleteUsed()
             elif self.move_q:
               self.logger.info('move all back to quarantined...')

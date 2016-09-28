@@ -9,16 +9,14 @@ import cx_Oracle
 cred = {}
 with open('/opt/fff/db.jsn','r') as fi:
   cred = json.load(fi)
-con = cx_Oracle.connect(cred['login'],cred['password'],cred['sid'],
-                        cclass="FFFSETUP",purity = cx_Oracle.ATTR_PURITY_SELF)
 
-cur = con.cursor()
 host = os.uname()[1]+".cms"
 
 myDAQ_EQCFG_EQSET = 'DAQ_EQCFG_EQSET'
 
 if host.startswith('dv'):
   tagdaq = 'DAQ2VAL'
+  hostname = os.uname()[1]
   con = cx_Oracle.connect('CMS_DAQ2_TEST_HW_CONF_R',cred['password'],'int2r_lb',
                         cclass="FFFSETUP",purity = cx_Oracle.ATTR_PURITY_SELF)
   qstring = "select d.dnsname from \
@@ -26,12 +24,12 @@ if host.startswith('dv'):
 	                DAQ_EQCFG_HOST_ATTRIBUTE ha,       \
 	                DAQ_EQCFG_HOST_NIC hn              \
 	                where                              \
-			d.dnsname like 'fu-%'              \
+			d.dnsname like 'dvrubu-%'          \
 	                AND ha.eqset_id=d.eqset_id         \
 	                AND hn.eqset_id=d.eqset_id         \
 	                AND hn.nic_id=d.nic_id             \
 	                AND ha.host_id=hn.host_id          \
-			AND ha.attr_name like 'myBU%' AND ha.attr_value='"+host+"' \
+			AND ha.attr_name like 'myBU%' AND ha.attr_value like '"+hostname+".%' \
 			AND d.eqset_id = (select eqset_id from DAQ_EQCFG_EQSET     \
 			where tag='"+tagdaq+"' AND                                 \
 			ctime = (SELECT MAX(CTIME) FROM DAQ_EQCFG_EQSET WHERE tag='"+tagdaq+"'))"
@@ -44,16 +42,17 @@ else:
 	                DAQ_EQCFG_HOST_ATTRIBUTE ha,       \
 	                DAQ_EQCFG_HOST_NIC hn              \
 	                where                              \
-			d.dnsname like 'dvrubu-%'          \
+			d.dnsname like 'fu-%'              \
 	                AND ha.eqset_id=d.eqset_id         \
 	                AND hn.eqset_id=d.eqset_id         \
 	                AND hn.nic_id=d.nic_id             \
 	                AND ha.host_id=hn.host_id          \
-			AND ha.attr_name like 'myBU%' AND ha.attr_value like '"+host+".%' \
+			AND ha.attr_name like 'myBU%' AND ha.attr_value='"+host+"' \
 			AND d.eqset_id = (select eqset_id from DAQ_EQCFG_EQSET            \
 			where tag='"+tagdaq+"' AND                                        \
 			ctime = (SELECT MAX(CTIME) FROM DAQ_EQCFG_EQSET WHERE tag='"+tagdaq+"'))"
 
+cur = con.cursor()
 cur.execute(qstring)
 
 fu_control_list = []

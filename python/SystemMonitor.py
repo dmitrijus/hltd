@@ -799,9 +799,9 @@ class system_monitor(threading.Thread):
                   tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs()
 
                 #every two intervals check number of CPUs (and signal refresh if using dynamic resources)
-                counter+=1
-                if counter%2==0:
-                  refreshCPURange()
+                #counter+=1
+                #if counter%2==0:
+                refreshCPURange()
 
                 #check cpu counters to estimate "Turbo" frequency
                 ts_new = time.time()

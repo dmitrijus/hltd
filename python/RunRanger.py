@@ -9,6 +9,7 @@ import prctl
 from signal import SIGKILL
 import subprocess
 import logging
+import socket
 
 import Run
 from HLTDCommon import restartLogCollector,dqm_globalrun_filepattern
@@ -779,9 +780,13 @@ class RunRanger:
                   try:
                     connection = httplib.HTTPConnection(host,conf.cgi_port,timeout=20)
                     connection.request("GET",'cgi-bin/restart_cgi.py')
+                    time.sleep(.2)
                     response = connection.getresponse()
+                    connection.close()
+                  except socket.error as ex:
+                    self.logger.warning('socket.error: ' + str(ex))
                   except Exception as ex:
-                    self.logger.exception(ex)
+                    self.logger.warning(str(ex))
 
                 fu_threads = []
                 for fu in fus:
@@ -794,6 +799,7 @@ class RunRanger:
                   
             #some time to allow cgi return
             time.sleep(1)
+            os.remove(fullpath)
             pr = subprocess.Popen(["/opt/hltd/scripts/restart.py"],close_fds=True)
             self.logger.info('restart imminent, waiting to die and raise from the ashes once again')
 

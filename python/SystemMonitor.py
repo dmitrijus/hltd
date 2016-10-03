@@ -632,8 +632,6 @@ class system_monitor(threading.Thread):
           fd = os.open("/dev/cpu/"+str(cnt)+"/msr",os.O_RDONLY)
           os.close(fd)
         except:
-          try:os.close(fd)
-          except:pass
           return cnt
         cnt+=1
 
@@ -644,6 +642,7 @@ class system_monitor(threading.Thread):
       cnt=0
       while cnt<self.num_cpus:
         try:
+          fd = None
           fd = os.open("/dev/cpu/"+str(cnt)+"/msr",os.O_RDONLY)
           os.lseek(fd,0x10,os.SEEK_SET)
           tsc += struct.unpack("Q",os.read(fd,8))[0]
@@ -793,14 +792,7 @@ class system_monitor(threading.Thread):
                 self.data_in_MB = netrates[0]
                 cpu_freq_avg = self.getCPUFreqInfo()
 
-                #check cpu counters to estimate "Turbo" frequency
-                ts_new = time.time()
-                if has_turbo:
-                  tsc_new,mperf_new,aperf_new=self.getIntelCPUPerfAvgs()
-
-                #every two intervals check number of CPUs (and signal refresh if using dynamic resources)
-                #counter+=1
-                #if counter%2==0:
+                #every interval check number of CPUs (and signal refresh if using dynamic resources)
                 refreshCPURange()
 
                 #check cpu counters to estimate "Turbo" frequency

@@ -43,7 +43,7 @@ class BoxInfo:
 
 class ResInfo:
 
-    def __init__(self):
+    def __init__(self,state):
        self.q_list = []
        self.num_excluded = 0
        self.num_allowed = 0
@@ -56,6 +56,7 @@ class ResInfo:
        self.nstreams = None
        self.expected_processes = None
        self.last_idlecount=0
+       self.state = state
 
     def cleanup_resources(self):
         try:
@@ -73,14 +74,19 @@ class ResInfo:
                 self.resmove(self.quarantined,self.idles,cpu)
             dirlist = os.listdir(self.idles)
             #quarantine files beyond use fraction limit (rounded to closest integer)
-            self.num_excluded = int(round(len(dirlist)*(1.-conf.resource_use_fraction)))
-            self.num_allowed = len(dirlist)-self.num_excluded
+            self.calc_num_allowed(0)
             for i in range(0,int(self.num_excluded)):
                 self.resmove(self.idles,self.quarantined,dirlist[i])
             return True
         except Exception as ex:
             logger.warning(str(ex))
             return False
+
+    def calc_num_allowed(self,delta):
+        new_tot = len(os.listdir(self.broken)+os.listdir(self.used)+os.listdir(self.idles) \
+                      + os.listdir(self.quarantined)+os.listdir(self.cloud)) + delta
+        self.num_excluded = int(round(new_tot*(1.-conf.resource_use_fraction)))
+        self.num_allowed = new_tot-self.num_excluded
 
     def move_resources_to_cloud(self):
         dirlist = os.listdir(self.broken)
@@ -118,6 +124,7 @@ class ResInfo:
     def addResources(self,delta):
         full_list = os.listdir(self.broken)+os.listdir(self.used)+os.listdir(self.idles) \
                     + os.listdir(self.quarantined)+os.listdir(self.cloud)
+        self.calc_num_allowed(delta)
         max_cpu = delta
         for index in range(0,len(full_list)+max_cpu):
           if delta==0:break
@@ -128,30 +135,39 @@ class ResInfo:
             with open(os.path.join(self.quarantined,'core'+str(index)),'w') as fi:pass
             #check against allowed resource fraction limits
             if index<self.num_allowed:
-              self.resmove(self.quarantined,self.idles,'core'+str(index))
+              #move to cloud if in cloud mode
+              if self.state.cloud_mode and not self.state.entering_cloud_mode:
+                self.resmove(self.quarantined,self.cloud,'core'+str(index))
+              else:
+                self.resmove(self.quarantined,self.idles,'core'+str(index))
             delta-=1
         return delta
 
     def updateIdles(self,delta,checkLast=True):
+
         newcount=delta+self.last_idlecount
         if newcount<0:newcount=0
-        current = len(os.listdir(self.idles))
+        idledir = self.cloud if  self.state.cloud_mode and not self.state.entering_cloud_mode else self.idles
+        current = len(os.listdir(idledir))
         #if requested to remove if possible
         if not checkLast:
           newcount = current + delta
         if newcount==current:
             #already updated
             return 0
+        self.calc_num_allowed(delta)
         if newcount>current:
             toAdd = newcount-current
             totAdd=toAdd
             index=0
             while toAdd:
-                if not self.exists('core'+str(index)):
-                    with open(os.path.join(self.quarantined,'core'+str(index)),'a') as fi:pass #using quarantined + move
+                corename = 'core'+str(index)
+                if not self.exists(corename):
+                    with open(os.path.join(self.quarantined,corename),'a') as fi:pass #using quarantined + move
                     #check against allowed resource fraction limits
                     if index<self.num_allowed:
-                      self.resmove(self.quarantined,self.idles,'core'+str(index))
+                      #also will unquarantine if resource is quarantined
+                      self.resmove(self.quarantined,idledir,corename)
                     toAdd-=1
                 index+=1
             self.calculate_threadnumber()
@@ -161,13 +177,25 @@ class ResInfo:
                 if int(x[4:])<int(y[4:]): return 1
                 elif int(x[4:])>int(y[4:]): return -1
                 else:return 0
-            invslist = sorted(os.listdir(self.idles),cmp=cmpfinv)
+            invslist = sorted(os.listdir(idledir)+os.listdir(self.quarantined),cmp=cmpfinv)
             toDelete = current-newcount
             totDel=toDelete
             for i in invslist:
                 logger.info('deleting ' + str(i))
-                os.unlink(os.path.join(self.idles,i))
-                toDelete-=1
+                #cascade into a idle,quarantined and cloud
+                try:
+                  os.unlink(os.path.join(self.idles,i))
+                  toDelete-=1
+                except:
+                  try:
+                    os.unlink(os.path.join(self.quarantined,i))
+                    toDelete-=1
+                  except:
+                    try:
+                      os.unlink(os.path.join(self.cloud,i))
+                      toDelete-=1
+                    except:
+                      logger.warning('unable to delete resource ' + str(i)) 
                 if toDelete==0:break
             self.calculate_threadnumber()
             return -toDelete
@@ -184,6 +212,7 @@ class ResInfo:
             self.nstreams = conf.cmssw_streams
         self.expected_processes = idlecount/self.nstreams
         self.last_idlecount=idlecount
+        self.calc_num_allowed(0)
 
     def resmove(self,sourcedir,destdir,res):
         os.rename(os.path.join(sourcedir,res),os.path.join(destdir,res))
@@ -340,7 +369,7 @@ class hltd(Daemon2,object):
 
         #read configuration file
         state = StateInfo()
-        resInfo = ResInfo()
+        resInfo = ResInfo(state)
         setFromConf(self.instance,resInfo)
 
         logger.info(" ")

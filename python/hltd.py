@@ -134,9 +134,10 @@ class ResInfo:
             logger.info('adding resource ' + 'core'+str(index))
             with open(os.path.join(self.quarantined,'core'+str(index)),'w') as fi:pass
             #check against allowed resource fraction limits
-            if index<self.num_allowed:
+            in_cloud =  self.state.cloud_mode and not self.state.entering_cloud_mode
+            if index<self.num_allowed or in_cloud:
               #move to cloud if in cloud mode
-              if self.state.cloud_mode and not self.state.entering_cloud_mode:
+              if in_cloud:
                 self.resmove(self.quarantined,self.cloud,'core'+str(index))
               else:
                 self.resmove(self.quarantined,self.idles,'core'+str(index))
@@ -147,7 +148,8 @@ class ResInfo:
 
         newcount=delta+self.last_idlecount
         if newcount<0:newcount=0
-        idledir = self.cloud if  self.state.cloud_mode and not self.state.entering_cloud_mode else self.idles
+        in_cloud =  self.state.cloud_mode and not self.state.entering_cloud_mode
+        idledir = self.cloud if in_cloud else self.idles
         current = len(os.listdir(idledir))
         #if requested to remove if possible
         if not checkLast:
@@ -165,7 +167,7 @@ class ResInfo:
                 if not self.exists(corename):
                     with open(os.path.join(self.quarantined,corename),'a') as fi:pass #using quarantined + move
                     #check against allowed resource fraction limits
-                    if index<self.num_allowed:
+                    if index<self.num_allowed or in_cloud:
                       #also will unquarantine if resource is quarantined
                       self.resmove(self.quarantined,idledir,corename)
                     toAdd-=1

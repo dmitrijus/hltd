@@ -780,7 +780,8 @@ class RunRanger:
                   host_short = host.split('.')[0]
                   #get hosts from cached ip if possible to avoid hammering DNS
                   try:
-                    host = self.rr.boxinfo.FUMap[host_short][0]['ip']
+                    host = self.rr.boxInfo.FUMap[host_short][0]['ip']
+                    self.logger.info(host_short + ' ' + host)
                   except:
                     self.logger.warning(str(host_short) + ' not in FUMap')
                   try:

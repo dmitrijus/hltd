@@ -777,6 +777,12 @@ class RunRanger:
                     fus.append(machine)
 
                 def contact_restart(host):
+                  host_short = host.split('.')[0]
+                  #get hosts from cached ip if possible to avoid hammering DNS
+                  try:
+                    host = self.rr.boxinfo.FUMap[host_short][0]['ip']
+                  except:
+                    self.logger.warning(str(host_short) + ' not in FUMap')
                   try:
                     connection = httplib.HTTPConnection(host,conf.cgi_port,timeout=20)
                     connection.request("GET",'cgi-bin/restart_cgi.py')
@@ -784,9 +790,21 @@ class RunRanger:
                     response = connection.getresponse()
                     connection.close()
                   except socket.error as ex:
-                    self.logger.warning('socket.error: ' + str(ex))
+                    self.logger.warning('error contacting '+str(host)+': socket.error: ' + str(ex))
+                    #try again in a moment (DNS could be loaded)
+                    time.sleep(1)
+                    try:
+                      connection = httplib.HTTPConnection(host,conf.cgi_port,timeout=20)
+                      connection.request("GET",'cgi-bin/restart_cgi.py')
+                      time.sleep(.2)
+                      response = connection.getresponse()
+                      connection.close()
+                    except socket.error as ex:
+                      self.logger.warning('error contacting '+str(host)+': socket.error: ' + str(ex))
+
+                  #catch general exception
                   except Exception as ex:
-                    self.logger.warning(str(ex))
+                    self.logger.warning('problem contacting host' + str(host) + ' ' + str(ex))
 
                 fu_threads = []
                 for fu in fus:

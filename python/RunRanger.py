@@ -115,7 +115,8 @@ class RunRanger:
                             self.state.os_cpuconfig_change=0
                             self.state.lock.release()
                             self.resource_lock.acquire()
-                            self.resInfo.updateIdles(tmp_os_cpuconfig_change)
+                            tmp_change = self.resInfo.updateIdles(tmp_os_cpuconfig_change,checkLast=False)
+                            self.state.os_cpuconfig_change=tmp_change
                             self.resource_lock.release()
 
                         run = Run.Run(nr,fullpath,bu_dir,self.instance,conf,self.state,self.resInfo,self.runList,self.rr,self.mm,self.nsslock,self.resource_lock)
@@ -744,6 +745,9 @@ class RunRanger:
                     #add more resources
                     left = self.resInfo.addResources(tmp_change)
                     self.state.os_cpuconfig_change=left
+                else:
+                  #if run is ending (not ongoing, but still keeping resources), update at the next run start
+                  self.state.os_cpuconfig_change=tmp_change
             except Exception as ex:
               self.logger.error('failed to process resourceupdate event: ' + str(ex))
               self.logger.exception(ex)

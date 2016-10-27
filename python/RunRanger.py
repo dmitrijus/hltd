@@ -276,11 +276,20 @@ class RunRanger:
                         if age < 300:
                             self.logger.info('contacting '+str(name))
                             def notifyHerod(hname):
-                                attemptsLeft=2
+
+                                host_short = hname.split('.')[0]
+                                #get hosts from cached ip if possible to avoid hammering DNS
+                                try:
+                                    hostip = self.rr.boxInfo.FUMap[host_short][0]['ip']
+                                except:
+                                    self.logger.info(str(host_short) + ' not in FUMap')
+                                    hostip=hname
+
+                                attemptsLeft=4
                                 while attemptsLeft>0:
                                     attemptsLeft-=1
                                     try:
-                                        connection = httplib.HTTPConnection(hname, conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)
+                                        connection = httplib.HTTPConnection(hostip, conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)
                                         time.sleep(0.2)
                                         connection.request("GET",'cgi-bin/herod_cgi.py?command='+str(dirname))
                                         time.sleep(0.3)
@@ -288,8 +297,9 @@ class RunRanger:
                                         self.logger.info("sent "+ dirname +" to child FUs")
                                         break
                                     except Exception as ex:
-                                        self.logger.error("exception encountered in contacting resource "+str(hname))
+                                        self.logger.error("exception encountered in contacting resource "+str(hostip))
                                         self.logger.exception(ex)
+                                        time.sleep(.3)
  
                             #try:
                             #    connection = httplib.HTTPConnection(name, conf.cgi_port - conf.cgi_instance_port_offset,timeout=10)

@@ -301,7 +301,7 @@ class ResourceRanger:
                       if currentBox and currentBox[0]["cloudState"]!="off" and infile.data["cloudState"]=="off" and len(infile.data["activeRuns"])==0:
                         self.logger.info('cloud state flip detected for ' + str(basename) + ':' + str(currentBox[0]["cloudState"]) + ' to ' + str(infile.data["cloudState"]))
                         self.findRunAndNotify(basename,event.fullpath,True)
-                    except (KeyError,IndexError) as ex:
+                    except (KeyError,IndexError,TypeError) as ex:
                       self.logger.warning("cloud flip detection problem: "+str(ex))
 
                 except Exception as ex:

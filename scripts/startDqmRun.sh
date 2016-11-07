@@ -10,15 +10,23 @@ export https_proxy="https://cmsproxy.cms:3128/"
 export NO_PROXY=".cms"
 export HOME=/tmp
 export SCRAM_ARCH=$2
+
+# initialize the scram environment
 cd $1
 cd base
 source cmsset_default.sh >> $logname
 cd $1
-# fully dereference 'current' symbolic link 
-cd `readlink -f current`
+
+# initialize the cmssw environment from a client link
+client=$(readlink -f "$6")
+cmssw_path=$(dirname "$client")
+
+cd "$cmssw_path"
 pwd >> $logname 2>&1
 eval `scram runtime -sh`;
+
+# cd to "output" directory and start the cmsRun
 cd $3;
 pwd >> $logname 2>&1
 export FRONTIER_LOG_LEVEL="warning"
-exec esMonitoring.py -z $lognamez cmsRun `readlink -f $6` runInputDir=$5 runNumber=$4 $7 $8 >> $logname 2>&1
+exec esMonitoring.py -z $lognamez cmsRun "$client" runInputDir=$5 runNumber=$4 $7 $8 >> $logname 2>&1
